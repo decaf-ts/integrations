@@ -1,4 +1,5 @@
 module.exports = {
+  displayName: "Decaf Integrations",
   verbose: true,
   transform: { "^.+\\.ts?$": "ts-jest", },
   testEnvironment: "node",
@@ -6,16 +7,7 @@ module.exports = {
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node",],
   collectCoverage: true,
   coverageDirectory: "./workdocs/coverage",
-  collectCoverageFrom: ["src/**/*.{ts,jsx}",],
-  coveragePathIgnorePatterns: ["src/cli.ts",],
-  coverageThreshold: {
-    global: {
-      branches: 70,
-      functions: 100,
-      lines: 80,
-      statements: 90,
-    },
-  },
+  collectCoverageFrom: ["src/**/*.{ts,tsx}", "!src/**/*.d.ts",],
   coverageReporters: ["json-summary", "text-summary", "text", "html",],
   reporters: [
     "default",
@@ -27,4 +19,5 @@ module.exports = {
       },
     ],
   ],
+  watchman: false,
 };

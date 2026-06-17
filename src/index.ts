@@ -1,23 +1,23 @@
-export * from "./utils";
-export * from "./namespace";
+export {
+  KeycloakService,
+  createKeycloakSetupConfig,
+  createKeycloakClientConfig,
+  createKeycloakIdentityProviderConfig,
+  splitList,
+} from "./keycloak";
+export { KibanaService, createKibanaSetupConfig } from "./kibana";
+export { AuthService, KeycloakAuthHandler, AuthModule, KeycloakModule, DECAF_ADAPTER_OPTIONS } from "./nest";
 
 /**
- * @summary Module summary
- * @description Module description
- * @module ts-workspace
+ * @summary Decaf integrations module.
+ * @description Centralized integration helpers for Keycloak, Kibana, and Nest-style auth.
+ * @module integrations
  */
 
 /**
- * @summary Namespace summary
- * @description Namespace description
- * @namespace Namespace
- * @memberOf module:ts-workspace
- */
-
-/**
- * @summary stores the current package version
- * @description this is how you should document a constant
+ * @summary Package version.
+ * @description Replaced during the build.
  * @const VERSION
- * @memberOf module:ts-workspace
+ * @memberOf module:integrations
  */
 export const VERSION = "##VERSION##";
