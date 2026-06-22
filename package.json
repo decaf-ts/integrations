@@ -1,183 +1,51 @@
 {
   "name": "@decaf-ts/integrations",
   "version": "3.0.3",
-  "description": "Decaf TS integration helpers for Keycloak, Kibana, and Nest-style auth",
-  "type": "commonjs",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "exports": {
     ".": {
-      "import": {
-        "types": "./lib/index.d.ts",
-        "default": "./lib/index.js"
-      },
-      "require": {
-        "types": "./lib/index.d.ts",
-        "default": "./lib/index.js"
-      },
-      "default": "./lib/index.js"
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.js"
     },
-    "./keycloak": {
-      "import": {
-        "types": "./lib/keycloak/index.d.ts",
-        "default": "./lib/keycloak/index.js"
-      },
-      "require": {
-        "types": "./lib/keycloak/index.d.ts",
-        "default": "./lib/keycloak/index.js"
-      },
-      "default": "./lib/keycloak/index.js"
-    },
-    "./kibana": {
-      "import": {
-        "types": "./lib/kibana/index.d.ts",
-        "default": "./lib/kibana/index.js"
-      },
-      "require": {
-        "types": "./lib/kibana/index.d.ts",
-        "default": "./lib/kibana/index.js"
-      },
-      "default": "./lib/kibana/index.js"
-    },
-    "./nest": {
-      "import": {
-        "types": "./lib/nest/index.d.ts",
-        "default": "./lib/nest/index.js"
-      },
-      "require": {
-        "types": "./lib/nest/index.d.ts",
-        "default": "./lib/nest/index.js"
-      },
-      "default": "./lib/nest/index.js"
+    "./*": {
+      "types": "./lib/*.d.ts",
+      "import": "./lib/*.js"
     }
   },
-  "types": "./lib/index.d.ts",
-  "main": "./lib/index.js",
-  "module": "./lib/index.js",
-  "sideEffects": false,
   "scripts": {
-    "do-install": "npm install",
-    "flash-forward": "npx npm-check-updates -u && npm run do-install",
-    "reset": "rm -rf * && git checkout . && git pull && npm run do-install",
     "build": "rimraf ./lib && tsc -p tsconfig.build.json",
-    "build:prod": "rimraf ./lib && tsc -p tsconfig.build.json",
     "test": "jest --coverage --testPathPatterns=\"/tests/unit\" --passWithNoTests --detectOpenHandles",
-    "test:integration": "jest --coverage --testPathPatterns=\"/tests/(integration)\" --passWithNoTests --detectOpenHandles",
-    "test:all": "jest --coverage --testPathPatterns=\"/tests/(unit|integration)\" --passWithNoTests --detectOpenHandles",
-    "lint": "eslint .",
-    "lint-fix": "eslint --fix .",
-    "test:circular": "dpdm -T --no-warning --no-tree ./src/index.ts",
-    "prepare-release": "npm run lint-fix && npm run build:prod && npm run coverage && npm run docs",
-    "release": "./bin/tag-release.sh",
-    "clean-publish": "npx clean-publish",
-    "coverage": "npm run test:all && cd workdocs && jest-coverage-badges",
-    "drawings": "for FILE in workdocs/drawings/*.drawio; do echo \"converting $FILE to image...\" && docker run --rm -v $(pwd):/data rlespinasse/drawio-export --format png $FILE; done && cp -rf workdocs/drawings/export/* workdocs/resources/",
-    "uml": "cd workdocs/uml && for FILE in ./*.puml; do docker run --rm -v $(pwd):/work -w /work miy4/plantuml -DPLANTUML_LIMIT_SIZE=8192 -tpng $FILE; done && cd ../.. && cp -fr workdocs/uml/*.png workdocs/resources/",
-    "docs": "node ./bin/build-docs.cjs"
+    "test:integration": "tsx tests/integration/keycloak.test.ts && tsx tests/integration/kibana.test.ts && tsx tests/integration/vault.test.ts && tsx tests/integration/aws-secrets-manager.test.ts && tsx tests/integration/gcp-secret-manager.test.ts && tsx tests/integration/model-secrets.test.ts",
+    "clean": "rimraf ./lib ./workdocs/coverage"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/decaf-ts/integrations.git"
+  "dependencies": {
+    "@decaf-ts/core": "workspace:*",
+    "@decaf-ts/crypto": "workspace:*",
+    "@decaf-ts/db-decorators": "workspace:*",
+    "@decaf-ts/decoration": "workspace:*",
+    "aws-sdk": "^2.1691.0",
+    "axios": "^1.7.9",
+    "keycloak-admin": "^24.0.5",
+    "node-fetch": "^3.3.2",
+    "tslib": "^2.8.1",
+    "uuid": "^11.1.0",
+    "@aws-sdk/client-secrets-manager": "^3.758.0",
+    "@azure/keyvault-secrets": "^4.9.0",
+    "@google-cloud/secret-manager": "^5.6.0",
+    "hashicorp-vault": "^0.1.0",
+    "onelogin-node": "^0.1.0"
   },
-  "engines": {
-    "node": ">=20.0.0",
-    "npm": ">=10.0.0"
-  },
-  "files": [
-    "lib"
-  ],
-  "keywords": [
-    "integrations",
-    "keycloak",
-    "kibana",
-    "nest",
-    "typescript",
-    "decaf"
-  ],
-  "author": "Tiago Venceslau and Contributors",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/decaf-ts/integrations/issues"
-  },
-  "homepage": "https://github.com/decaf-ts/integrations#readme",
   "devDependencies": {
-    "@eslint/js": "^9.12.0",
-    "@stylistic/eslint-plugin": "^2.9.0",
-    "@types/jest": "^29.5.13",
-    "clean-publish": "^5.0.0",
-    "dpdm": "^3.14.0",
-    "eslint": "^9.12.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-prettier": "^5.2.1",
-    "globals": "^15.11.0",
-    "gulp": "^5.0.0",
-    "gulp-if": "^3.0.0",
-    "gulp-rename": "^2.0.0",
-    "gulp-replace": "^1.1.4",
-    "gulp-run-command": "^0.0.10",
-    "gulp-sourcemaps": "^2.6.5",
-    "gulp-typescript": "^6.0.0-alpha.1",
-    "gulp-uglify": "^3.0.2",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.13.10",
+    "@types/uuid": "^10.0.0",
     "jest": "^29.7.0",
-    "jest-coverage-badges": "^1.0.0",
     "jest-junit": "^16.0.0",
-    "jsdoc": "^4.0.3",
-    "jsdoc-mermaid": "^1.0.0",
-    "markdown-include": "^0.4.3",
-    "merge-stream": "^2.0.0",
-    "minimist": "^0.2.4",
-    "nodemon": "^3.1.7",
-    "npm-check-updates": "^17.1.4",
-    "prettier": "3.3.3",
     "rimraf": "^6.0.1",
-    "ts-jest": "^29.2.5",
-    "ts-loader": "^9.5.1",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.6.3",
-    "typescript-eslint": "^8.10.0",
-    "vinyl-named": "^1.1.0",
-    "webpack-stream": "^7.0.0"
-  },
-  "peerDependencies": {
-    "@decaf-ts/core": "latest",
-    "@decaf-ts/db-decorators": "latest",
-    "@decaf-ts/for-nest": "latest",
-    "@decaf-ts/logging": "latest",
-    "@nestjs/common": "latest",
-    "@nestjs/jwt": "latest",
-    "@peculiar/x509": "latest",
-    "axios": "^1.11.0",
-    "form-data": "^4.0.4",
-    "jose": "^6.0.0"
-  },
-  "peerDependenciesMeta": {
-    "@decaf-ts/core": {
-      "optional": true
-    },
-    "@decaf-ts/db-decorators": {
-      "optional": true
-    },
-    "@decaf-ts/for-nest": {
-      "optional": true
-    },
-    "@decaf-ts/logging": {
-      "optional": true
-    },
-    "@nestjs/common": {
-      "optional": true
-    },
-    "@nestjs/jwt": {
-      "optional": true
-    },
-    "@peculiar/x509": {
-      "optional": true
-    },
-    "axios": {
-      "optional": true
-    },
-    "form-data": {
-      "optional": true
-    },
-    "jose": {
-      "optional": true
-    }
+    "ts-jest": "^29.2.6",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
   }
 }

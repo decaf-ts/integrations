@@ -1,6 +1,6 @@
 export * from "./types";
 export * from "./helpers";
-export * from "./KibanaService";
+export * from "./services";
 
 /**
  * @summary Kibana integrations.

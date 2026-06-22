@@ -1,6 +1,5 @@
 export * from "./types";
-export * from "./helpers";
-export * from "./KeycloakService";
+export * from "./services";
 
 /**
  * @summary Keycloak integrations.

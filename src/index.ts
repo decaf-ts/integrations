@@ -1,23 +1,9 @@
-export {
-  KeycloakService,
-  createKeycloakSetupConfig,
-  createKeycloakClientConfig,
-  createKeycloakIdentityProviderConfig,
-  splitList,
-} from "./keycloak";
-export { KibanaService, createKibanaSetupConfig } from "./kibana";
-export { AuthService, KeycloakAuthHandler, AuthModule, KeycloakModule, DECAF_ADAPTER_OPTIONS } from "./nest";
+export * from "./utils";
 
-/**
- * @summary Decaf integrations module.
- * @description Centralized integration helpers for Keycloak, Kibana, and Nest-style auth.
- * @module integrations
- */
+export const VERSION: string = "##VERSION##";
 
-/**
- * @summary Package version.
- * @description Replaced during the build.
- * @const VERSION
- * @memberOf module:integrations
- */
-export const VERSION = "##VERSION##";
+export const COMMIT = "##COMMIT##";
+
+export const FULL_VERSION = "##FULL_VERSION##";
+
+export const PACKAGE_NAME: string = "##PACKAGE##";

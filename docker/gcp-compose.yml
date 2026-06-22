@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  emulated-gcp:
+    image: jldec/gcp-emulator:latest
+    container_name: gcp-emulator
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - gcp-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  gcp-data:

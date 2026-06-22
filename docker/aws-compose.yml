@@ -1,0 +1,29 @@
+version: "3.8"
+
+services:
+  localstack:
+    image: localstack/localstack:3.5.0
+    container_name: localstack
+    ports:
+      - "4566:4566"
+      - "4571:4571"
+    environment:
+      - LOCALSTACK_HOSTNAME=localhost
+      - DEFAULT_REGION=us-east-1
+      - SERVICES=/aws-sdk
+      - DEBUG=${DEBUG:-}
+      - LOG squash
+    volumes:
+      - localstack-data:/var/lib/localstack
+      - ./init:/docker-entrypoint-initaws.d
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+volumes:
+  localstack-data:
+    name: localstack-data

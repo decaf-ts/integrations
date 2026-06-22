@@ -1,13 +1,12 @@
 import type {
   KibanaDataViewConfig,
-  KibanaEnvironment,
   KibanaRoleConfig,
   KibanaSetupConfig,
   KibanaSpaceConfig,
   KibanaUser,
 } from "./types";
 
-function createDefaultKibanaSpaceConfig(realm: string): KibanaSpaceConfig {
+export function createDefaultKibanaSpaceConfig(realm: string): KibanaSpaceConfig {
   return {
     id: realm.toLowerCase(),
     name: realm.toUpperCase(),
@@ -18,7 +17,7 @@ function createDefaultKibanaSpaceConfig(realm: string): KibanaSpaceConfig {
   };
 }
 
-function createDefaultKibanaDataViewConfigs(realm: string): KibanaDataViewConfig[] {
+export function createDefaultKibanaDataViewConfigs(realm: string): KibanaDataViewConfig[] {
   const suffix = realm.toLowerCase();
   return [
     {
@@ -38,7 +37,7 @@ function createDefaultKibanaDataViewConfigs(realm: string): KibanaDataViewConfig
   ];
 }
 
-function createDefaultKibanaRoleConfig(realm: string): KibanaRoleConfig {
+export function createDefaultKibanaRoleConfig(realm: string): KibanaRoleConfig {
   const suffix = realm.toLowerCase();
   return {
     name: `pla_${suffix}_reader`,
@@ -63,31 +62,5 @@ function createDefaultKibanaRoleConfig(realm: string): KibanaRoleConfig {
       },
     ],
     metadata: {},
-  };
-}
-
-export function createKibanaSetupConfig(
-  environment: KibanaEnvironment
-): KibanaSetupConfig & { assets?: string } {
-  return {
-    id: environment.realm,
-    host: environment.host,
-    es_host: environment.es_host,
-    protocol: environment.protocol ?? "https",
-    realm: environment.realm,
-    space: createDefaultKibanaSpaceConfig(environment.realm),
-    dataViews: createDefaultKibanaDataViewConfigs(environment.realm),
-    role: createDefaultKibanaRoleConfig(environment.realm),
-    dashboards: {},
-    adminApiUser: {
-      username: environment.adminApiUsername,
-      password: environment.adminApiPassword,
-    } satisfies KibanaUser,
-    realmApiUser: {
-      username: environment.realmApiUsername,
-      password: environment.realmApiPassword,
-    } satisfies KibanaUser,
-    dashboardImportPath: environment.dashboard,
-    assets: environment.assets,
   };
 }

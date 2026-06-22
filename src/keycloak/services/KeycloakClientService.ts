@@ -1,0 +1,315 @@
+import {
+  BadRequestError,
+  ConflictError,
+  InternalError,
+  NotFoundError,
+} from "@decaf-ts/db-decorators";
+import { ContextualArgs, MaybeContextualArg } from "@decaf-ts/core";
+import { ClientBasedService } from "@decaf-ts/core";
+import type {
+  KeycloakClientConfig,
+  KeycloakClientRoleConfig,
+  KeycloakSetupConfig,
+  KeycloakUser,
+} from "../types";
+import type { AxiosInstance } from "axios";
+import * as https from "node:https";
+
+export class KeycloakClientService extends ClientBasedService<
+  AxiosInstance,
+  KeycloakSetupConfig
+> {
+  async initialize(
+    ...args: ContextualArgs<any>
+  ): Promise<{ config: KeycloakSetupConfig; client: AxiosInstance }> {
+    const { ctx } = await this.logCtx(args, this.initialize, true);
+    this._config = this.config;
+    const client = this.createHttpClient(ctx);
+    return { config: this.config, client };
+  }
+
+  async createClient(...args: MaybeContextualArg<any>): Promise<string> {
+    const { log, ctxArgs } = await this.logCtx(args, this.createClient, false);
+    const keycloakSetupConfig = ctxArgs[0] as KeycloakSetupConfig;
+    const overrides =
+      (ctxArgs[0]?.[0] as Partial<KeycloakClientConfig> | undefined) ?? {};
+    const realmAccessToken = await this.getRealmAccessToken(
+      keycloakSetupConfig,
+      ...ctxArgs
+    );
+    const client = this.normalizeClientConfig(
+      keycloakSetupConfig.client,
+      overrides
+    );
+    const response = await this.request(
+      "POST",
+      `/admin/realms/${keycloakSetupConfig.realmApiUser?.realm}/clients`,
+      realmAccessToken,
+      this.buildClientPayload(client),
+      ...ctxArgs,
+      201
+    );
+    return this.extractUUIDfromResponse(response);
+  }
+
+  async updateClient(...args: MaybeContextualArg<any>): Promise<void> {
+    const { log, ctxArgs } = await this.logCtx(args, this.updateClient, false);
+    const keycloakSetupConfig = ctxArgs[0] as KeycloakSetupConfig;
+    const overrides =
+      (ctxArgs[0]?.[0] as Partial<KeycloakClientConfig> | undefined) ?? {};
+    const realmAccessToken = await this.getRealmAccessToken(
+      keycloakSetupConfig,
+      ...ctxArgs
+    );
+    const client = this.normalizeClientConfig(
+      keycloakSetupConfig.client,
+      overrides
+    );
+    const clientUUID =
+      client.clientUUID ??
+      (await this.getClientUUID(
+        ...ctxArgs,
+        realmAccessToken,
+        keycloakSetupConfig.realmApiUser!.realm,
+        client.clientId
+      ));
+    await this.request(
+      "PUT",
+      `/admin/realms/${keycloakSetupConfig.realmApiUser?.realm}/clients/${encodeURIComponent(clientUUID)}`,
+      realmAccessToken,
+      this.buildClientPayload(client),
+      ...ctxArgs,
+      204
+    );
+  }
+
+  async getClientUUID(...args: MaybeContextualArg<any>): Promise<string> {
+    const { log, ctxArgs } = await this.logCtx(args, this.getClientUUID, false);
+    const accessToken = ctxArgs[0] as string;
+    const realmName = ctxArgs[0]?.[1] as string;
+    const clientId = ctxArgs[0]?.[2] as string;
+    const response = await this.request(
+      "GET",
+      `/admin/realms/${realmName}/clients?clientId=${encodeURIComponent(clientId)}`,
+      accessToken,
+      undefined,
+      ...ctxArgs,
+      200
+    );
+    const data = this.parseJsonResponse<Array<{ id?: string }>>(response.data);
+    const clientUUID = data?.[0]?.id;
+    if (clientUUID) return clientUUID;
+    throw new NotFoundError(`Unable to get Keycloak Client UUID: ${clientId}`);
+  }
+
+  async createClientRoles(...args: MaybeContextualArg<any>): Promise<void> {
+    const { log, ctxArgs } = await this.logCtx(
+      args,
+      this.createClientRoles,
+      false
+    );
+    const keycloakSetupConfig = ctxArgs[0] as KeycloakSetupConfig;
+    const roleConfigs =
+      (ctxArgs[0]?.[0] as KeycloakClientRoleConfig[] | undefined) ??
+      keycloakSetupConfig.client.roles ??
+      [];
+    const realmAccessToken = await this.getRealmAccessToken(
+      keycloakSetupConfig,
+      ...ctxArgs
+    );
+    for (const role of roleConfigs) {
+      await this.request(
+        "POST",
+        `/admin/realms/${keycloakSetupConfig.realmApiUser?.realm}/clients/${keycloakSetupConfig.client.clientUUID}/roles`,
+        realmAccessToken,
+        {
+          name: role.roleName,
+          description: role.description ?? `Auto-created role ${role.roleName}`,
+          composite: false,
+          clientRole: true,
+        },
+        ...ctxArgs,
+        201
+      );
+    }
+  }
+
+  private createHttpClient(config: KeycloakSetupConfig): AxiosInstance {
+    return Axios.create({
+      baseURL: `${config.protocol}://${config.host}`,
+      headers: { "Content-Type": "application/json" },
+      validateStatus: () => true,
+      httpsAgent: new https.Agent({
+        rejectUnauthorized: this.isProduction(config),
+      }),
+    });
+  }
+
+  private isProduction(config: KeycloakSetupConfig): boolean {
+    return config.id === "production" || config.host.includes("prod");
+  }
+
+  private async getRealmAccessToken(
+    ...args: ContextualArgs<any>
+  ): Promise<string> {
+    const config = args[0] as KeycloakSetupConfig;
+    return this.getAccessToken(config.realmApiUser!, ...args);
+  }
+
+  private async getAccessToken(...args: ContextualArgs<any>): Promise<string> {
+    const keycloakUser = args[0] as KeycloakUser;
+    const response = await this.request(
+      "POST",
+      `/realms/${keycloakUser.realm}/protocol/openid-connect/token`,
+      undefined,
+      new URLSearchParams({
+        client_id: keycloakUser.apiClientId,
+        username: keycloakUser.username,
+        password: keycloakUser.password,
+        grant_type: "password",
+      }).toString(),
+      ...args,
+      200,
+      { "content-type": "application/x-www-form-urlencoded" }
+    );
+    const data = this.parseJsonResponse<{ access_token?: string }>(
+      response.data
+    );
+    if (data?.access_token) return data.access_token;
+    throw new BadRequestError(
+      `Unable to get Keycloak access token for user ${keycloakUser.username}`
+    );
+  }
+
+  private normalizeClientConfig(
+    base: KeycloakClientConfig,
+    overrides: Partial<KeycloakClientConfig>
+  ): KeycloakClientConfig {
+    return {
+      ...base,
+      ...overrides,
+      redirectUris: overrides.redirectUris ?? base.redirectUris,
+      webOrigins: overrides.webOrigins ?? base.webOrigins,
+      roles: overrides.roles ?? base.roles,
+    };
+  }
+
+  private buildClientPayload(
+    client: KeycloakClientConfig
+  ): Record<string, unknown> {
+    return {
+      clientId: client.clientId,
+      name: client.clientName,
+      description: client.description,
+      rootUrl: client.rootUrl,
+      adminUrl: client.adminUrl,
+      baseUrl: client.baseUrl,
+      surrogateAuthRequired: client.surrogateAuthRequired ?? false,
+      enabled: client.enabled ?? true,
+      alwaysDisplayInConsole: client.alwaysDisplayInConsole ?? false,
+      clientAuthenticatorType: "client-secret",
+      secret: client.secret,
+      redirectUris: client.redirectUris,
+      webOrigins: client.webOrigins,
+      notBefore: client.notBefore ?? 0,
+      bearerOnly: client.bearerOnly ?? false,
+      consentRequired: client.consentRequired ?? false,
+      standardFlowEnabled: client.standardFlowEnabled ?? true,
+      implicitFlowEnabled: client.implicitFlowEnabled ?? false,
+      directAccessGrantsEnabled: client.directAccessGrantsEnabled ?? true,
+      serviceAccountsEnabled: client.serviceAccountsEnabled ?? true,
+      authorizationServicesEnabled: client.authorizationServicesEnabled ?? true,
+      publicClient: client.publicClient ?? false,
+      frontchannelLogout: client.frontchannelLogout ?? true,
+      protocol: client.protocol ?? "openid-connect",
+      attributes: client.attributes ?? { "access.token.lifespan": "300" },
+    };
+  }
+
+  private request(
+    method: "GET" | "POST" | "PUT" | "DELETE",
+    path: string,
+    accessToken?: string,
+    payload?: unknown,
+    ...args: ContextualArgs<any>
+  ): Promise<any> {
+    const successCode = (args.pop() as number) || 200;
+    const headers = (args.pop() as Record<string, string>) || {};
+
+    return this.client.request({
+      method,
+      url: `${this.config.protocol}://${this.config.host}${path}`,
+      data: payload === undefined ? undefined : JSON.stringify(payload),
+      headers: {
+        ...headers,
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        ...(payload !== undefined && typeof payload !== "string"
+          ? { "Content-Type": "application/json" }
+          : {}),
+      },
+      httpsAgent: new https.Agent({
+        rejectUnauthorized: this.isProduction(this.config),
+      }),
+      validateStatus: () => true,
+    });
+  }
+
+  private handleHttpResponse(
+    response: any,
+    successCode: number,
+    errorMsg?: string
+  ): void {
+    const message = errorMsg
+      ? `${errorMsg}: ${response.statusText}.`
+      : response.statusText;
+    const operation = "Keycloak HTTP request";
+    throw this.parseError(new Error(message), message, operation);
+  }
+
+  private parseError(err: Error, message: string, operation: string): Error {
+    const lowerMessage = message.toLowerCase();
+
+    if (lowerMessage.includes("not found") || lowerMessage.includes("404")) {
+      return new NotFoundError(message, err);
+    }
+
+    if (lowerMessage.includes("already exists") || lowerMessage.includes("conflict") || lowerMessage.includes("409")) {
+      return new ConflictError(message, err);
+    }
+
+    if (lowerMessage.includes("invalid") || lowerMessage.includes("bad request") || lowerMessage.includes("400")) {
+      return new BadRequestError(message, err);
+    }
+
+    if (lowerMessage.includes("unauthorized") || lowerMessage.includes("401")) {
+      return new NotFoundError(message, err);
+    }
+
+    if (lowerMessage.includes("forbidden") || lowerMessage.includes("403")) {
+      return new NotFoundError(message, err);
+    }
+
+    return new InternalError(message, err);
+  }
+
+  private extractUUIDfromResponse(response: any): string {
+    const location = response.headers.location as string | undefined;
+    if (!location) {
+      throw new InternalError(
+        "Keycloak response did not include a location header"
+      );
+    }
+    return location.split("/").pop() ?? "";
+  }
+
+  private parseJsonResponse<T>(data: unknown): T | undefined {
+    if (typeof data === "string") {
+      try {
+        return JSON.parse(data) as T;
+      } catch {
+        return undefined;
+      }
+    }
+    return data as T;
+  }
+}

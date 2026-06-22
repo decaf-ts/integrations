@@ -69,23 +69,5 @@ export interface KibanaSetupConfig {
   realmApiUser: KibanaUser;
   dashboardImportPath?: string;
   dashboardImportOverwrite?: boolean;
-}
-
-export interface KibanaEnvironment {
-  env?: string;
-  host: string;
-  es_host: string;
-  protocol?: "http" | "https";
-  realm: string;
-  adminApiUsername: string;
-  adminApiPassword: string;
-  realmApiUsername: string;
-  realmApiPassword: string;
   assets?: string;
-  dashboard?: string;
-}
-
-export interface KibanaServiceOptions {
-  environment?: KibanaEnvironment;
-  config?: KibanaSetupConfig & { assets?: string };
 }

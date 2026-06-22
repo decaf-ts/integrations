@@ -1,0 +1,164 @@
+version: "3.8"
+
+services:
+  # Keycloak - Identity Management
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.0
+    container_name: keycloak-integration
+    command: start-dev
+    ports:
+      - "8080:8080"
+    environment:
+      - KC_DB=dev-file
+      - KC_HTTP_ENABLED=true
+      - KC_HOSTNAME_STRICT=false
+      - KC_HEALTH_ENABLED=true
+      - KC_READY_ENABLED=true
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
+  # Elasticsearch + Kibana - Search and Visualization
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
+    container_name: elasticsearch-integration
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - xpack.security.enrollment.enabled=false
+      - ELASTIC_PASSWORD=elastic123
+      - discovery.seed_hosts=[]
+      - cluster.initial_master_nodes=elasticsearch
+      - network.host=0.0.0.0
+      - http.port=9200
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD", "curl", "-s", "-f", "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=50s"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.14.3
+    container_name: kibana-integration
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTICSEARCH_PASSWORD=elastic123
+      - XPACK_SECURITY_ENABLED=true
+      - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    ports:
+      - "5601:5601"
+    healthcheck:
+      test: ["CMD", "curl", "-s", "-f", "http://localhost:5601/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # LocalStack - AWS Services Emulator
+  localstack:
+    image: localstack/localstack:3.5.0
+    container_name: localstack-integration
+    ports:
+      - "4566:4566"
+      - "4571:4571"
+    environment:
+      - LOCALSTACK_HOSTNAME=localhost
+      - DEFAULT_REGION=us-east-1
+      - SERVICES=/aws-sdk
+      - DEBUG=${DEBUG:-}
+      - LOG squash
+    volumes:
+      - localstack-data:/var/lib/localstack
+      - ./init:/docker-entrypoint-initaws.d
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+  # Azurite - Azure Storage emulator
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:3.33.0
+    container_name: azurite-integration
+    restart: unless-stopped
+    command: azurite -l /data --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+    volumes:
+      - azurite-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:10000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # GCP Emulator
+  gcp-emulator:
+    image: jldec/gcp-emulator:latest
+    container_name: gcp-emulator-integration
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - gcp-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Hashicorp Vault
+  vault:
+    image: hashicorp/vault:1.15.6
+    container_name: vault-integration
+    restart: unless-stopped
+    environment:
+      - VAULT_DEV_ROOT_TOKEN_ID=my-root-token
+      - VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
+    ports:
+      - "8200:8200"
+    volumes:
+      - vault-data:/vault/data
+    cap_add:
+      - IPC_LOCK
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  elasticsearch-data:
+    name: elasticsearch-data
+  localstack-data:
+    name: localstack-data
+  azurite-data:
+    name: azurite-data
+  gcp-data:
+    name: gcp-data
+  vault-data:
+    name: vault-data

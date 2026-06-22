@@ -1,25 +1,25 @@
-import { createKibanaSetupConfig } from "../../src/kibana";
+import {
+  createDefaultKibanaSpaceConfig,
+  createDefaultKibanaDataViewConfigs,
+  createDefaultKibanaRoleConfig,
+} from "../../src/kibana/helpers";
 
 describe("kibana helpers", () => {
-  it("builds kibana config from environment", () => {
-    const config = createKibanaSetupConfig({
-      host: "kibana.example.com",
-      es_host: "elasticsearch.example.com",
-      protocol: "https",
-      realm: "demo",
-      adminApiUsername: "admin",
-      adminApiPassword: "admin-password",
-      realmApiUsername: "realm",
-      realmApiPassword: "realm-password",
-      assets: "assets",
-      dashboard: "dashboard-id",
-    });
+  it("creates default space config", () => {
+    const space = createDefaultKibanaSpaceConfig("demo");
+    expect(space.id).toBe("demo");
+    expect(space.name).toBe("DEMO");
+  });
 
-    expect(config.host).toBe("kibana.example.com");
-    expect(config.adminApiUser?.username).toBe("admin");
-    expect(config.assets).toBe("assets");
-    expect(config.space?.id).toBe("demo");
-    expect(config.dataViews?.[0]?.id).toBe("filebeat_pla_demo");
-    expect(config.role?.name).toBe("pla_demo_reader");
+  it("creates default data view configs", () => {
+    const dataViews = createDefaultKibanaDataViewConfigs("demo");
+    expect(dataViews).toHaveLength(2);
+    expect(dataViews[0]?.id).toBe("filebeat_pla_demo");
+    expect(dataViews[1]?.id).toBe("logs_pla_demo");
+  });
+
+  it("creates default role config", () => {
+    const role = createDefaultKibanaRoleConfig("demo");
+    expect(role.name).toBe("pla_demo_reader");
   });
 });
