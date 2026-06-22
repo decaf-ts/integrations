@@ -11,6 +11,11 @@ import {
   RotateSecretOptions,
 } from "./SecretTypes";
 
+/**
+ * @class SecretService
+ * @summary Base abstraction for secret backends.
+ * @description Defines the shared CRUD and metadata contract implemented by the model-backed and provider-backed secret services.
+ */
 export abstract class SecretService<
   TConfig extends SecretServiceConfig = SecretServiceConfig,
 > extends Service {

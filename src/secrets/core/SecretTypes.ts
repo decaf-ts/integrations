@@ -1,3 +1,8 @@
+/**
+ * @module integrations/secrets/core/types
+ * @summary Secret core types.
+ * @description Shared payload, metadata, option, and configuration types for secret service implementations.
+ */
 export type SecretProvider =
   | "model"
   | "memory"

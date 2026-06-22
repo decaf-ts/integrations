@@ -1,3 +1,8 @@
+/**
+ * @module integrations/nest/types
+ * @summary Nest integration types.
+ * @description Shared request-context and auth payload types for Nest integration helpers.
+ */
 export interface KeycloakAccessTokenPayload {
   preferred_username?: string;
   email?: string;

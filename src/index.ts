@@ -1,3 +1,8 @@
+/**
+ * @module integrations
+ * @summary Package entry point for shared integration helpers.
+ * @description Exposes the package utilities and build-time version metadata for `@decaf-ts/integrations`.
+ */
 export * from "./utils";
 
 export const VERSION: string = "##VERSION##";

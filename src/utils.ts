@@ -1,3 +1,8 @@
+/**
+ * @module integrations/utils
+ * @summary Shared integration utilities.
+ * @description Utility helpers used across the integrations package.
+ */
 import { exec } from "child_process";
 import { Logger } from "@decaf-ts/logging";
 

@@ -1,3 +1,8 @@
+/**
+ * @module integrations/nest/utils
+ * @summary Nest integration utilities.
+ * @description Helper functions used by the Nest auth and request-context adapters.
+ */
 import type { KeycloakAccessTokenPayload, KeycloakUser } from "./types";
 import { AuthorizationError } from "@decaf-ts/core";
 

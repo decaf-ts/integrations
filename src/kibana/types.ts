@@ -23,6 +23,11 @@ export interface KibanaSpaceConfig {
   imageUrl?: string;
 }
 
+/**
+ * @module integrations/kibana/types
+ * @summary Kibana configuration and payload types.
+ * @description Shared type definitions for Kibana provisioning services and setup payloads.
+ */
 export interface KibanaDataViewConfig {
   id: string;
   name: string;

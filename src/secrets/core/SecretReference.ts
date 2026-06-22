@@ -1,3 +1,8 @@
+/**
+ * @module integrations/secrets/core/reference
+ * @summary Secret reference helpers.
+ * @description Helpers for parsing and normalizing secret references.
+ */
 import { SecretProvider } from "./SecretTypes";
 import { SecretError } from "./SecretErrors";
 

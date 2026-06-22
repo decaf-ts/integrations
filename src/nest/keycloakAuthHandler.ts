@@ -1,3 +1,8 @@
+/**
+ * @module integrations/nest/keycloakAuthHandler
+ * @summary Keycloak request auth handler.
+ * @description Translates Keycloak JWT payloads into Decaf-friendly auth context values.
+ */
 import { AuthorizationError } from "@decaf-ts/core";
 import type { AuthExecutionContextLike, AuthRequestLike } from "./types";
 import { AuthService } from "./authService";

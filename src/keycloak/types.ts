@@ -1,3 +1,8 @@
+/**
+ * @module integrations/keycloak/types
+ * @summary Keycloak configuration and payload types.
+ * @description Shared type definitions for Keycloak provisioning services and their setup payloads.
+ */
 export interface KeycloakUser {
   realm: string;
   apiClientId: string;

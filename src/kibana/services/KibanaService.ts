@@ -18,6 +18,11 @@ import { KibanaUserService } from "./KibanaUserService";
 import { KibanaDashboardService } from "./KibanaDashboardService";
 import { KibanaAuthService } from "./KibanaAuthService";
 
+/**
+ * @class KibanaService
+ * @summary Orchestrates Kibana setup and provisioning flows.
+ * @description Boots the lower-level Kibana services, coordinates creation of spaces, data views, roles, users, dashboards, and exposes helper methods for embed URLs and organization setup.
+ */
 export class KibanaService extends ClientBasedService<
   AxiosInstance,
   KibanaSetupConfig

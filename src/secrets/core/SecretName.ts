@@ -1,3 +1,8 @@
+/**
+ * @module integrations/secrets/core/name
+ * @summary Secret name helpers.
+ * @description Validation and normalization helpers for secret names.
+ */
 import { SecretError } from "./SecretErrors";
 
 const MAX_NAME_LENGTH = 255;

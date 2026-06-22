@@ -1,3 +1,8 @@
+/**
+ * @module integrations/secrets/gcp/config
+ * @summary Google Secret Manager configuration.
+ * @description Configuration schema for the Google Secret Manager integration.
+ */
 import { SecretServiceConfig } from "../../secrets/core";
 
 export interface GcpSecretManagerServiceConfig extends SecretServiceConfig {

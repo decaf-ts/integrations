@@ -1,3 +1,8 @@
+/**
+ * @module integrations/secrets/core/errors
+ * @summary Secret core errors.
+ * @description Error classes used by the secret service abstraction and provider implementations.
+ */
 import { InternalError } from "@decaf-ts/db-decorators";
 
 export type SecretErrorCode =

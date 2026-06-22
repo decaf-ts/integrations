@@ -1,3 +1,8 @@
+/**
+ * @module integrations/kibana/helpers
+ * @summary Kibana configuration helpers.
+ * @description Convenience builders for default Kibana spaces, data views, and role configurations.
+ */
 import type {
   KibanaDataViewConfig,
   KibanaRoleConfig,

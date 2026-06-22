@@ -1,3 +1,8 @@
+/**
+ * @module integrations/nest/authService
+ * @summary Nest-compatible authentication service helpers.
+ * @description Request-context-aware auth helpers for Nest applications using Decaf integration patterns.
+ */
 import { AuthorizationError } from "@decaf-ts/core";
 import { extractKeycloakRoles, getRealmFromIssuer, getTokenPayload, getUser } from "./utils";
 import type { KeycloakAccessTokenPayload, KeycloakUser } from "./types";

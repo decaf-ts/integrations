@@ -1,3 +1,8 @@
+/**
+ * @module integrations/secrets/core/serialization
+ * @summary Secret serialization helpers.
+ * @description Utilities for converting secret payloads to and from transport-safe encodings.
+ */
 import { SecretError } from "./SecretErrors";
 import type { SecretPayload, SerializedSecretPayload } from "./SecretTypes";
 
