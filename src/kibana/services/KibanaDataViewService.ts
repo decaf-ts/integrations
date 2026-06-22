@@ -11,7 +11,7 @@ import type {
   KibanaSetupConfig,
   KibanaUser,
 } from "../types";
-import type { AxiosInstance } from "axios";
+import Axios, { AxiosInstance } from "axios";
 import * as https from "node:https";
 import { KibanaAuthService } from "./KibanaAuthService";
 
@@ -23,31 +23,35 @@ export class KibanaDataViewService extends ClientBasedService<
   protected authService!: KibanaAuthService;
 
   async initialize(
-    ...args: ContextualArgs<any>
+    ...args: MaybeContextualArg<any>
   ): Promise<{ config: KibanaSetupConfig; client: AxiosInstance }> {
-    const { log, ctxArgs } = await this.logCtx(args, this.initialize, true);
-    this._config = this.config;
-    const client = this.createHttpClient(ctxArgs[0] as KibanaSetupConfig);
-    return { config: this.config, client };
+    const { ctxArgs } = (
+      await this.logCtx(args, "initialize", true)
+    ).for(this.initialize);
+    const config = ctxArgs[0] as KibanaSetupConfig;
+    this._config = config;
+    const client = this.createHttpClient(config);
+    this._client = client;
+    return { config, client };
   }
 
-  async createDataView(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.createDataView,
-      false
-    );
-    const realmName = ctxArgs[0] as string;
-    const spec = ctxArgs[0]?.[1] as KibanaDataViewConfig;
+  async createDataView(
+    realmName: string,
+    spec: KibanaDataViewConfig,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "createDataView", true)
+    ).for(this.createDataView);
     const payload = this.normalizeDataViewConfig(realmName, spec);
     const createResp = await this.request(
       "POST",
       `/s/${realmName}/api/data_views/data_view`,
       { data_view: payload },
-      undefined,
+      this.config.adminApiUser,
       { headers: { "kbn-xsrf": "true", "Content-Type": "application/json" } },
-      ...ctxArgs,
-      200
+      200,
+      ...ctxArgs
     );
 
     if (createResp.status === 200 || createResp.status === 201) return;
@@ -60,23 +64,24 @@ export class KibanaDataViewService extends ClientBasedService<
     await this.updateDataView(realmName, payload, ...ctxArgs);
   }
 
-  async updateDataView(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.updateDataView,
-      false
-    );
-    const realmName = ctxArgs[0] as string;
-    const spec = ctxArgs[0]?.[1] as KibanaDataViewConfig;
+  async updateDataView(
+    realmName: string,
+    spec: KibanaDataViewConfig,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "updateDataView", true)
+    ).for(this.updateDataView);
     const payload = this.normalizeDataViewConfig(realmName, spec);
+    const { id, ...updatePayload } = payload;
     const response = await this.request(
       "POST",
-      `/s/${realmName}/api/data_views/data_view/${encodeURIComponent(payload.id)}`,
-      { data_view: payload },
-      undefined,
+      `/s/${realmName}/api/data_views/data_view/${encodeURIComponent(id)}`,
+      { data_view: updatePayload },
+      this.config.adminApiUser,
       { headers: { "kbn-xsrf": "true", "Content-Type": "application/json" } },
-      ...ctxArgs,
-      200
+      200,
+      ...ctxArgs
     );
     if (response.status >= 300) {
       const operation = "Update data view";
@@ -85,14 +90,14 @@ export class KibanaDataViewService extends ClientBasedService<
     }
   }
 
-  async createDataViews(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.createDataViews,
-      false
-    );
-    const realmName = ctxArgs[0] as string;
-    const dataViews = ctxArgs[0]?.[1] as KibanaDataViewConfig[] | undefined;
+  async createDataViews(
+    realmName: string,
+    dataViews: KibanaDataViewConfig[] | undefined,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "createDataViews", true)
+    ).for(this.createDataViews);
     const specs =
       dataViews && dataViews.length > 0
         ? dataViews
@@ -102,14 +107,14 @@ export class KibanaDataViewService extends ClientBasedService<
     }
   }
 
-  async setDefaultDataView(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.setDefaultDataView,
-      false
-    );
-    const realmName = ctxArgs[0] as string;
-    const dataViewId = ctxArgs[0]?.[1] as string | undefined;
+  async setDefaultDataView(
+    realmName: string,
+    dataViewId: string | undefined,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "setDefaultDataView", true)
+    ).for(this.setDefaultDataView);
     const dvId =
       dataViewId ??
       this.config.dataViews?.[0]?.id ??
@@ -120,8 +125,8 @@ export class KibanaDataViewService extends ClientBasedService<
       undefined,
       undefined,
       { headers: { "kbn-xsrf": "true" } },
-      ...ctxArgs,
-      200
+      200,
+      ...ctxArgs
     );
     if (statusResp.status !== 200 || !dvId) {
       return;
@@ -134,10 +139,10 @@ export class KibanaDataViewService extends ClientBasedService<
       "POST",
       `/s/${realmName}/api/saved_objects/config/${kibanaVersion}?overwrite=true`,
       { attributes: { defaultIndex: dvId } },
-      undefined,
+      this.config.adminApiUser,
       { headers: { "kbn-xsrf": "true", "Content-Type": "application/json" } },
-      ...ctxArgs,
-      200
+      200,
+      ...ctxArgs
     );
     if (response.status >= 300) {
       const operation = "Set default data view";
@@ -146,8 +151,7 @@ export class KibanaDataViewService extends ClientBasedService<
     }
   }
 
-  private createHttpClient(...args: ContextualArgs<any>): AxiosInstance {
-    const config = this.resolveConfig(args);
+  private createHttpClient(config: KibanaSetupConfig): AxiosInstance {
     return Axios.create({
       baseURL: `${config.protocol}://${config.host}`,
       validateStatus: () => true,
@@ -155,19 +159,6 @@ export class KibanaDataViewService extends ClientBasedService<
         rejectUnauthorized: this.isSecureEnvironment(),
       }),
     });
-  }
-
-  private resolveConfig(args: any[]): KibanaSetupConfig {
-    const configArg = args.find((arg) => arg && arg.host) as
-      | KibanaSetupConfig
-      | undefined;
-    if (configArg) return configArg;
-
-    if (this._config) return this._config;
-
-    const operation = "Kibana config resolution";
-    const message = "Config not provided and not initialized";
-    throw this.parseError(new Error(message), message, operation);
   }
 
   private parseError(err: Error, message: string, operation: string): Error {
@@ -237,15 +228,16 @@ export class KibanaDataViewService extends ClientBasedService<
     ];
   }
 
-  private request(
+  private async request(
     method: "GET" | "POST" | "PUT" | "DELETE",
     url: string,
-    payload?: unknown,
-    apiUser?: KibanaUser,
-    extra: Record<string, any> = {},
+    payload: unknown,
+    apiUser: KibanaUser | undefined,
+    extra: Record<string, any>,
+    successCode: number,
     ...args: ContextualArgs<any>
   ): Promise<any> {
-    const successCode = (args.pop() as number) || 200;
+    this.logCtx(args, this.request);
     return this.client.request({
       method,
       url,

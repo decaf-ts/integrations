@@ -23,6 +23,10 @@ export class DockerComposeService extends ClientBasedService<
   void,
   DockerComposeServiceConfig
 > {
+  constructor() {
+    super();
+  }
+
   async initialize(
     ...args: ContextualArgs<any>
   ): Promise<{ config: DockerComposeServiceConfig; client: void }> {
@@ -62,9 +66,11 @@ export class DockerComposeService extends ClientBasedService<
   /**
    * Start Docker Compose services
    */
-  async up(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.up, true);
-    const detached = ctxArgs[0]?.[0] !== false;
+  async up(
+    detached = true,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { log } = await this.logCtx(args, this.up, true);
     const command = `docker compose -f ${this.composeFileName} up ${detached ? "-d" : ""}`;
 
     await execWithLogging(command, { cwd: this.workingDir }, log);
@@ -76,7 +82,7 @@ export class DockerComposeService extends ClientBasedService<
    */
   async down(...args: MaybeContextualArg<any>): Promise<void> {
     const { log, ctxArgs } = await this.logCtx(args, this.down, true);
-    const command = `docker compose -f ${this.composeFileName} down`;
+    const command = `docker compose -f ${this.composeFileName} down --volumes`;
 
     await execWithLogging(command, { cwd: this.workingDir }, log);
     log.info(`Docker compose services stopped`);
@@ -98,13 +104,10 @@ export class DockerComposeService extends ClientBasedService<
    */
   async waitForHealth(
     url: string,
+    options: DockerHealthCheckOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<boolean> {
-    const { log, ctxArgs } = await this.logCtx(args, this.waitForHealth, true);
-    const options =
-      ctxArgs[0]?.[0] && typeof ctxArgs[0][0] === "object"
-        ? (ctxArgs[0][0] as DockerHealthCheckOptions)
-        : {};
+    const { log } = await this.logCtx(args, this.waitForHealth, true);
     const { maxAttempts = 60, interval = 2000 } = options;
 
     log.info(`Waiting for health check at ${url}`);

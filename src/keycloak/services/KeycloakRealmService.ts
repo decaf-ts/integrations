@@ -4,14 +4,14 @@ import {
   InternalError,
   NotFoundError,
 } from "@decaf-ts/db-decorators";
-import { Context, ContextualArgs, MaybeContextualArg } from "@decaf-ts/core";
+import { ContextualArgs, MaybeContextualArg } from "@decaf-ts/core";
 import { ClientBasedService } from "@decaf-ts/core";
 import type {
   KeycloakRealmConfig,
   KeycloakSetupConfig,
   KeycloakUser,
 } from "../types";
-import type { AxiosInstance } from "axios";
+import Axios, { AxiosInstance } from "axios";
 import * as https from "node:https";
 
 type KeycloakRealmRepresentation = {
@@ -25,20 +25,26 @@ export class KeycloakRealmService extends ClientBasedService<
   KeycloakSetupConfig
 > {
   async initialize(
-    ...args: ContextualArgs<any>
+    ...args: MaybeContextualArg<any>
   ): Promise<{ config: KeycloakSetupConfig; client: AxiosInstance }> {
-    const { ctx } = await this.logCtx(args, this.initialize, true);
-    this._config = this.config;
-    const client = this.createHttpClient(ctx);
-    return { config: this.config, client };
+    const { ctxArgs } = (
+      await this.logCtx(args, "initialize", true)
+    ).for(this.initialize);
+    const config = ctxArgs[0] as KeycloakSetupConfig;
+    this._config = config;
+    const client = this.createHttpClient(config);
+    this._client = client;
+    return { config, client };
   }
 
   async createRealm(
     realmName: string,
-    payload?: Partial<KeycloakRealmConfig>,
+    payload: Partial<KeycloakRealmConfig> | undefined,
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.createRealm, false);
+    const { ctxArgs } = (
+      await this.logCtx(args, "createRealm", true)
+    ).for(this.createRealm);
     const adminAccessToken = await this.getAccessToken(
       this.config.adminApiUser!,
       ...ctxArgs
@@ -48,8 +54,9 @@ export class KeycloakRealmService extends ClientBasedService<
       `/admin/realms`,
       adminAccessToken,
       { realm: realmName, enabled: true, ...payload },
-      ...ctxArgs,
-      201
+      201,
+      {},
+      ...ctxArgs
     );
   }
 
@@ -58,7 +65,9 @@ export class KeycloakRealmService extends ClientBasedService<
     payload: Partial<KeycloakRealmConfig>,
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.updateRealm, false);
+    const { ctxArgs } = (
+      await this.logCtx(args, "updateRealm", true)
+    ).for(this.updateRealm);
     const adminAccessToken = await this.getAccessToken(
       this.config.adminApiUser!,
       ...ctxArgs
@@ -73,8 +82,9 @@ export class KeycloakRealmService extends ClientBasedService<
       `/admin/realms/${realmName}`,
       adminAccessToken,
       { ...currentRealm, ...payload, realm: realmName },
-      ...ctxArgs,
-      204
+      204,
+      {},
+      ...ctxArgs
     );
   }
 
@@ -82,7 +92,9 @@ export class KeycloakRealmService extends ClientBasedService<
     realmName: string,
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.deleteRealm, false);
+    const { ctxArgs } = (
+      await this.logCtx(args, "deleteRealm", true)
+    ).for(this.deleteRealm);
     const adminAccessToken = await this.getAccessToken(
       this.config.adminApiUser!,
       ...ctxArgs
@@ -92,26 +104,31 @@ export class KeycloakRealmService extends ClientBasedService<
       `/admin/realms/${realmName}`,
       adminAccessToken,
       undefined,
-      ...ctxArgs,
-      204
+      204,
+      {},
+      ...ctxArgs
     );
   }
 
   async addRealm(
     realmName: string,
-    payload?: any,
+    payload: Partial<KeycloakRealmConfig> | undefined,
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.addRealm, false);
+    const { ctxArgs } = (
+      await this.logCtx(args, "addRealm", true)
+    ).for(this.addRealm);
     await this.createRealm(realmName, payload, ...ctxArgs);
   }
 
   async editRealm(
     realmName: string,
-    payload: any,
+    payload: Partial<KeycloakRealmConfig>,
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.editRealm, false);
+    const { ctxArgs } = (
+      await this.logCtx(args, "editRealm", true)
+    ).for(this.editRealm);
     await this.updateRealm(realmName, payload, ...ctxArgs);
   }
 
@@ -119,7 +136,9 @@ export class KeycloakRealmService extends ClientBasedService<
     realmName: string,
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.removeRealm, false);
+    const { ctxArgs } = (
+      await this.logCtx(args, "removeRealm", true)
+    ).for(this.removeRealm);
     await this.deleteRealm(realmName, ...ctxArgs);
   }
 
@@ -127,7 +146,9 @@ export class KeycloakRealmService extends ClientBasedService<
     realmName: string,
     ...args: MaybeContextualArg<any>
   ): Promise<KeycloakRealmRepresentation> {
-    const { log, ctxArgs } = await this.logCtx(args, this.getRealm, false);
+    const { ctxArgs } = (
+      await this.logCtx(args, "getRealm", true)
+    ).for(this.getRealm);
     const adminAccessToken = await this.getAccessToken(
       this.config.adminApiUser!,
       ...ctxArgs
@@ -154,8 +175,8 @@ export class KeycloakRealmService extends ClientBasedService<
     keycloakUser: KeycloakUser,
     ...args: ContextualArgs<any>
   ): Promise<string> {
-    const client = this.client;
-    const response = await client.request({
+    this.logCtx(args, this.getAccessToken);
+    const response = await this.client.request({
       method: "POST",
       url: `${this.config.protocol}://${this.config.host}/realms/${keycloakUser.realm}/protocol/openid-connect/token`,
       data: new URLSearchParams({
@@ -182,13 +203,15 @@ export class KeycloakRealmService extends ClientBasedService<
     accessToken: string,
     ...args: ContextualArgs<any>
   ): Promise<KeycloakRealmRepresentation> {
+    const { ctxArgs } = this.logCtx(args, this.fetchRealm);
     const response = await this.request(
       "GET",
       `/admin/realms/${realmName}`,
       accessToken,
       undefined,
-      ...args,
-      200
+      200,
+      {},
+      ...ctxArgs
     );
     return (
       this.parseJsonResponse<KeycloakRealmRepresentation>(response.data) ?? {}
@@ -198,17 +221,22 @@ export class KeycloakRealmService extends ClientBasedService<
   private async request(
     method: "GET" | "POST" | "PUT" | "DELETE",
     path: string,
-    accessToken?: string,
-    payload?: unknown,
+    accessToken: string | undefined,
+    payload: unknown,
+    successCode: number,
+    headers: Record<string, string>,
     ...args: ContextualArgs<any>
   ): Promise<any> {
-    const successCode = (args.pop() as number) || 200;
-    const headers = (args.pop() as Record<string, string>) || {};
-
+    this.logCtx(args, this.request);
     const response = await this.client.request({
       method,
       url: `${this.config.protocol}://${this.config.host}${path}`,
-      data: payload === undefined ? undefined : JSON.stringify(payload),
+      data:
+        payload === undefined
+          ? undefined
+          : typeof payload === "string"
+            ? payload
+            : JSON.stringify(payload),
       headers: {
         ...headers,
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
@@ -221,12 +249,14 @@ export class KeycloakRealmService extends ClientBasedService<
       }),
       validateStatus: () => true,
     });
-    this.handleHttpResponse(response, successCode);
+    if (response.status !== successCode) {
+      this.handleHttpResponse(response, successCode);
+    }
     return response;
   }
 
   private handleHttpResponse(response: any, successCode: number): void {
-    const message = response.statusText;
+    const message = `Expected ${successCode}, received ${response.status}: ${response.statusText}`;
     const operation = "Keycloak HTTP request";
     throw this.parseError(new Error(message), message, operation);
   }

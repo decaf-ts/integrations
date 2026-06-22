@@ -4,10 +4,9 @@ import {
   InternalError,
   NotFoundError,
 } from "@decaf-ts/db-decorators";
-import { Context, ContextualArgs, MaybeContextualArg } from "@decaf-ts/core";
+import { ContextualArgs, MaybeContextualArg } from "@decaf-ts/core";
 import { ClientBasedService, service } from "@decaf-ts/core";
 import type {
-  KibanaDashboardTargets,
   KibanaSetupConfig,
   KibanaUser,
 } from "../types";
@@ -25,24 +24,34 @@ export class KibanaDashboardService extends ClientBasedService<
   @service()
   protected authService!: KibanaAuthService;
 
-  async initialize(...args: ContextualArgs<any>): Promise<{ config: KibanaSetupConfig; client: AxiosInstance }> {
-    const { log, ctxArgs } = await this.logCtx(args, this.initialize, true);
-    this._config = this.config;
-    const client = this.createHttpClient(...ctxArgs);
-    return { config: this.config, client };
+  async initialize(
+    ...args: MaybeContextualArg<any>
+  ): Promise<{ config: KibanaSetupConfig; client: AxiosInstance }> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "initialize", true)
+    ).for(this.initialize);
+    const config = ctxArgs[0] as KibanaSetupConfig;
+    this._config = config;
+    const client = this.createHttpClient(config);
+    this._client = client;
+    return { config, client };
   }
 
-  async cloneDefaultDashboards(...args: MaybeContextualArg<any>): Promise<string | undefined> {
-    const { log, ctxArgs } = await this.logCtx(args, this.cloneDefaultDashboards, false);
-    const realmName = ctxArgs[0] as string;
+  async cloneDefaultDashboards(
+    realmName: string,
+    ...args: MaybeContextualArg<any>
+  ): Promise<string | undefined> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "cloneDefaultDashboards", true)
+    ).for(this.cloneDefaultDashboards);
     const response = await this.request(
       "GET",
       `/s/default/api/saved_objects/_find?type=dashboard&per_page=1000`,
       undefined,
-      undefined,
+      this.config.adminApiUser,
       { headers: { "kbn-xsrf": "true" } },
-      ...ctxArgs,
-      200
+      200,
+      ...ctxArgs
     );
     if (response.status !== 200) {
       const operation = "List dashboards";
@@ -66,10 +75,10 @@ export class KibanaDashboardService extends ClientBasedService<
         createNewCopies: true,
         overwrite: false,
       },
-      undefined,
+      this.config.adminApiUser,
       { headers: { "kbn-xsrf": "true", "Content-Type": "application/json" } },
-      ...ctxArgs,
-      200
+      200,
+      ...ctxArgs
     );
     if (copyResp.status >= 300) {
       const operation = "Copy dashboards";
@@ -90,7 +99,12 @@ export class KibanaDashboardService extends ClientBasedService<
       `${this.config.protocol}://${this.config.host}/s/${realmName}/api/saved_objects/_import?overwrite=true`,
       form,
       {
-        auth: undefined,
+        auth: this.config.adminApiUser
+          ? {
+              username: this.config.adminApiUser.username,
+              password: this.config.adminApiUser.password,
+            }
+          : undefined,
         headers: {
           ...form.getHeaders(),
           "kbn-xsrf": "true",
@@ -141,17 +155,21 @@ export class KibanaDashboardService extends ClientBasedService<
     return `${base}/s/${space}/app/dashboards#/view/${dashboardId}?${params.toString()}${timeFragment}`;
   }
 
-  async verifySpaceSetup(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.verifySpaceSetup, false);
-    const realmName = ctxArgs[0] as string;
+  async verifySpaceSetup(
+    realmName: string,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "verifySpaceSetup", true)
+    ).for(this.verifySpaceSetup);
     const response = await this.request(
       "GET",
       `/s/${realmName}/api/saved_objects/_find?type=dashboard&per_page=1`,
       undefined,
-      undefined,
+      this.config.adminApiUser,
       { headers: { "kbn-xsrf": "true" } },
-      ...ctxArgs,
-      200
+      200,
+      ...ctxArgs
     );
     if (response.status !== 200) {
       const operation = "Verify space setup";
@@ -166,8 +184,7 @@ export class KibanaDashboardService extends ClientBasedService<
     }
   }
 
-  private createHttpClient(...args: ContextualArgs<any>): AxiosInstance {
-    const config = this.resolveConfig(args);
+  private createHttpClient(config: KibanaSetupConfig): AxiosInstance {
     return Axios.create({
       baseURL: `${config.protocol}://${config.host}`,
       validateStatus: () => true,
@@ -175,19 +192,6 @@ export class KibanaDashboardService extends ClientBasedService<
         rejectUnauthorized: this.isSecureEnvironment(),
       }),
     });
-  }
-
-  private resolveConfig(args: any[]): KibanaSetupConfig {
-    const configArg = args.find((arg) => arg && arg.host) as
-      | KibanaSetupConfig
-      | undefined;
-    if (configArg) return configArg;
-
-    if (this._config) return this._config;
-
-    const operation = "Kibana config resolution";
-    const message = "Config not provided and not initialized";
-    throw this.parseError(new Error(message), message, operation);
   }
 
   private parseError(err: Error, message: string, operation: string): Error {
@@ -222,15 +226,16 @@ export class KibanaDashboardService extends ClientBasedService<
     );
   }
 
-  private request(
+  private async request(
     method: "GET" | "POST" | "PUT" | "DELETE",
     url: string,
-    payload?: unknown,
-    apiUser?: KibanaUser,
-    extra: Record<string, any> = {},
-    successCode = 200,
+    payload: unknown,
+    apiUser: KibanaUser | undefined,
+    extra: Record<string, any>,
+    successCode: number,
     ...args: ContextualArgs<any>
   ): Promise<any> {
+    this.logCtx(args, this.request);
     return this.client.request({
       method,
       url,

@@ -11,7 +11,7 @@ import type {
   KeycloakSetupConfig,
   KeycloakUser,
 } from "../types";
-import type { AxiosInstance } from "axios";
+import Axios, { AxiosInstance } from "axios";
 import * as https from "node:https";
 
 export class KeycloakIdentityProviderService extends ClientBasedService<
@@ -19,95 +19,87 @@ export class KeycloakIdentityProviderService extends ClientBasedService<
   KeycloakSetupConfig
 > {
   async initialize(
-    ...args: ContextualArgs<any>
+    ...args: MaybeContextualArg<any>
   ): Promise<{ config: KeycloakSetupConfig; client: AxiosInstance }> {
-    const { ctx } = await this.logCtx(args, this.initialize, true);
-    this._config = this.config;
-    const client = this.createHttpClient(ctx);
-    return { config: this.config, client };
+    const { ctxArgs } = (
+      await this.logCtx(args, "initialize", true)
+    ).for(this.initialize);
+    const config = ctxArgs[0] as KeycloakSetupConfig;
+    this._config = config;
+    const client = this.createHttpClient(config);
+    this._client = client;
+    return { config, client };
   }
 
   async createIdentityProvider(
+    keycloakSetupConfig: KeycloakSetupConfig,
+    overrides: Partial<KeycloakIdentityProviderConfig> | undefined,
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.createIdentityProvider,
-      false
-    );
-    const keycloakSetupConfig = ctxArgs[0] as KeycloakSetupConfig;
-    const overrides =
-      (ctxArgs[0]?.[0] as
-        | Partial<KeycloakIdentityProviderConfig>
-        | undefined) ?? {};
+    const { ctxArgs } = (
+      await this.logCtx(args, "createIdentityProvider", true)
+    ).for(this.createIdentityProvider);
     const realmAccessToken = await this.getRealmAccessToken(
       keycloakSetupConfig,
       ...ctxArgs
     );
     const identityProvider = this.normalizeIdentityProviderConfig(
       keycloakSetupConfig.identityProvider!,
-      overrides
+      overrides ?? {}
     );
     await this.request(
       "POST",
       `/admin/realms/${keycloakSetupConfig.realmApiUser?.realm}/identity-provider/instances`,
       realmAccessToken,
       this.buildIdentityProviderPayload(identityProvider),
-      ...ctxArgs,
-      201
+      201,
+      {},
+      ...ctxArgs
     );
   }
 
   async updateIdentityProvider(
+    keycloakSetupConfig: KeycloakSetupConfig,
+    overrides: Partial<KeycloakIdentityProviderConfig> | undefined,
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.updateIdentityProvider,
-      false
-    );
-    const keycloakSetupConfig = ctxArgs[0] as KeycloakSetupConfig;
-    const overrides =
-      (ctxArgs[0]?.[0] as
-        | Partial<KeycloakIdentityProviderConfig>
-        | undefined) ?? {};
+    const { ctxArgs } = (
+      await this.logCtx(args, "updateIdentityProvider", true)
+    ).for(this.updateIdentityProvider);
     const realmAccessToken = await this.getRealmAccessToken(
       keycloakSetupConfig,
       ...ctxArgs
     );
     const identityProvider = this.normalizeIdentityProviderConfig(
       keycloakSetupConfig.identityProvider!,
-      overrides
+      overrides ?? {}
     );
     await this.request(
       "PUT",
       `/admin/realms/${keycloakSetupConfig.realmApiUser?.realm}/identity-provider/instances/${encodeURIComponent(identityProvider.alias)}`,
       realmAccessToken,
       this.buildIdentityProviderPayload(identityProvider),
-      ...ctxArgs,
-      204
+      204,
+      {},
+      ...ctxArgs
     );
   }
 
   async createIdentityProviderMappers(
+    keycloakSetupConfig: KeycloakSetupConfig,
+    roleConfigs: any[] | undefined,
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.createIdentityProviderMappers,
-      false
-    );
-    const keycloakSetupConfig = ctxArgs[0] as KeycloakSetupConfig;
-    const roleConfigs =
-      (ctxArgs[0]?.[0] as any[] | undefined) ??
-      keycloakSetupConfig.client.roles ??
-      [];
+    const { ctxArgs } = (
+      await this.logCtx(args, "createIdentityProviderMappers", true)
+    ).for(this.createIdentityProviderMappers);
+    const roles = roleConfigs ?? keycloakSetupConfig.client.roles ?? [];
     const realmAccessToken = await this.getRealmAccessToken(
       keycloakSetupConfig,
       ...ctxArgs
     );
     const identityProvider = keycloakSetupConfig.identityProvider!;
-    for (const role of roleConfigs) {
+    for (const role of roles) {
       await this.request(
         "POST",
         `/admin/realms/${keycloakSetupConfig.realmApiUser?.realm}/identity-provider/instances/${identityProvider.alias}/mappers`,
@@ -123,8 +115,9 @@ export class KeycloakIdentityProviderService extends ClientBasedService<
             role: `${keycloakSetupConfig.client.clientId}.${role.roleName}`,
           },
         },
-        ...ctxArgs,
-        201
+        201,
+        {},
+        ...ctxArgs
       );
     }
   }
@@ -145,14 +138,18 @@ export class KeycloakIdentityProviderService extends ClientBasedService<
   }
 
   private async getRealmAccessToken(
+    keycloakSetupConfig: KeycloakSetupConfig,
     ...args: ContextualArgs<any>
   ): Promise<string> {
-    const config = args[0] as KeycloakSetupConfig;
-    return this.getAccessToken(config.realmApiUser!, ...args);
+    const { ctxArgs } = this.logCtx(args, this.getRealmAccessToken);
+    return this.getAccessToken(keycloakSetupConfig.realmApiUser!, ...ctxArgs);
   }
 
-  private async getAccessToken(...args: ContextualArgs<any>): Promise<string> {
-    const keycloakUser = args[0] as KeycloakUser;
+  private async getAccessToken(
+    keycloakUser: KeycloakUser,
+    ...args: ContextualArgs<any>
+  ): Promise<string> {
+    const { ctxArgs } = this.logCtx(args, this.getAccessToken);
     const response = await this.request(
       "POST",
       `/realms/${keycloakUser.realm}/protocol/openid-connect/token`,
@@ -163,9 +160,9 @@ export class KeycloakIdentityProviderService extends ClientBasedService<
         password: keycloakUser.password,
         grant_type: "password",
       }).toString(),
-      ...args,
       200,
-      { "content-type": "application/x-www-form-urlencoded" }
+      { "content-type": "application/x-www-form-urlencoded" },
+      ...ctxArgs
     );
     const data = this.parseJsonResponse<{ access_token?: string }>(
       response.data
@@ -226,20 +223,25 @@ export class KeycloakIdentityProviderService extends ClientBasedService<
     };
   }
 
-  private request(
+  private async request(
     method: "GET" | "POST" | "PUT" | "DELETE",
     path: string,
-    accessToken?: string,
-    payload?: unknown,
+    accessToken: string | undefined,
+    payload: unknown,
+    successCode: number,
+    headers: Record<string, string>,
     ...args: ContextualArgs<any>
   ): Promise<any> {
-    const successCode = (args.pop() as number) || 200;
-    const headers = (args.pop() as Record<string, string>) || {};
-
-    return this.client.request({
+    this.logCtx(args, this.request);
+    const response = await this.client.request({
       method,
       url: `${this.config.protocol}://${this.config.host}${path}`,
-      data: payload === undefined ? undefined : JSON.stringify(payload),
+      data:
+        payload === undefined
+          ? undefined
+          : typeof payload === "string"
+            ? payload
+            : JSON.stringify(payload),
       headers: {
         ...headers,
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
@@ -252,16 +254,14 @@ export class KeycloakIdentityProviderService extends ClientBasedService<
       }),
       validateStatus: () => true,
     });
+    if (response.status !== successCode) {
+      this.handleHttpResponse(response, successCode);
+    }
+    return response;
   }
 
-  private handleHttpResponse(
-    response: any,
-    successCode: number,
-    errorMsg?: string
-  ): void {
-    const message = errorMsg
-      ? `${errorMsg}: ${response.statusText}.`
-      : response.statusText;
+  private handleHttpResponse(response: any, successCode: number): void {
+    const message = `Expected ${successCode}, received ${response.status}: ${response.statusText}`;
     const operation = "Keycloak HTTP request";
     throw this.parseError(new Error(message), message, operation);
   }

@@ -7,7 +7,7 @@ import {
 import { ContextualArgs, MaybeContextualArg } from "@decaf-ts/core";
 import { ClientBasedService } from "@decaf-ts/core";
 import type { KeycloakSetupConfig, KeycloakUser } from "../types";
-import type { AxiosInstance } from "axios";
+import Axios, { AxiosInstance } from "axios";
 import * as https from "node:https";
 
 export type KeycloakUserRepresentation = {
@@ -30,51 +30,59 @@ export class KeycloakUserService extends ClientBasedService<
   KeycloakSetupConfig
 > {
   async initialize(
-    ...args: ContextualArgs<any>
+    ...args: MaybeContextualArg<any>
   ): Promise<{ config: KeycloakSetupConfig; client: AxiosInstance }> {
-    const { ctx } = await this.logCtx(args, this.initialize, true);
-    this._config = this.config;
-    const client = this.createHttpClient(ctx);
-    return { config: this.config, client };
+    const { ctxArgs } = (
+      await this.logCtx(args, "initialize", true)
+    ).for(this.initialize);
+    const config = ctxArgs[0] as KeycloakSetupConfig;
+    this._config = config;
+    const client = this.createHttpClient(config);
+    this._client = client;
+    return { config, client };
   }
 
-  async addUserToRealm(...args: MaybeContextualArg<any>): Promise<string> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.addUserToRealm,
-      false
-    );
-    const keycloakUser = ctxArgs[0] as KeycloakUser;
-    const payload =
-      (ctxArgs[0]?.[1] as Partial<KeycloakUserRepresentation>) ?? {};
+  async addUserToRealm(
+    keycloakUser: KeycloakUser,
+    payload: Partial<KeycloakUserRepresentation> | undefined,
+    ...args: MaybeContextualArg<any>
+  ): Promise<string> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "addUserToRealm", true)
+    ).for(this.addUserToRealm);
     return this.createRealmUser(keycloakUser, payload, ...ctxArgs);
   }
 
-  async editUser(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.editUser, false);
-    const realmName = ctxArgs[0] as string;
-    const userUUID = ctxArgs[0]?.[1] as string;
-    const payload = ctxArgs[0]?.[2] as Partial<KeycloakUserRepresentation>;
+  async editUser(
+    realmName: string,
+    userUUID: string,
+    payload: Partial<KeycloakUserRepresentation>,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "editUser", true)
+    ).for(this.editUser);
     await this.updateRealmUser(realmName, userUUID, payload, ...ctxArgs);
   }
 
-  async updateRealmUser(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.updateRealmUser,
-      false
-    );
-    const realmName = ctxArgs[0] as string;
-    const userUUID = ctxArgs[0]?.[1] as string;
-    const payload = ctxArgs[0]?.[2] as Partial<KeycloakUserRepresentation>;
+  async updateRealmUser(
+    realmName: string,
+    userUUID: string,
+    payload: Partial<KeycloakUserRepresentation>,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "updateRealmUser", true)
+    ).for(this.updateRealmUser);
     const adminAccessToken = await this.getAdminAccessToken(...ctxArgs);
     const response = await this.request(
       "GET",
       `/admin/realms/${realmName}/users/${userUUID}`,
       adminAccessToken,
       undefined,
-      ...ctxArgs,
-      200
+      200,
+      {},
+      ...ctxArgs
     );
     const currentUser =
       this.parseJsonResponse<KeycloakUserRepresentation>(response.data) ?? {};
@@ -83,22 +91,22 @@ export class KeycloakUserService extends ClientBasedService<
       `/admin/realms/${realmName}/users/${userUUID}`,
       adminAccessToken,
       { ...currentUser, ...payload },
-      ...ctxArgs,
-      204
+      204,
+      {},
+      ...ctxArgs
     );
   }
 
-  async removeUserFromRealm(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.removeUserFromRealm,
-      false
-    );
-    const realmName = ctxArgs[0] as string;
-    const userUUID = ctxArgs[0]?.[1] as string;
-    const config = this.config;
+  async removeUserFromRealm(
+    realmName: string,
+    userUUID: string,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "removeUserFromRealm", true)
+    ).for(this.removeUserFromRealm);
     const adminAccessToken = await this.getAccessToken(
-      config.adminApiUser!,
+      this.config.adminApiUser!,
       ...ctxArgs
     );
     await this.deleteUser(
@@ -114,29 +122,33 @@ export class KeycloakUserService extends ClientBasedService<
     );
   }
 
-  async deleteUser(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.deleteUser, false);
-    const accessToken = ctxArgs[0] as string;
-    const keycloakUser = ctxArgs[0]?.[1] as KeycloakUser;
+  async deleteUser(
+    accessToken: string,
+    keycloakUser: KeycloakUser,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "deleteUser", true)
+    ).for(this.deleteUser);
     await this.request(
       "DELETE",
       `/admin/realms/${keycloakUser.realm}/users/${keycloakUser.usernameUUID}`,
       accessToken,
       undefined,
-      ...ctxArgs,
-      204
+      204,
+      {},
+      ...ctxArgs
     );
   }
 
-  async createRealmUser(...args: MaybeContextualArg<any>): Promise<string> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.createRealmUser,
-      false
-    );
-    const keycloakUser = ctxArgs[0] as KeycloakUser;
-    const payload =
-      (ctxArgs[0]?.[1] as Partial<KeycloakUserRepresentation>) ?? {};
+  async createRealmUser(
+    keycloakUser: KeycloakUser,
+    payload: Partial<KeycloakUserRepresentation> | undefined,
+    ...args: MaybeContextualArg<any>
+  ): Promise<string> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "createRealmUser", true)
+    ).for(this.createRealmUser);
     const adminAccessToken = await this.getAdminAccessToken(...ctxArgs);
     const userPayload = {
       username: keycloakUser.username,
@@ -159,29 +171,31 @@ export class KeycloakUserService extends ClientBasedService<
       `/admin/realms/${keycloakUser.realm}/users`,
       adminAccessToken,
       userPayload,
-      ...ctxArgs,
-      201
+      201,
+      {},
+      ...ctxArgs
     );
     return this.extractUUIDfromResponse(response);
   }
 
-  async assignRolesToUser(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.assignRolesToUser,
-      false
-    );
-    const rolesUrl = ctxArgs[0] as string;
-    const setRolesUrl = ctxArgs[0]?.[1] as string;
-    const roleNames = ctxArgs[0]?.[2] as string[];
-    const accessToken = ctxArgs[0]?.[3] as string;
+  async assignRolesToUser(
+    rolesUrl: string,
+    setRolesUrl: string,
+    roleNames: string[],
+    accessToken: string,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "assignRolesToUser", true)
+    ).for(this.assignRolesToUser);
     const response = await this.request(
       "GET",
       rolesUrl,
       accessToken,
       undefined,
-      ...ctxArgs,
-      200
+      200,
+      {},
+      ...ctxArgs
     );
     const roles = this.parseJsonResponse<any[]>(response.data) ?? [];
     const selectedRoles = roles.filter((role) => roleNames.includes(role.name));
@@ -189,71 +203,76 @@ export class KeycloakUserService extends ClientBasedService<
       throw new NotFoundError(`No roles matched ${roleNames.join(", ")}`);
     }
     const promises: Promise<void>[] = selectedRoles.map((role) =>
-      this.request("POST", setRolesUrl, accessToken, [role], ...ctxArgs, 204)
+      this.request(
+        "POST",
+        setRolesUrl,
+        accessToken,
+        [role],
+        204,
+        {},
+        ...ctxArgs
+      )
     );
     await Promise.all(promises);
   }
 
-  async grantRealmRolesToUser(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.grantRealmRolesToUser,
-      false
-    );
-    const realmName = ctxArgs[0] as string;
-    const userUUID = ctxArgs[0]?.[1] as string;
-    const roleNames = ctxArgs[0]?.[2] as string[];
+  async grantRealmRolesToUser(
+    realmName: string,
+    userUUID: string,
+    roleNames: string[],
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "grantRealmRolesToUser", true)
+    ).for(this.grantRealmRolesToUser);
     const adminAccessToken = await this.getAdminAccessToken(...ctxArgs);
     await this.assignRolesToUser(
-      ...ctxArgs,
       `/admin/realms/${realmName}/roles`,
       `/admin/realms/${realmName}/users/${userUUID}/role-mappings/realm`,
       roleNames,
-      adminAccessToken
+      adminAccessToken,
+      ...ctxArgs
     );
   }
 
   async grantClientRolesToUser(
+    realmName: string,
+    clientUUID: string,
+    userUUID: string,
+    roleNames: string[],
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.grantClientRolesToUser,
-      false
-    );
-    const realmName = ctxArgs[0] as string;
-    const clientUUID = ctxArgs[0]?.[1] as string;
-    const userUUID = ctxArgs[0]?.[2] as string;
-    const roleNames = ctxArgs[0]?.[3] as string[];
+    const { ctxArgs } = (
+      await this.logCtx(args, "grantClientRolesToUser", true)
+    ).for(this.grantClientRolesToUser);
     const adminAccessToken = await this.getAdminAccessToken(...ctxArgs);
     await this.assignRolesToUser(
-      ...ctxArgs,
       `/admin/realms/${realmName}/clients/${clientUUID}/roles`,
       `/admin/realms/${realmName}/users/${userUUID}/role-mappings/clients/${clientUUID}`,
       roleNames,
-      adminAccessToken
+      adminAccessToken,
+      ...ctxArgs
     );
   }
 
   async revokeRealmRolesFromUser(
+    realmName: string,
+    userUUID: string,
+    roleNames: string[],
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.revokeRealmRolesFromUser,
-      false
-    );
-    const realmName = ctxArgs[0] as string;
-    const userUUID = ctxArgs[0]?.[1] as string;
-    const roleNames = ctxArgs[0]?.[2] as string[];
+    const { ctxArgs } = (
+      await this.logCtx(args, "revokeRealmRolesFromUser", true)
+    ).for(this.revokeRealmRolesFromUser);
     const adminAccessToken = await this.getAdminAccessToken(...ctxArgs);
     const rolesResponse = await this.request(
       "GET",
       `/admin/realms/${realmName}/roles`,
       adminAccessToken,
       undefined,
-      ...ctxArgs,
-      200
+      200,
+      {},
+      ...ctxArgs
     );
     const roles = this.parseJsonResponse<any[]>(rolesResponse.data) ?? [];
     const selectedRoles = roles.filter((role) => roleNames.includes(role.name));
@@ -262,30 +281,30 @@ export class KeycloakUserService extends ClientBasedService<
       `/admin/realms/${realmName}/users/${userUUID}/role-mappings/realm`,
       adminAccessToken,
       selectedRoles,
-      ...ctxArgs,
-      204
+      204,
+      {},
+      ...ctxArgs
     );
   }
 
   async replaceRealmRolesForUser(
+    realmName: string,
+    userUUID: string,
+    roleNames: string[],
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.replaceRealmRolesForUser,
-      false
-    );
-    const realmName = ctxArgs[0] as string;
-    const userUUID = ctxArgs[0]?.[1] as string;
-    const roleNames = ctxArgs[0]?.[2] as string[];
+    const { ctxArgs } = (
+      await this.logCtx(args, "replaceRealmRolesForUser", true)
+    ).for(this.replaceRealmRolesForUser);
     const adminAccessToken = await this.getAdminAccessToken(...ctxArgs);
     const currentRolesResponse = await this.request(
       "GET",
       `/admin/realms/${realmName}/users/${userUUID}/role-mappings/realm`,
       adminAccessToken,
       undefined,
-      ...ctxArgs,
-      200
+      200,
+      {},
+      ...ctxArgs
     );
     const currentRoles =
       this.parseJsonResponse<any[]>(currentRolesResponse.data) ?? [];
@@ -295,8 +314,9 @@ export class KeycloakUserService extends ClientBasedService<
         `/admin/realms/${realmName}/users/${userUUID}/role-mappings/realm`,
         adminAccessToken,
         currentRoles,
-        ...ctxArgs,
-        204
+        204,
+        {},
+        ...ctxArgs
       );
     }
     await this.grantRealmRolesToUser(
@@ -308,25 +328,24 @@ export class KeycloakUserService extends ClientBasedService<
   }
 
   async revokeClientRolesFromUser(
+    realmName: string,
+    clientUUID: string,
+    userUUID: string,
+    roleNames: string[],
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.revokeClientRolesFromUser,
-      false
-    );
-    const realmName = ctxArgs[0] as string;
-    const clientUUID = ctxArgs[0]?.[1] as string;
-    const userUUID = ctxArgs[0]?.[2] as string;
-    const roleNames = ctxArgs[0]?.[3] as string[];
+    const { ctxArgs } = (
+      await this.logCtx(args, "revokeClientRolesFromUser", true)
+    ).for(this.revokeClientRolesFromUser);
     const adminAccessToken = await this.getAdminAccessToken(...ctxArgs);
     const rolesResponse = await this.request(
       "GET",
       `/admin/realms/${realmName}/clients/${clientUUID}/roles`,
       adminAccessToken,
       undefined,
-      ...ctxArgs,
-      200
+      200,
+      {},
+      ...ctxArgs
     );
     const roles = this.parseJsonResponse<any[]>(rolesResponse.data) ?? [];
     const selectedRoles = roles.filter((role) => roleNames.includes(role.name));
@@ -335,31 +354,31 @@ export class KeycloakUserService extends ClientBasedService<
       `/admin/realms/${realmName}/users/${userUUID}/role-mappings/clients/${clientUUID}`,
       adminAccessToken,
       selectedRoles,
-      ...ctxArgs,
-      204
+      204,
+      {},
+      ...ctxArgs
     );
   }
 
   async replaceClientRolesForUser(
+    realmName: string,
+    clientUUID: string,
+    userUUID: string,
+    roleNames: string[],
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.replaceClientRolesForUser,
-      false
-    );
-    const realmName = ctxArgs[0] as string;
-    const clientUUID = ctxArgs[0]?.[1] as string;
-    const userUUID = ctxArgs[0]?.[2] as string;
-    const roleNames = ctxArgs[0]?.[3] as string[];
+    const { ctxArgs } = (
+      await this.logCtx(args, "replaceClientRolesForUser", true)
+    ).for(this.replaceClientRolesForUser);
     const adminAccessToken = await this.getAdminAccessToken(...ctxArgs);
     const currentRolesResponse = await this.request(
       "GET",
       `/admin/realms/${realmName}/users/${userUUID}/role-mappings/clients/${clientUUID}`,
       adminAccessToken,
       undefined,
-      ...ctxArgs,
-      200
+      200,
+      {},
+      ...ctxArgs
     );
     const currentRoles =
       this.parseJsonResponse<any[]>(currentRolesResponse.data) ?? [];
@@ -369,8 +388,9 @@ export class KeycloakUserService extends ClientBasedService<
         `/admin/realms/${realmName}/users/${userUUID}/role-mappings/clients/${clientUUID}`,
         adminAccessToken,
         currentRoles,
-        ...ctxArgs,
-        204
+        204,
+        {},
+        ...ctxArgs
       );
     }
     await this.grantClientRolesToUser(
@@ -400,12 +420,15 @@ export class KeycloakUserService extends ClientBasedService<
   private async getAdminAccessToken(
     ...args: ContextualArgs<any>
   ): Promise<string> {
-    const config = this.config;
-    return this.getAccessToken(config.adminApiUser!, ...args);
+    const { ctxArgs } = this.logCtx(args, this.getAdminAccessToken);
+    return this.getAccessToken(this.config.adminApiUser!, ...ctxArgs);
   }
 
-  private async getAccessToken(...args: ContextualArgs<any>): Promise<string> {
-    const keycloakUser = args[0] as KeycloakUser;
+  private async getAccessToken(
+    keycloakUser: KeycloakUser,
+    ...args: ContextualArgs<any>
+  ): Promise<string> {
+    const { ctxArgs } = this.logCtx(args, this.getAccessToken);
     const response = await this.request(
       "POST",
       `/realms/${keycloakUser.realm}/protocol/openid-connect/token`,
@@ -416,9 +439,9 @@ export class KeycloakUserService extends ClientBasedService<
         password: keycloakUser.password,
         grant_type: "password",
       }).toString(),
-      ...args,
       200,
-      { "content-type": "application/x-www-form-urlencoded" }
+      { "content-type": "application/x-www-form-urlencoded" },
+      ...ctxArgs
     );
     const data = this.parseJsonResponse<{ access_token?: string }>(
       response.data
@@ -429,20 +452,25 @@ export class KeycloakUserService extends ClientBasedService<
     );
   }
 
-  private request(
+  private async request(
     method: "GET" | "POST" | "PUT" | "DELETE",
     path: string,
-    accessToken?: string,
-    payload?: unknown,
+    accessToken: string | undefined,
+    payload: unknown,
+    successCode: number,
+    headers: Record<string, string>,
     ...args: ContextualArgs<any>
   ): Promise<any> {
-    const successCode = (args.pop() as number) || 200;
-    const headers = (args.pop() as Record<string, string>) || {};
-
-    return this.client.request({
+    this.logCtx(args, this.request);
+    const response = await this.client.request({
       method,
       url: `${this.config.protocol}://${this.config.host}${path}`,
-      data: payload === undefined ? undefined : JSON.stringify(payload),
+      data:
+        payload === undefined
+          ? undefined
+          : typeof payload === "string"
+            ? payload
+            : JSON.stringify(payload),
       headers: {
         ...headers,
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
@@ -455,6 +483,10 @@ export class KeycloakUserService extends ClientBasedService<
       }),
       validateStatus: () => true,
     });
+    if (response.status !== successCode) {
+      this.handleHttpResponse(response, successCode);
+    }
+    return response;
   }
 
   private handleHttpResponse(
@@ -463,8 +495,8 @@ export class KeycloakUserService extends ClientBasedService<
     errorMsg?: string
   ): void {
     const message = errorMsg
-      ? `${errorMsg}: ${response.statusText}.`
-      : response.statusText;
+      ? `${errorMsg}: Expected ${successCode}, received ${response.status}: ${response.statusText}.`
+      : `Expected ${successCode}, received ${response.status}: ${response.statusText}`;
     const operation = "Keycloak HTTP request";
     throw this.parseError(new Error(message), message, operation);
   }

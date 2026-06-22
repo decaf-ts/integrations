@@ -1,10 +1,27 @@
 import { SecretProvider } from "../../secrets/core";
-import { SecretName, SecretPayload, SecretReference, SecretMetadata } from "../../secrets/core";
-import { StoreSecretOptions, RetrieveSecretOptions, DeleteSecretOptions } from "../../secrets/core";
-import { ExistsSecretOptions, ListSecretsOptions, SecretMetadataOptions } from "../../secrets/core";
+import {
+  SecretName,
+  SecretPayload,
+  SecretReference,
+  SecretMetadata,
+} from "../../secrets/core";
+import {
+  StoreSecretOptions,
+  RetrieveSecretOptions,
+  DeleteSecretOptions,
+} from "../../secrets/core";
+import {
+  ExistsSecretOptions,
+  ListSecretsOptions,
+  SecretMetadataOptions,
+} from "../../secrets/core";
 import { validateSecretName, normalizeSecretName } from "../../secrets/core";
-import { serializeSecretPayload, deserializeSecretPayload, type SerializedSecretPayload } from "../../secrets/core";
-import { ClientBasedService, type ContextualArgs, type MaybeContextualArg } from "@decaf-ts/core";
+import {
+  serializeSecretPayload,
+  deserializeSecretPayload,
+  type SerializedSecretPayload,
+} from "../../secrets/core";
+import { ClientBasedService, type MaybeContextualArg } from "@decaf-ts/core";
 import { VaultSecretServiceConfig } from "./VaultSecretServiceConfig";
 import {
   BadRequestError,
@@ -19,14 +36,23 @@ export class VaultKvV2Client {
   private mountPath: string;
   private namespace?: string;
 
-  constructor(config: { baseUrl: string; token: string; mountPath: string; namespace?: string }) {
+  constructor(config: {
+    baseUrl: string;
+    token: string;
+    mountPath: string;
+    namespace?: string;
+  }) {
     this.baseUrl = config.baseUrl.replace(/\/+$/, "");
     this.token = config.token;
     this.mountPath = config.mountPath.replace(/^\/+/, "").replace(/\/+$/, "");
     this.namespace = config.namespace;
   }
 
-  private async request<T = any>(method: string, path: string, body?: any): Promise<T> {
+  private async request<T = any>(
+    method: string,
+    path: string,
+    body?: any
+  ): Promise<T> {
     const url = `${this.baseUrl}/v1/${path}`;
     const headers: Record<string, string> = {
       "X-Vault-Token": this.token,
@@ -44,14 +70,25 @@ export class VaultKvV2Client {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ errors: [] })) as { errors?: string[] };
+      const errorData = (await response
+        .json()
+        .catch(() => ({ errors: [] }))) as { errors?: string[] };
       const message = errorData.errors?.join(", ") || response.statusText;
       const err = new Error(message);
       err.name = `VaultError`;
       throw err;
     }
 
-    const data = await response.json() as { data?: T };
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    const text = await response.text();
+    if (!text) {
+      return undefined as T;
+    }
+
+    const data = JSON.parse(text) as { data?: T };
     return data.data as T;
   }
 
@@ -70,7 +107,10 @@ export class VaultKvV2Client {
   }
 
   async list(path: string): Promise<string[]> {
-    const result = await this.request<{ keys: string[] }>("LIST", `${this.mountPath}/metadata/${path}`);
+    const result = await this.request<{ keys: string[] }>(
+      "LIST",
+      `${this.mountPath}/metadata/${path}`
+    );
     return result.keys || [];
   }
 
@@ -79,17 +119,27 @@ export class VaultKvV2Client {
   }
 }
 
-export class VaultSecretService extends ClientBasedService<VaultKvV2Client, VaultSecretServiceConfig> {
+export class VaultSecretService extends ClientBasedService<
+  VaultKvV2Client,
+  VaultSecretServiceConfig
+> {
   readonly provider: SecretProvider = "hashicorp-vault";
 
-  async initialize(...args: ContextualArgs<any>): Promise<{ config: VaultSecretServiceConfig; client: VaultKvV2Client }> {
-    const config = args[0] as VaultSecretServiceConfig;
+  async initialize(
+    ...args: MaybeContextualArg<any>
+  ): Promise<{ config: VaultSecretServiceConfig; client: VaultKvV2Client }> {
+    const { ctxArgs } = (await this.logCtx(args, "initialize", true)).for(
+      this.initialize
+    );
+    const config = ctxArgs[0] as VaultSecretServiceConfig;
     const client = new VaultKvV2Client({
       baseUrl: config.address,
       token: config.token,
       mountPath: config.path,
       namespace: config.namespace,
     });
+    this._config = config;
+    this._client = client;
     return { config, client };
   }
 
@@ -99,7 +149,9 @@ export class VaultSecretService extends ClientBasedService<VaultKvV2Client, Vaul
     options: StoreSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<SecretReference> {
-    const { log, ctxArgs } = (await this.logCtx(args, "store", true)).for(this.store);
+    const { log, ctxArgs } = (await this.logCtx(args, "store", true)).for(
+      this.store
+    );
     try {
       validateSecretName(name);
     } catch (error) {
@@ -112,6 +164,7 @@ export class VaultSecretService extends ClientBasedService<VaultKvV2Client, Vaul
     try {
       await this.client.write(normalizedName, {
         value: serialized.value,
+        encoding: serialized.encoding,
         contentType: options.contentType,
         tags: options.tags,
       });
@@ -122,7 +175,10 @@ export class VaultSecretService extends ClientBasedService<VaultKvV2Client, Vaul
         version: options.version,
       };
     } catch (error: any) {
-      if (error?.name?.toLowerCase().includes("already") || error?.message?.toLowerCase()?.includes("already")) {
+      if (
+        error?.name?.toLowerCase().includes("already") ||
+        error?.message?.toLowerCase()?.includes("already")
+      ) {
         throw this.parseError(
           new Error(`Secret "${normalizedName}" already exists`)
         );
@@ -136,7 +192,9 @@ export class VaultSecretService extends ClientBasedService<VaultKvV2Client, Vaul
     options: RetrieveSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<T> {
-    const { log, ctxArgs } = (await this.logCtx(args, "retrieve", true)).for(this.retrieve);
+    const { log, ctxArgs } = (await this.logCtx(args, "retrieve", true)).for(
+      this.retrieve
+    );
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Retrieving secret ${nameStr}`);
 
@@ -159,20 +217,23 @@ export class VaultSecretService extends ClientBasedService<VaultKvV2Client, Vaul
     try {
       const response = await this.client.read(normalizedName);
 
-      if (!response?.value) {
+      if (!response?.data?.value) {
         throw this.parseError(
           new Error(`Secret "${normalizedName}" has no value`)
         );
       }
 
       const payload: SerializedSecretPayload = {
-        encoding: "utf8",
-        value: response.value,
+        encoding: response.data.encoding ?? "utf8",
+        value: response.data.value,
       };
 
       return deserializeSecretPayload(payload) as T;
     } catch (error: any) {
-      if (error?.name?.toLowerCase().includes("not found") || error?.message?.toLowerCase()?.includes("not found")) {
+      if (
+        error?.name?.toLowerCase().includes("not found") ||
+        error?.message?.toLowerCase()?.includes("not found")
+      ) {
         throw this.parseError(
           new Error(`Secret "${normalizedName}" not found`)
         );
@@ -186,7 +247,9 @@ export class VaultSecretService extends ClientBasedService<VaultKvV2Client, Vaul
     options: DeleteSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log, ctxArgs } = (await this.logCtx(args, "delete", true)).for(this.delete);
+    const { log, ctxArgs } = (await this.logCtx(args, "delete", true)).for(
+      this.delete
+    );
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Deleting secret ${nameStr}`);
 
@@ -218,7 +281,9 @@ export class VaultSecretService extends ClientBasedService<VaultKvV2Client, Vaul
     options: ExistsSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<boolean> {
-    const { log, ctxArgs } = (await this.logCtx(args, "exists", true)).for(this.exists);
+    const { log, ctxArgs } = (await this.logCtx(args, "exists", true)).for(
+      this.exists
+    );
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Checking if secret ${nameStr} exists`);
 
@@ -242,15 +307,23 @@ export class VaultSecretService extends ClientBasedService<VaultKvV2Client, Vaul
       await this.client.read(normalizedName);
       return true;
     } catch (error: any) {
-      if (error?.name?.toLowerCase().includes("not found") || error?.message?.toLowerCase()?.includes("not found")) {
+      if (
+        error?.name?.toLowerCase().includes("not found") ||
+        error?.message?.toLowerCase()?.includes("not found")
+      ) {
         return false;
       }
       throw this.parseError(error as Error);
     }
   }
 
-  async list(options: ListSecretsOptions = {}, ...args: MaybeContextualArg<any>): Promise<SecretMetadata[]> {
-    const { log, ctxArgs } = (await this.logCtx(args, "list", true)).for(this.list);
+  async list(
+    options: ListSecretsOptions = {},
+    ...args: MaybeContextualArg<any>
+  ): Promise<SecretMetadata[]> {
+    const { log, ctxArgs } = (await this.logCtx(args, "list", true)).for(
+      this.list
+    );
     log.verbose("Listing secrets");
     const result: SecretMetadata[] = [];
 
@@ -264,14 +337,18 @@ export class VaultSecretService extends ClientBasedService<VaultKvV2Client, Vaul
 
         const meta = await this.client.metadata(key);
 
-        if (meta && meta.data) {
+        if (meta) {
           result.push({
             provider: this.provider,
             name: key,
-            createdAt: meta.created_time ? new Date(meta.created_time * 1000) : undefined,
-            updatedAt: meta.updated_time ? new Date(meta.updated_time * 1000) : undefined,
+            createdAt: meta.created_time
+              ? new Date(meta.created_time)
+              : undefined,
+            updatedAt: meta.updated_time
+              ? new Date(meta.updated_time)
+              : undefined,
             enabled: true,
-            tags: meta.metadata?.tags,
+            tags: meta.custom_metadata ?? undefined,
           });
         }
       }
@@ -287,7 +364,9 @@ export class VaultSecretService extends ClientBasedService<VaultKvV2Client, Vaul
     options: SecretMetadataOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<SecretMetadata | undefined> {
-    const { log, ctxArgs } = (await this.logCtx(args, "metadata", true)).for(this.metadata);
+    const { log, ctxArgs } = (await this.logCtx(args, "metadata", true)).for(
+      this.metadata
+    );
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Getting metadata for secret ${nameStr}`);
 
@@ -310,26 +389,29 @@ export class VaultSecretService extends ClientBasedService<VaultKvV2Client, Vaul
     try {
       const meta = await this.client.metadata(normalizedName);
 
-      if (!meta?.data) {
+      if (!meta) {
         return undefined;
       }
 
       const result: SecretMetadata = {
         provider: this.provider,
         name: normalizedName,
-        createdAt: meta.created_time ? new Date(meta.created_time * 1000) : undefined,
-        updatedAt: meta.updated_time ? new Date(meta.updated_time * 1000) : undefined,
+        createdAt: meta.created_time ? new Date(meta.created_time) : undefined,
+        updatedAt: meta.updated_time ? new Date(meta.updated_time) : undefined,
         enabled: true,
-        tags: meta.metadata?.tags,
+        tags: meta.custom_metadata ?? undefined,
       };
 
       if (options.includeTags) {
-        result.tags = meta.metadata?.tags;
+        result.tags = meta.custom_metadata ?? undefined;
       }
 
       return result;
     } catch (error: any) {
-      if (error?.name?.toLowerCase().includes("not found") || error?.message?.toLowerCase()?.includes("not found")) {
+      if (
+        error?.name?.toLowerCase().includes("not found") ||
+        error?.message?.toLowerCase()?.includes("not found")
+      ) {
         return undefined;
       }
       throw this.parseError(error as Error);

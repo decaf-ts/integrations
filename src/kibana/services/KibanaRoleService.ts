@@ -4,7 +4,7 @@ import {
   InternalError,
   NotFoundError,
 } from "@decaf-ts/db-decorators";
-import { Context, ContextualArgs, MaybeContextualArg } from "@decaf-ts/core";
+import { ContextualArgs, MaybeContextualArg } from "@decaf-ts/core";
 import { ClientBasedService, service } from "@decaf-ts/core";
 import type { KibanaRoleConfig, KibanaSetupConfig, KibanaUser } from "../types";
 import Axios, { AxiosInstance } from "axios";
@@ -18,17 +18,27 @@ export class KibanaRoleService extends ClientBasedService<
   @service()
   protected authService!: KibanaAuthService;
 
-  async initialize(...args: ContextualArgs<any>): Promise<{ config: KibanaSetupConfig; client: AxiosInstance }> {
-    const { log, ctxArgs } = await this.logCtx(args, this.initialize, true);
-    this._config = this.config;
-    const client = this.createHttpClient(...ctxArgs);
-    return { config: this.config, client };
+  async initialize(
+    ...args: MaybeContextualArg<any>
+  ): Promise<{ config: KibanaSetupConfig; client: AxiosInstance }> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "initialize", true)
+    ).for(this.initialize);
+    const config = ctxArgs[0] as KibanaSetupConfig;
+    this._config = config;
+    const client = this.createHttpClient(config);
+    this._client = client;
+    return { config, client };
   }
 
-  async createRole(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.createRole, false);
-    const realmName = ctxArgs[0] as string;
-    const payload = ctxArgs[0]?.[1] as Partial<KibanaRoleConfig> | undefined;
+  async createRole(
+    realmName: string,
+    payload: Partial<KibanaRoleConfig> | undefined,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "createRole", true)
+    ).for(this.createRole);
     const role = this.normalizeRoleConfig(realmName, payload);
     const response = await this.request(
       "POST",
@@ -36,13 +46,12 @@ export class KibanaRoleService extends ClientBasedService<
       {
         indices: role.indices,
         applications: role.applications,
-        kibana: role.kibana,
         metadata: role.metadata ?? {},
       },
-      undefined,
+      this.config.adminApiUser,
       { headers: { "kbn-xsrf": "true", "Content-Type": "application/json" } },
-      ...ctxArgs,
-      200
+      200,
+      ...ctxArgs
     );
     if (response.status >= 300) {
       const operation = "Create role";
@@ -51,10 +60,14 @@ export class KibanaRoleService extends ClientBasedService<
     }
   }
 
-  async updateRole(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.updateRole, false);
-    const realmName = ctxArgs[0] as string;
-    const payload = ctxArgs[0]?.[1] as Partial<KibanaRoleConfig>;
+  async updateRole(
+    realmName: string,
+    payload: Partial<KibanaRoleConfig>,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "updateRole", true)
+    ).for(this.updateRole);
     const role = this.normalizeRoleConfig(realmName, payload);
     const response = await this.request(
       "PUT",
@@ -62,13 +75,12 @@ export class KibanaRoleService extends ClientBasedService<
       {
         indices: role.indices,
         applications: role.applications,
-        kibana: role.kibana,
         metadata: role.metadata ?? {},
       },
-      undefined,
+      this.config.adminApiUser,
       { headers: { "kbn-xsrf": "true", "Content-Type": "application/json" } },
-      ...ctxArgs,
-      200
+      200,
+      ...ctxArgs
     );
     if (response.status >= 300) {
       const operation = "Update role";
@@ -77,8 +89,7 @@ export class KibanaRoleService extends ClientBasedService<
     }
   }
 
-  private createHttpClient(...args: ContextualArgs<any>): AxiosInstance {
-    const config = this.resolveConfig(args);
+  private createHttpClient(config: KibanaSetupConfig): AxiosInstance {
     return Axios.create({
       baseURL: `${config.protocol}://${config.host}`,
       validateStatus: () => true,
@@ -86,19 +97,6 @@ export class KibanaRoleService extends ClientBasedService<
         rejectUnauthorized: this.isSecureEnvironment(),
       }),
     });
-  }
-
-  private resolveConfig(args: any[]): KibanaSetupConfig {
-    const configArg = args.find((arg) => arg && arg.host) as
-      | KibanaSetupConfig
-      | undefined;
-    if (configArg) return configArg;
-
-    if (this._config) return this._config;
-
-    const operation = "Kibana config resolution";
-    const message = "Config not provided and not initialized";
-    throw this.parseError(new Error(message), message, operation);
   }
 
   private parseError(err: Error, message: string, operation: string): Error {
@@ -168,15 +166,16 @@ export class KibanaRoleService extends ClientBasedService<
     };
   }
 
-  private request(
+  private async request(
     method: "GET" | "POST" | "PUT" | "DELETE",
     url: string,
-    payload?: unknown,
-    apiUser?: KibanaUser,
-    extra: Record<string, any> = {},
-    successCode = 200,
+    payload: unknown,
+    apiUser: KibanaUser | undefined,
+    extra: Record<string, any>,
+    successCode: number,
     ...args: ContextualArgs<any>
   ): Promise<any> {
+    this.logCtx(args, this.request);
     return this.client.request({
       method,
       url,
@@ -195,14 +194,5 @@ export class KibanaRoleService extends ClientBasedService<
       }),
       ...extra,
     });
-  }
-
-  private parseJson(value: unknown): any {
-    if (typeof value !== "string") return value;
-    try {
-      return JSON.parse(value);
-    } catch {
-      return undefined;
-    }
   }
 }

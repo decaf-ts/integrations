@@ -1,14 +1,13 @@
-import { NotFoundError } from "@decaf-ts/db-decorators";
+import { description } from "@decaf-ts/decoration";
 import {
   ClientBasedService,
-  Context,
   ContextualArgs,
   MaybeContextualArg,
-  PersistenceKeys,
   service,
 } from "@decaf-ts/core";
+import { NotFoundError } from "@decaf-ts/db-decorators";
 import type { KeycloakSetupConfig, KeycloakUser } from "../types";
-import type { AxiosInstance } from "axios";
+import Axios, { AxiosInstance } from "axios";
 import * as https from "node:https";
 
 import { KeycloakRealmService } from "./KeycloakRealmService";
@@ -18,6 +17,7 @@ import { KeycloakClientService } from "./KeycloakClientService";
 import { KeycloakIdentityProviderService } from "./KeycloakIdentityProviderService";
 import { KeycloakAuthService } from "./KeycloakAuthService";
 
+@description("Orchestrates Keycloak realm/user/client provisioning across the inner Keycloak services")
 export class KeycloakService extends ClientBasedService<
   AxiosInstance,
   KeycloakSetupConfig
@@ -39,11 +39,13 @@ export class KeycloakService extends ClientBasedService<
   }
 
   async initialize(
-    ...args: ContextualArgs<any>
+    ...args: MaybeContextualArg<any>
   ): Promise<{ config: KeycloakSetupConfig; client: AxiosInstance }> {
-    const { log, ctxArgs } = await this.logCtx(args, this.initialize, true);
-    this._config = this.config;
+    const { log, ctxArgs } = (
+      await this.logCtx(args, "initialize", true)
+    ).for(this.initialize);
     const config = ctxArgs[0] as KeycloakSetupConfig;
+    this._config = config;
 
     log.debug(`Binding inner services...`);
     service()(KeycloakRealmService);
@@ -55,30 +57,33 @@ export class KeycloakService extends ClientBasedService<
 
     log.debug(`Initializing inner services...`);
     this.realmService = new KeycloakRealmService();
-    await this.realmService.initialize(config);
+    await this.realmService.initialize(config, ...ctxArgs);
     this.userService = new KeycloakUserService();
-    await this.userService.initialize(config);
+    await this.userService.initialize(config, ...ctxArgs);
     this.roleService = new KeycloakRoleService();
-    await this.roleService.initialize(config);
+    await this.roleService.initialize(config, ...ctxArgs);
     this.clientService = new KeycloakClientService();
-    await this.clientService.initialize(config);
+    await this.clientService.initialize(config, ...ctxArgs);
     this.identityProviderService = new KeycloakIdentityProviderService();
-    await this.identityProviderService.initialize(config);
+    await this.identityProviderService.initialize(config, ...ctxArgs);
     this.authService = new KeycloakAuthService();
-    await this.authService.initialize(config);
+    await this.authService.initialize(config, ...ctxArgs);
 
     const client = this.createHttpClient(config);
+    this._client = client;
     log.debug(
-      `Keycloak Service initialized with config: ${JSON.stringify(this.config)}`
+      `Keycloak Service initialized with config: ${JSON.stringify(config)}`
     );
-    return { config: this.config, client };
+    return { config, client };
   }
 
   async setupKeycloak(
+    keycloakSetupConfig: KeycloakSetupConfig,
     ...args: MaybeContextualArg<any>
   ): Promise<KeycloakSetupConfig> {
-    const { log, ctxArgs } = await this.logCtx(args, this.setupKeycloak, false);
-    const keycloakSetupConfig = ctxArgs[0] as KeycloakSetupConfig;
+    const { ctxArgs } = (
+      await this.logCtx(args, "setupKeycloak", true)
+    ).for(this.setupKeycloak);
 
     const adminApiUserUUID = await this.userService.addUserToRealm(
       keycloakSetupConfig.adminApiUser!,
@@ -86,7 +91,6 @@ export class KeycloakService extends ClientBasedService<
       ...ctxArgs
     );
     keycloakSetupConfig.adminApiUser!.usernameUUID = adminApiUserUUID;
-    const client = this.createHttpClient(keycloakSetupConfig);
     await this.roleService.grantRealmRolesToUser(
       keycloakSetupConfig.adminApiUser!.realm,
       adminApiUserUUID,
@@ -96,78 +100,81 @@ export class KeycloakService extends ClientBasedService<
     return keycloakSetupConfig;
   }
 
-  async addRealm(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.addRealm, false);
-    const realmName = ctxArgs[0] as string;
-    const payload =
-      ctxArgs[0]?.[1] && typeof ctxArgs[0]?.[1] === "object"
-        ? ctxArgs[0]?.[1]
-        : {};
-
+  async addRealm(
+    realmName: string,
+    payload: any,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "addRealm", true)
+    ).for(this.addRealm);
     await this.realmService.addRealm(realmName, payload, ...ctxArgs);
   }
 
-  async editRealm(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.editRealm, false);
-    const realmName = ctxArgs[0] as string;
-    const payload = ctxArgs[0]?.[1];
-
+  async editRealm(
+    realmName: string,
+    payload: any,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "editRealm", true)
+    ).for(this.editRealm);
     await this.realmService.editRealm(realmName, payload, ...ctxArgs);
   }
 
-  async removeRealm(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.removeRealm, false);
-    const realmName = ctxArgs[0] as string;
-
+  async removeRealm(
+    realmName: string,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "removeRealm", true)
+    ).for(this.removeRealm);
     await this.realmService.removeRealm(realmName, ...ctxArgs);
   }
 
-  async addUserToRealm(...args: MaybeContextualArg<any>): Promise<string> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.addUserToRealm,
-      false
-    );
-    const keycloakUser = ctxArgs[0] as KeycloakUser;
-    const payload =
-      ctxArgs[0]?.[1] && typeof ctxArgs[0]?.[1] === "object"
-        ? ctxArgs[0]?.[1]
-        : {};
-
+  async addUserToRealm(
+    keycloakUser: KeycloakUser,
+    payload: any,
+    ...args: MaybeContextualArg<any>
+  ): Promise<string> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "addUserToRealm", true)
+    ).for(this.addUserToRealm);
     return this.userService.addUserToRealm(keycloakUser, payload, ...ctxArgs);
   }
 
-  async editUser(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.editUser, false);
-    const realmName = ctxArgs[0] as string;
-    const userUUID = ctxArgs[0]?.[1] as string;
-    const payload = ctxArgs[0]?.[2];
-
+  async editUser(
+    realmName: string,
+    userUUID: string,
+    payload: any,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "editUser", true)
+    ).for(this.editUser);
     await this.userService.editUser(realmName, userUUID, payload, ...ctxArgs);
   }
 
-  async removeUserFromRealm(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.removeUserFromRealm,
-      false
-    );
-    const realmName = ctxArgs[0] as string;
-    const userUUID = ctxArgs[0]?.[1] as string;
-
+  async removeUserFromRealm(
+    realmName: string,
+    userUUID: string,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "removeUserFromRealm", true)
+    ).for(this.removeUserFromRealm);
     await this.userService.removeUserFromRealm(realmName, userUUID, ...ctxArgs);
   }
 
-  async addRealmRolesToUser(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.addRealmRolesToUser,
-      false
-    );
-    const realmName = ctxArgs[0] as string;
-    const userUUID = ctxArgs[0]?.[1] as string;
-    const roleNames = ctxArgs[0]?.[2] as string[];
-
+  async addRealmRolesToUser(
+    realmName: string,
+    userUUID: string,
+    roleNames: string[],
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "addRealmRolesToUser", true)
+    ).for(this.addRealmRolesToUser);
     await this.roleService.grantRealmRolesToUser(
       realmName,
       userUUID,
@@ -176,17 +183,16 @@ export class KeycloakService extends ClientBasedService<
     );
   }
 
-  async addClientRolesToUser(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.addClientRolesToUser,
-      false
-    );
-    const realmName = ctxArgs[0] as string;
-    const clientUUID = ctxArgs[0]?.[1] as string;
-    const userUUID = ctxArgs[0]?.[2] as string;
-    const roleNames = ctxArgs[0]?.[3] as string[];
-
+  async addClientRolesToUser(
+    realmName: string,
+    clientUUID: string,
+    userUUID: string,
+    roleNames: string[],
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "addClientRolesToUser", true)
+    ).for(this.addClientRolesToUser);
     await this.roleService.grantClientRolesToUser(
       realmName,
       clientUUID,
@@ -196,15 +202,13 @@ export class KeycloakService extends ClientBasedService<
     );
   }
 
-  async deleteAdminApiUser(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.deleteAdminApiUser,
-      false
-    );
-    const keycloakSetupConfig = ctxArgs[0] as KeycloakSetupConfig;
-
-    const client = this.createHttpClient(keycloakSetupConfig);
+  async deleteAdminApiUser(
+    keycloakSetupConfig: KeycloakSetupConfig,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "deleteAdminApiUser", true)
+    ).for(this.deleteAdminApiUser);
     const rootAccessToken = await this.authService.getAccessToken(
       keycloakSetupConfig.rootApiUser!,
       ...ctxArgs
@@ -217,15 +221,12 @@ export class KeycloakService extends ClientBasedService<
   }
 
   async setupOrganization(
+    config: KeycloakSetupConfig,
     ...args: MaybeContextualArg<any>
   ): Promise<KeycloakSetupConfig> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.setupOrganization,
-      false
-    );
-    const realmName = ctxArgs[0] as string;
-    const config = ctxArgs[0]?.[1] as KeycloakSetupConfig;
+    const { ctxArgs } = (
+      await this.logCtx(args, "setupOrganization", true)
+    ).for(this.setupOrganization);
 
     const adminAccessToken = await this.authService.getAccessToken(
       config.adminApiUser!,
@@ -261,6 +262,7 @@ export class KeycloakService extends ClientBasedService<
 
     const clientUUID = await this.clientService.createClient(
       config,
+      undefined,
       ...ctxArgs
     );
     config.client.clientUUID = clientUUID;
@@ -270,35 +272,40 @@ export class KeycloakService extends ClientBasedService<
     return config;
   }
 
-  async setupOrganizationSSO(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.setupOrganizationSSO,
-      false
-    );
-    const keycloakSetupConfig = ctxArgs[0] as KeycloakSetupConfig;
+  async setupOrganizationSSO(
+    keycloakSetupConfig: KeycloakSetupConfig,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "setupOrganizationSSO", true)
+    ).for(this.setupOrganizationSSO);
 
-    await this.clientService.createClientRoles(keycloakSetupConfig, ...ctxArgs);
+    await this.clientService.createClientRoles(
+      keycloakSetupConfig,
+      undefined,
+      ...ctxArgs
+    );
     if (keycloakSetupConfig.identityProvider) {
       await this.identityProviderService.createIdentityProvider(
         keycloakSetupConfig,
+        undefined,
         ...ctxArgs
       );
       await this.identityProviderService.createIdentityProviderMappers(
         keycloakSetupConfig,
+        undefined,
         ...ctxArgs
       );
     }
   }
 
-  async deleteOrganization(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.deleteOrganization,
-      false
-    );
-    const realmName = ctxArgs[0] as string;
-
+  async deleteOrganization(
+    realmName: string,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "deleteOrganization", true)
+    ).for(this.deleteOrganization);
     await this.realmService.removeRealm(realmName, ...ctxArgs);
   }
 
@@ -314,19 +321,15 @@ export class KeycloakService extends ClientBasedService<
   }
 
   private async updateClientScopesRolesMappers(
-    ...args: MaybeContextualArg<any>
+    keycloakUser: KeycloakUser,
+    ...args: ContextualArgs<any>
   ): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      this.updateClientScopesRolesMappers,
-      false
-    );
-    const keycloakUser = ctxArgs[0] as KeycloakUser;
+    this.logCtx(args, this.updateClientScopesRolesMappers);
 
     const client = this.createHttpClient(this.config);
     const realmAccessToken = await this.authService.getAccessToken(
       keycloakUser,
-      ...ctxArgs
+      ...args
     );
     const rolesResponse = await client.request({
       method: "GET",

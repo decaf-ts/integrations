@@ -1,7 +1,7 @@
 import { SecretManagerServiceClient } from "@google-cloud/secret-manager";
+import * as grpc from "@grpc/grpc-js";
 import { SecretProvider } from "../../secrets/core";
-import { ClientBasedService, type ContextualArgs, type MaybeContextualArg } from "@decaf-ts/core";
-import type { SecretServiceConfig } from "../../secrets/core";
+import { ClientBasedService, type MaybeContextualArg } from "@decaf-ts/core";
 import { SecretName, SecretPayload, SecretReference, SecretMetadata } from "../../secrets/core";
 import { StoreSecretOptions, RetrieveSecretOptions, DeleteSecretOptions } from "../../secrets/core";
 import { ExistsSecretOptions, ListSecretsOptions, SecretMetadataOptions } from "../../secrets/core";
@@ -18,12 +18,22 @@ import {
 export class GcpSecretManagerService extends ClientBasedService<SecretManagerServiceClient, GcpSecretManagerServiceConfig> {
   readonly provider: SecretProvider = "gcp-secret-manager";
 
-  async initialize(...args: ContextualArgs<any>): Promise<{ config: GcpSecretManagerServiceConfig; client: SecretManagerServiceClient }> {
-    const config = args[0] as GcpSecretManagerServiceConfig;
+  async initialize(...args: MaybeContextualArg<any>): Promise<{ config: GcpSecretManagerServiceConfig; client: SecretManagerServiceClient }> {
+    const { ctxArgs } = (await this.logCtx(args, "initialize", true)).for(this.initialize);
+    const config = ctxArgs[0] as GcpSecretManagerServiceConfig;
     const client = new SecretManagerServiceClient({
       projectId: config.projectId,
       credentials: config.credentials,
+      ...(config.apiEndpoint
+        ? {
+            apiEndpoint: config.apiEndpoint,
+            ...(config.port ? { port: config.port } : {}),
+            sslCreds: grpc.credentials.createInsecure(),
+          }
+        : {}),
     });
+    this._config = config;
+    this._client = client;
     return { config, client };
   }
 
@@ -77,7 +87,7 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
       }
     }
 
-    const payloadBuffer = Buffer.from(serialized.value, "utf8");
+    const payloadBuffer = Buffer.from(JSON.stringify(serialized), "utf8");
     const versionRequest = {
       parent: secretName,
       payload: {
@@ -91,7 +101,6 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
         provider: this.provider,
         name: normalizedName,
         version: version?.name?.split("/").pop(),
-        
       };
     } catch (error) {
       throw this.parseError(error as Error);
@@ -125,18 +134,18 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
     const parent = `projects/${this.config.projectId}`;
     const secretPath = `${parent}/secrets/${normalizedName}`;
 
-    const [secret] = await this.client.getSecret({
-      name: secretPath,
-    });
-    if (!secret?.name) {
-      throw this.parseError(
-        new Error(`Secret "${normalizedName}" not found`)
-      );
-    }
-
-    const secretVersionPath = `${secret.name}/versions/latest`;
-
     try {
+      const [secret] = await this.client.getSecret({
+        name: secretPath,
+      });
+      if (!secret?.name) {
+        throw this.parseError(
+          new Error(`Secret "${normalizedName}" not found`)
+        );
+      }
+
+      const secretVersionPath = `${secret.name}/versions/latest`;
+
       const [accessResponse] = await this.client.accessSecretVersion({
         name: secretVersionPath,
       });
@@ -147,10 +156,9 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
         );
       }
 
-      const payload: SerializedSecretPayload = {
-        encoding: "utf8",
-        value: accessResponse.payload.data.toString("utf8"),
-      };
+      const payload = JSON.parse(
+        Buffer.from(accessResponse.payload.data).toString("utf8")
+      ) as SerializedSecretPayload;
 
       return deserializeSecretPayload(payload) as T;
     } catch (error) {
@@ -186,12 +194,7 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
     const secretPath = `${parent}/secrets/${normalizedName}`;
 
     try {
-      if (options.force) {
-        await this.client.deleteSecret({ name: secretPath });
-      } else {
-        // For now, just delete immediately (we can't disable in GCP)
-        await this.client.deleteSecret({ name: secretPath });
-      }
+      await this.client.deleteSecret({ name: secretPath });
     } catch (error) {
       throw this.parseError(error as Error);
     }
@@ -229,7 +232,11 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
       });
       return true;
     } catch (error: any) {
-      if (error?.message?.toLowerCase()?.includes?.("not found") || error?.message?.includes?.("404")) {
+      if (
+        error?.code === 5 ||
+        error?.message?.toLowerCase()?.includes?.("not found") ||
+        error?.message?.includes?.("404")
+      ) {
         return false;
       }
       throw this.parseError(error as Error);
@@ -258,7 +265,6 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
       result.push({
         provider: this.provider,
         name: name,
-        
       });
     }
 
@@ -300,15 +306,18 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
         return undefined;
       }
       const nameParts = secret.name.split("/");
-      const name = nameParts[nameParts.length - 1];
+      const resolvedName = nameParts[nameParts.length - 1];
 
       return {
         provider: this.provider,
-        name: name,
-        
+        name: resolvedName,
       };
     } catch (error: any) {
-      if (error?.message?.toLowerCase()?.includes?.("not found") || error?.message?.includes?.("404")) {
+      if (
+        error?.code === 5 ||
+        error?.message?.toLowerCase()?.includes?.("not found") ||
+        error?.message?.includes?.("404")
+      ) {
         return undefined;
       }
       throw this.parseError(error as Error);
@@ -318,14 +327,18 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
   protected parseError(error: unknown): Error {
     const err = error as Error;
     const message = err.message || err.name || "Unknown error";
-    const operation = "GCP Secret Manager";
     const lowerMessage = message.toLowerCase();
 
-    if (lowerMessage.includes("not found") || lowerMessage.includes("404")) {
+    if (
+      (error as any)?.code === 5 ||
+      lowerMessage.includes("not found") ||
+      lowerMessage.includes("404")
+    ) {
       return new NotFoundError(message, err);
     }
 
     if (
+      (error as any)?.code === 6 ||
       lowerMessage.includes("already exists") ||
       lowerMessage.includes("conflict") ||
       lowerMessage.includes("409")

@@ -11,7 +11,7 @@ import type {
   KibanaSpaceConfig,
   KibanaUser,
 } from "../types";
-import type { AxiosInstance } from "axios";
+import Axios, { AxiosInstance } from "axios";
 import * as https from "node:https";
 import { KibanaAuthService } from "./KibanaAuthService";
 
@@ -23,28 +23,36 @@ export class KibanaSpaceService extends ClientBasedService<
   protected authService!: KibanaAuthService;
 
   async initialize(
-    ...args: ContextualArgs<any>
+    ...args: MaybeContextualArg<any>
   ): Promise<{ config: KibanaSetupConfig; client: AxiosInstance }> {
-    const { ctx } = await this.logCtx(args, this.initialize, true);
-    this._config = this.config;
-    const client = this.createHttpClient(ctx);
-    return { config: this.config, client };
+    const { ctxArgs } = (
+      await this.logCtx(args, "initialize", true)
+    ).for(this.initialize);
+    const config = ctxArgs[0] as KibanaSetupConfig;
+    this._config = config;
+    const client = this.createHttpClient(config);
+    this._client = client;
+    return { config, client };
   }
 
-  async createSpace(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.createSpace, false);
-    const realmName = ctxArgs[0] as string;
-    const payload = ctxArgs[0]?.[1] as Partial<KibanaSpaceConfig>;
+  async createSpace(
+    realmName: string,
+    payload: Partial<KibanaSpaceConfig> | undefined,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "createSpace", true)
+    ).for(this.createSpace);
     const response = await this.request(
       "POST",
       "/api/spaces/space",
       this.normalizeSpaceConfig(realmName, payload),
-      undefined,
+      this.config.adminApiUser,
       {
         headers: { "kbn-xsrf": "true", "Content-Type": "application/json" },
       },
-      ...ctxArgs,
-      200
+      200,
+      ...ctxArgs
     );
     if (response.status === 409) {
       const operation = "Create space";
@@ -58,20 +66,25 @@ export class KibanaSpaceService extends ClientBasedService<
     }
   }
 
-  async updateSpace(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.updateSpace, false);
-    const realmName = ctxArgs[0] as string;
-    const payload = ctxArgs[0]?.[1] as Partial<KibanaSpaceConfig>;
+  async updateSpace(
+    realmName: string,
+    payload: Partial<KibanaSpaceConfig>,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "updateSpace", true)
+    ).for(this.updateSpace);
+    const normalized = this.normalizeSpaceConfig(realmName, payload);
     const response = await this.request(
       "PUT",
       `/api/spaces/space/${encodeURIComponent(payload.id ?? realmName.toLowerCase())}`,
-      this.normalizeSpaceConfig(realmName, payload),
-      undefined,
+      normalized,
+      this.config.adminApiUser,
       {
         headers: { "kbn-xsrf": "true", "Content-Type": "application/json" },
       },
-      ...ctxArgs,
-      200
+      200,
+      ...ctxArgs
     );
     if (response.status >= 300) {
       const operation = "Update space";
@@ -80,17 +93,21 @@ export class KibanaSpaceService extends ClientBasedService<
     }
   }
 
-  async deleteSpace(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.deleteSpace, false);
-    const realmName = ctxArgs[0] as string;
+  async deleteSpace(
+    realmName: string,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "deleteSpace", true)
+    ).for(this.deleteSpace);
     const response = await this.request(
       "DELETE",
       `/api/spaces/space/${encodeURIComponent(realmName.toLowerCase())}`,
       undefined,
-      undefined,
+      this.config.adminApiUser,
       { headers: { "kbn-xsrf": "true" } },
-      ...ctxArgs,
-      200
+      200,
+      ...ctxArgs
     );
     if (response.status >= 300 && response.status !== 204) {
       const operation = "Delete space";
@@ -99,8 +116,7 @@ export class KibanaSpaceService extends ClientBasedService<
     }
   }
 
-  private createHttpClient(...args: ContextualArgs<any>): AxiosInstance {
-    const config = this.resolveConfig(args);
+  private createHttpClient(config: KibanaSetupConfig): AxiosInstance {
     return Axios.create({
       baseURL: `${config.protocol}://${config.host}`,
       validateStatus: () => true,
@@ -108,19 +124,6 @@ export class KibanaSpaceService extends ClientBasedService<
         rejectUnauthorized: this.isSecureEnvironment(),
       }),
     });
-  }
-
-  private resolveConfig(args: any[]): KibanaSetupConfig {
-    const configArg = args.find((arg) => arg && arg.host) as
-      | KibanaSetupConfig
-      | undefined;
-    if (configArg) return configArg;
-
-    if (this._config) return this._config;
-
-    const operation = "Kibana config resolution";
-    const message = "Config not provided and not initialized";
-    throw this.parseError(new Error(message), message, operation);
   }
 
   private parseError(err: Error, message: string, operation: string): Error {
@@ -175,20 +178,21 @@ export class KibanaSpaceService extends ClientBasedService<
         realmName.slice(0, 2).toUpperCase(),
       color: payload.color ?? base.color,
       disabledFeatures: payload.disabledFeatures ?? base.disabledFeatures ?? [],
-      solution: payload.solution ?? base.solution ?? "classic",
+      solution: payload.solution ?? base.solution,
       imageUrl: payload.imageUrl ?? base.imageUrl,
     };
   }
 
-  private request(
+  private async request(
     method: "GET" | "POST" | "PUT" | "DELETE",
     url: string,
-    payload?: unknown,
-    apiUser?: KibanaUser,
-    extra: Record<string, any> = {},
-    successCode = 200,
+    payload: unknown,
+    apiUser: KibanaUser | undefined,
+    extra: Record<string, any>,
+    successCode: number,
     ...args: ContextualArgs<any>
   ): Promise<any> {
+    this.logCtx(args, this.request);
     return this.client.request({
       method,
       url,
@@ -207,14 +211,5 @@ export class KibanaSpaceService extends ClientBasedService<
       }),
       ...extra,
     });
-  }
-
-  private parseJson(value: unknown): any {
-    if (typeof value !== "string") return value;
-    try {
-      return JSON.parse(value);
-    } catch {
-      return undefined;
-    }
   }
 }

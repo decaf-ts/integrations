@@ -1,184 +1,198 @@
 import path from "path";
+import axios from "axios";
 import {
   KeycloakService,
-  KeycloakConfig,
+  KeycloakSetupConfig,
   KeycloakUser,
-  KeycloakRole,
-  KeycloakGroup,
 } from "../../src/keycloak";
 import { DockerComposeService } from "../../src/docker";
-import { describe, it, beforeAll, afterAll, expect } from "@jest/globals";
 
-const composeFile = path.resolve(__dirname, "../../docker/keycloak-compose.yml");
+const composeFile = path.resolve(
+  __dirname,
+  "../../docker/keycloak-compose.yml"
+);
 const workingDir = path.dirname(composeFile);
+
+const KEYCLOAK_HOST = "localhost:8180";
+const KEYCLOAK_BASE_URL = `http://${KEYCLOAK_HOST}`;
+const TEST_REALM = "integration-test-realm";
+
+const adminUser: KeycloakUser = {
+  realm: "master",
+  apiClientId: "admin-cli",
+  username: "admin",
+  password: "admin",
+};
+
+const keycloakConfig: KeycloakSetupConfig = {
+  id: "integration-test",
+  host: KEYCLOAK_HOST,
+  protocol: "http",
+  rootApiUser: adminUser,
+  adminApiUser: adminUser,
+  realmApiUser: adminUser,
+  client: {
+    clientId: "integration-test-client",
+    secret: "integration-test-secret",
+    clientName: "Integration Test Client",
+    redirectUris: ["http://localhost/*"],
+    webOrigins: ["http://localhost"],
+  },
+};
 
 let dockerService: DockerComposeService;
 let keycloakService: KeycloakService;
 
-const keycloakConfig: KeycloakConfig = {
-  baseUrl: "http://localhost:8180",
-  realm: "test-realm",
-  username: "admin",
-  password: "admin",
-};
+// Independent verification helpers: hit the Keycloak Admin REST API directly
+// with axios so assertions don't rely on the same code path being tested.
+async function getAdminAccessToken(): Promise<string> {
+  const response = await axios.post(
+    `${KEYCLOAK_BASE_URL}/realms/master/protocol/openid-connect/token`,
+    new URLSearchParams({
+      client_id: adminUser.apiClientId,
+      username: adminUser.username,
+      password: adminUser.password,
+      grant_type: "password",
+    }).toString(),
+    { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+  );
+  return response.data.access_token;
+}
+
+function adminRequest(token: string) {
+  return axios.create({
+    baseURL: KEYCLOAK_BASE_URL,
+    headers: { Authorization: `Bearer ${token}` },
+    validateStatus: () => true,
+  });
+}
+
+async function fetchUserByUsername(
+  realmName: string,
+  username: string,
+  token: string
+) {
+  const response = await adminRequest(token).get(
+    `/admin/realms/${realmName}/users`,
+    { params: { username } }
+  );
+  return response.data[0];
+}
 
 describe("Keycloak Integration Tests", () => {
   beforeAll(async () => {
     dockerService = new DockerComposeService();
     await dockerService.initialize({ composeFile, workingDir });
     await dockerService.up();
-    await dockerService.waitForHealth(`${keycloakConfig.baseUrl}/auth/realms/master`);
+    await dockerService.waitForHealth(`${KEYCLOAK_BASE_URL}/realms/master`);
     keycloakService = new KeycloakService();
     await keycloakService.initialize(keycloakConfig);
-  });
+  }, 60000);
 
   afterAll(async () => {
     await dockerService.down();
+  }, 60000);
+
+  describe("Realm management", () => {
+    it("should create a realm", async () => {
+      await keycloakService.addRealm(TEST_REALM, {
+        displayName: "Integration Test Realm",
+      });
+
+      const token = await getAdminAccessToken();
+      const response = await adminRequest(token).get(
+        `/admin/realms/${TEST_REALM}`
+      );
+      expect(response.status).toBe(200);
+      expect(response.data.realm).toBe(TEST_REALM);
+      expect(response.data.displayName).toBe("Integration Test Realm");
+    });
+
+    it("should edit the realm", async () => {
+      await keycloakService.editRealm(TEST_REALM, {
+        displayName: "Updated Integration Test Realm",
+      });
+
+      const token = await getAdminAccessToken();
+      const response = await adminRequest(token).get(
+        `/admin/realms/${TEST_REALM}`
+      );
+      expect(response.data.displayName).toBe("Updated Integration Test Realm");
+    });
   });
 
-  describe("KeycloakUser CRUD", () => {
-    let createdUser: KeycloakUser | null = null;
+  describe("User management", () => {
+    let createdUserId: string;
 
-    it("should create a user", async () => {
-      const userPayload: KeycloakUser = {
+    it("should add a user to the realm", async () => {
+      const newUser: KeycloakUser = {
+        realm: TEST_REALM,
+        apiClientId: "admin-cli",
         username: "testuser",
-        email: "test@example.com",
+        password: "password123",
+      };
+
+      await keycloakService.addUserToRealm(newUser, {
         firstName: "Test",
         lastName: "User",
+        email: "test@example.com",
+        emailVerified: true,
         enabled: true,
-        credentials: [
-          {
-            type: "password",
-            value: "password123",
-            temporary: false,
-          },
-        ],
-      };
+      });
 
-      createdUser = await keycloakService.createUser(userPayload);
-      expect(createdUser).not.toBeNull();
-      expect(createdUser.username).toBe("testuser");
-    });
-
-    it("should read a user", async () => {
-      if (!createdUser) {
-        return expect.fail("User not created");
-      }
-      const user = await keycloakService.getUserById(createdUser.id);
-      expect(user).not.toBeNull();
+      const token = await getAdminAccessToken();
+      const user = await fetchUserByUsername(TEST_REALM, "testuser", token);
+      expect(user).toBeDefined();
       expect(user.username).toBe("testuser");
       expect(user.email).toBe("test@example.com");
+      createdUserId = user.id;
     });
 
-    it("should update a user", async () => {
-      if (!createdUser) {
-        return expect.fail("User not created");
-      }
-      const updatedUser: KeycloakUser = {
-        ...createdUser,
+    it("should edit the user", async () => {
+      await keycloakService.editUser(TEST_REALM, createdUserId, {
         email: "updated@example.com",
-      };
-      await keycloakService.updateUser(updatedUser);
-      const user = await keycloakService.getUserById(createdUser.id);
+      });
+
+      const token = await getAdminAccessToken();
+      const user = await fetchUserByUsername(TEST_REALM, "testuser", token);
       expect(user.email).toBe("updated@example.com");
     });
 
-    it("should delete a user", async () => {
-      if (!createdUser) {
-        return expect.fail("User not created");
-      }
-      await keycloakService.deleteUser(createdUser.id);
-      await expect(keycloakService.getUserById(createdUser.id)).rejects;
+    it("should grant a realm role to the user", async () => {
+      await keycloakService.addRealmRolesToUser(TEST_REALM, createdUserId, [
+        "offline_access",
+      ]);
+
+      const token = await getAdminAccessToken();
+      const response = await adminRequest(token).get(
+        `/admin/realms/${TEST_REALM}/users/${createdUserId}/role-mappings/realm`
+      );
+      const roleNames = (response.data as Array<{ name: string }>).map(
+        (role) => role.name
+      );
+      expect(roleNames).toContain("offline_access");
+    });
+
+    it("should remove the user from the realm", async () => {
+      await keycloakService.removeUserFromRealm(TEST_REALM, createdUserId);
+
+      const token = await getAdminAccessToken();
+      const response = await adminRequest(token).get(
+        `/admin/realms/${TEST_REALM}/users/${createdUserId}`
+      );
+      expect(response.status).toBe(404);
     });
   });
 
-  describe("KeycloakRole CRUD", () => {
-    let createdRole: KeycloakRole | null = null;
+  describe("Realm cleanup", () => {
+    it("should remove the realm", async () => {
+      await keycloakService.removeRealm(TEST_REALM);
 
-    it("should create a role", async () => {
-      const rolePayload: KeycloakRole = {
-        name: "test-role",
-        description: "Test role",
-      };
-
-      createdRole = await keycloakService.createRole(rolePayload);
-      expect(createdRole).not.toBeNull();
-      expect(createdRole.name).toBe("test-role");
-    });
-
-    it("should read a role", async () => {
-      if (!createdRole) {
-        return expect.fail("Role not created");
-      }
-      const role = await keycloakService.getRoleById(createdRole.id);
-      expect(role).not.toBeNull();
-      expect(role.name).toBe("test-role");
-    });
-
-    it("should update a role", async () => {
-      if (!createdRole) {
-        return expect.fail("Role not created");
-      }
-      const updatedRole: KeycloakRole = {
-        ...createdRole,
-        description: "Updated test role",
-      };
-      await keycloakService.updateRole(updatedRole);
-      const role = await keycloakService.getRoleById(createdRole.id);
-      expect(role.description).toBe("Updated test role");
-    });
-
-    it("should delete a role", async () => {
-      if (!createdRole) {
-        return expect.fail("Role not created");
-      }
-      await keycloakService.deleteRole(createdRole.id);
-      await expect(keycloakService.getRoleById(createdRole.id)).rejects;
-    });
-  });
-
-  describe("KeycloakGroup CRUD", () => {
-    let createdGroup: KeycloakGroup | null = null;
-
-    it("should create a group", async () => {
-      const groupPayload: KeycloakGroup = {
-        name: "test-group",
-        path: "/test-group",
-      };
-
-      createdGroup = await keycloakService.createGroup(groupPayload);
-      expect(createdGroup).not.toBeNull();
-      expect(createdGroup.name).toBe("test-group");
-    });
-
-    it("should read a group", async () => {
-      if (!createdGroup) {
-        return expect.fail("Group not created");
-      }
-      const group = await keycloakService.getGroupById(createdGroup.id);
-      expect(group).not.toBeNull();
-      expect(group.name).toBe("test-group");
-    });
-
-    it("should update a group", async () => {
-      if (!createdGroup) {
-        return expect.fail("Group not created");
-      }
-      const updatedGroup: KeycloakGroup = {
-        ...createdGroup,
-        path: "/updated-test-group",
-      };
-      await keycloakService.updateGroup(updatedGroup);
-      const group = await keycloakService.getGroupById(createdGroup.id);
-      expect(group.path).toBe("/updated-test-group");
-    });
-
-    it("should delete a group", async () => {
-      if (!createdGroup) {
-        return expect.fail("Group not created");
-      }
-      await keycloakService.deleteGroup(createdGroup.id);
-      await expect(keycloakService.getGroupById(createdGroup.id)).rejects;
+      const token = await getAdminAccessToken();
+      const response = await adminRequest(token).get(
+        `/admin/realms/${TEST_REALM}`
+      );
+      expect(response.status).toBe(404);
     });
   });
 });

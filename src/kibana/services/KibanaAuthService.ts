@@ -7,7 +7,7 @@ import {
 import { ContextualArgs, MaybeContextualArg } from "@decaf-ts/core";
 import { ClientBasedService } from "@decaf-ts/core";
 import type { KibanaSetupConfig, KibanaUser } from "../types";
-import type { AxiosInstance } from "axios";
+import Axios, { AxiosInstance } from "axios";
 import * as https from "node:https";
 
 export class KibanaAuthService extends ClientBasedService<
@@ -15,23 +15,29 @@ export class KibanaAuthService extends ClientBasedService<
   KibanaSetupConfig
 > {
   async initialize(
-    ...args: ContextualArgs<any>
+    ...args: MaybeContextualArg<any>
   ): Promise<{ config: KibanaSetupConfig; client: AxiosInstance }> {
-    const { log, ctxArgs } = await this.logCtx(args, this.initialize, true);
-    const config = this.resolveConfig(ctxArgs);
+    const { ctxArgs } = (
+      await this.logCtx(args, "initialize", true)
+    ).for(this.initialize);
+    const config = ctxArgs[0] as KibanaSetupConfig;
+    this._config = config;
     const client = this.createHttpClient(config);
+    this._client = client;
     return { config, client };
   }
 
   async loginToKibana(
+    username: string | undefined,
+    password: string | undefined,
     ...args: MaybeContextualArg<any>
   ): Promise<string[] | undefined> {
-    const { log, ctxArgs } = await this.logCtx(args, this.loginToKibana, false);
+    const { ctxArgs } = (
+      await this.logCtx(args, "loginToKibana", true)
+    ).for(this.loginToKibana);
     const config = this.config;
-    const user = ctxArgs[0] as string | undefined;
-    const password = ctxArgs[0]?.[1] as string | undefined;
     const credentials = {
-      username: user ?? config.adminApiUser?.username,
+      username: username ?? config.adminApiUser?.username,
       password: password ?? config.adminApiUser?.password,
     };
     if (!credentials.username || !credentials.password) {
@@ -58,8 +64,8 @@ export class KibanaAuthService extends ClientBasedService<
           rejectUnauthorized: this.isSecureEnvironment(),
         }),
       },
-      ...ctxArgs,
-      200
+      200,
+      ...ctxArgs
     );
 
     if (response.status >= 300) {
@@ -73,9 +79,13 @@ export class KibanaAuthService extends ClientBasedService<
     return setCookie;
   }
 
-  async logout(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.logout, false);
-    const user = ctxArgs[0] as KibanaUser;
+  async logout(
+    user: KibanaUser,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "logout", true)
+    ).for(this.logout);
     await this.request(
       "POST",
       `${this.config.protocol}://${this.config.host}/logout`,
@@ -84,22 +94,9 @@ export class KibanaAuthService extends ClientBasedService<
       {
         headers: { "kbn-xsrf": "true" },
       },
-      ...ctxArgs,
-      200
+      200,
+      ...ctxArgs
     );
-  }
-
-  private resolveConfig(args: any[]): KibanaSetupConfig {
-    const configArg = args.find((arg) => arg && arg.host) as
-      | KibanaSetupConfig
-      | undefined;
-    if (configArg) return configArg;
-
-    if (this._config) return this._config;
-
-    const operation = "Kibana config resolution";
-    const message = "Config not provided and not initialized";
-    throw this.parseError(new Error(message), message, operation);
   }
 
   private parseError(err: Error, message: string, operation: string): Error {
@@ -128,8 +125,7 @@ export class KibanaAuthService extends ClientBasedService<
     return new InternalError(message, err);
   }
 
-  private createHttpClient(...args: ContextualArgs<any>): AxiosInstance {
-    const config = this.resolveConfig(args);
+  private createHttpClient(config: KibanaSetupConfig): AxiosInstance {
     return Axios.create({
       baseURL: `${config.protocol}://${config.host}`,
       validateStatus: () => true,
@@ -145,15 +141,16 @@ export class KibanaAuthService extends ClientBasedService<
     );
   }
 
-  private request(
+  private async request(
     method: "GET" | "POST" | "PUT" | "DELETE",
     url: string,
-    payload?: unknown,
-    apiUser?: KibanaUser,
-    extra: Record<string, any> = {},
-    successCode = 200,
+    payload: unknown,
+    apiUser: KibanaUser | undefined,
+    extra: Record<string, any>,
+    successCode: number,
     ...args: ContextualArgs<any>
   ): Promise<any> {
+    this.logCtx(args, this.request);
     return this.client.request({
       method,
       url,

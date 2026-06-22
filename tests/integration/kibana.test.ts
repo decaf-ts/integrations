@@ -1,198 +1,195 @@
 import path from "path";
+import axios from "axios";
 import {
   KibanaService,
-  KibanaConfig,
+  KibanaSetupConfig,
   KibanaUser,
-  KibanaRole,
-  KibanaSpace,
 } from "../../src/kibana";
 import { DockerComposeService } from "../../src/docker";
-import { describe, it, beforeAll, afterAll, expect } from "@jest/globals";
 
 const composeFile = path.resolve(__dirname, "../../docker/kibana-compose.yml");
 const workingDir = path.dirname(composeFile);
 
+const KIBANA_HOST = "localhost:5601";
+const ES_HOST = "localhost:9200";
+const KIBANA_BASE_URL = `http://${KIBANA_HOST}`;
+const ES_BASE_URL = `http://${ES_HOST}`;
+const TEST_REALM = "test-realm";
+
+const adminUser: KibanaUser = {
+  username: "elastic",
+  password: "elastic123",
+};
+
+const realmUser: KibanaUser = {
+  username: "testrealmuser",
+  password: "TestPassword123!",
+};
+
+const kibanaConfig: KibanaSetupConfig = {
+  id: "integration-test",
+  host: KIBANA_HOST,
+  es_host: ES_HOST,
+  protocol: "http",
+  realm: TEST_REALM,
+  adminApiUser: adminUser,
+  realmApiUser: realmUser,
+};
+
 let dockerService: DockerComposeService;
 let kibanaService: KibanaService;
 
-const kibanaConfig: KibanaConfig = {
-  baseUrl: "http://localhost:5601",
-  username: "admin",
-  password: "admin",
-};
+function esRequest() {
+  return axios.create({
+    baseURL: ES_BASE_URL,
+    auth: { username: adminUser.username, password: adminUser.password },
+    validateStatus: () => true,
+  });
+}
+
+function kibanaRequest() {
+  return axios.create({
+    baseURL: KIBANA_BASE_URL,
+    auth: { username: adminUser.username, password: adminUser.password },
+    headers: { "kbn-xsrf": "true" },
+    validateStatus: () => true,
+  });
+}
 
 describe("Kibana Integration Tests", () => {
   beforeAll(async () => {
     dockerService = new DockerComposeService();
     await dockerService.initialize({ composeFile, workingDir });
     await dockerService.up();
-    await dockerService.waitForHealth(`${kibanaConfig.baseUrl}/api/status`);
+    await dockerService.waitForHealth(`${KIBANA_BASE_URL}/api/status`, {
+      maxAttempts: 90,
+    });
     kibanaService = new KibanaService();
     await kibanaService.initialize(kibanaConfig);
-  });
+  }, 180000);
 
   afterAll(async () => {
     await dockerService.down();
-  });
+  }, 60000);
 
-  describe("KibanaUser CRUD", () => {
-    let createdUser: KibanaUser | null = null;
-
-    it("should create a user", async () => {
-      const userPayload: KibanaUser = {
-        username: "testuser",
-        password: "password123",
-        email: "test@example.com",
-        enabled: true,
-      };
-
-      const realmName = kibanaConfig.realm || "test-realm";
-      await kibanaService.createUser(userPayload, realmName);
-      const user = await kibanaService.getUserByUsername(userPayload.username);
-      expect(user).not.toBeNull();
-      expect(user.username).toBe("testuser");
-      createdUser = user;
-    });
-
-    it("should read a user", async () => {
-      if (!createdUser) {
-        return expect.fail("User not created");
-      }
-      const user = await kibanaService.getUserByUsername(createdUser.username);
-      expect(user).not.toBeNull();
-      expect(user.username).toBe("testuser");
-      expect(user.email).toBe("test@example.com");
-    });
-
-    it("should update a user", async () => {
-      if (!createdUser) {
-        return expect.fail("User not created");
-      }
-      const updatedUser: KibanaUser = {
-        ...createdUser,
-        email: "updated@example.com",
-      };
-      await kibanaService.updateUser(updatedUser, kibanaConfig.realm || "test-realm");
-      const user = await kibanaService.getUserByUsername(createdUser.username);
-      expect(user.email).toBe("updated@example.com");
-    });
-
-    it("should delete a user", async () => {
-      if (!createdUser) {
-        return expect.fail("User not created");
-      }
-      await kibanaService.deleteUser(createdUser.username);
-      await expect(kibanaService.getUserByUsername(createdUser.username)).rejects;
-    });
-  });
-
-  describe("KibanaRole CRUD", () => {
-    let createdRole: KibanaRole | null = null;
-
-    it("should create a role", async () => {
-      const rolePayload: KibanaRole = {
-        name: "test-role",
-        cluster_permissions: ["cluster_composite_ops"],
-        index_permissions: [
-          {
-            index_patterns: ["*"],
-            permissions: ["indices_all"],
-          },
-        ],
-        tenant_permissions: [
-          {
-            tenant_patterns: ["global"],
-            permissions: ["read"],
-          },
-        ],
-      };
-
-      const realmName = kibanaConfig.realm || "test-realm";
-      await kibanaService.createRole(rolePayload, realmName);
-      const role = await kibanaService.getRoleByName(rolePayload.name);
-      expect(role).not.toBeNull();
-      expect(role.name).toBe("test-role");
-      createdRole = role;
-    });
-
-    it("should read a role", async () => {
-      if (!createdRole) {
-        return expect.fail("Role not created");
-      }
-      const role = await kibanaService.getRoleByName(createdRole.name);
-      expect(role).not.toBeNull();
-      expect(role.name).toBe("test-role");
-    });
-
-    it("should update a role", async () => {
-      if (!createdRole) {
-        return expect.fail("Role not created");
-      }
-      const updatedRole: KibanaRole = {
-        ...createdRole,
-        description: "Updated test role",
-      };
-      await kibanaService.updateRole(updatedRole, kibanaConfig.realm || "test-realm");
-      const role = await kibanaService.getRoleByName(createdRole.name);
-      expect(role.description).toBe("Updated test role");
-    });
-
-    it("should delete a role", async () => {
-      if (!createdRole) {
-        return expect.fail("Role not created");
-      }
-      await kibanaService.deleteRole(createdRole.name);
-      await expect(kibanaService.getRoleByName(createdRole.name)).rejects;
-    });
-  });
-
-  describe("KibanaSpace CRUD", () => {
-    let createdSpace: KibanaSpace | null = null;
-
+  describe("Space management", () => {
     it("should create a space", async () => {
-      const spacePayload: KibanaSpace = {
-        id: "test-space",
-        name: "Test Space",
-        description: "Test space description",
-      };
+      await kibanaService.createSpace(TEST_REALM, undefined);
 
-      const realmName = kibanaConfig.realm || "test-realm";
-      await kibanaService.createSpace(spacePayload, realmName);
-      const space = await kibanaService.getSpaceById(spacePayload.id);
-      expect(space).not.toBeNull();
-      expect(space.id).toBe("test-space");
-      createdSpace = space;
-    });
-
-    it("should read a space", async () => {
-      if (!createdSpace) {
-        return expect.fail("Space not created");
-      }
-      const space = await kibanaService.getSpaceById(createdSpace.id);
-      expect(space).not.toBeNull();
-      expect(space.id).toBe("test-space");
-      expect(space.name).toBe("Test Space");
+      const response = await kibanaRequest().get(
+        `/api/spaces/space/${TEST_REALM}`
+      );
+      expect(response.status).toBe(200);
+      expect(response.data.id).toBe(TEST_REALM);
     });
 
     it("should update a space", async () => {
-      if (!createdSpace) {
-        return expect.fail("Space not created");
-      }
-      const updatedSpace: KibanaSpace = {
-        ...createdSpace,
-        description: "Updated test space description",
-      };
-      await kibanaService.updateSpace(updatedSpace, kibanaConfig.realm || "test-realm");
-      const space = await kibanaService.getSpaceById(createdSpace.id);
-      expect(space.description).toBe("Updated test space description");
+      await kibanaService.updateSpace(TEST_REALM, {
+        description: "Updated tenant space",
+      });
+
+      const response = await kibanaRequest().get(
+        `/api/spaces/space/${TEST_REALM}`
+      );
+      expect(response.data.description).toBe("Updated tenant space");
+    });
+  });
+
+  describe("Role management", () => {
+    it("should create a role", async () => {
+      await kibanaService.createRole(TEST_REALM, undefined);
+
+      const response = await esRequest().get(
+        `/_security/role/pla_${TEST_REALM}_reader`
+      );
+      expect(response.status).toBe(200);
+      expect(
+        response.data[`pla_${TEST_REALM}_reader`]
+      ).toBeDefined();
     });
 
-    it("should delete a space", async () => {
-      if (!createdSpace) {
-        return expect.fail("Space not created");
-      }
-      await kibanaService.deleteSpace(createdSpace.id);
-      await expect(kibanaService.getSpaceById(createdSpace.id)).rejects;
+    it("should update a role", async () => {
+      await kibanaService.updateRole(TEST_REALM, {
+        metadata: { updated: true },
+      });
+
+      const response = await esRequest().get(
+        `/_security/role/pla_${TEST_REALM}_reader`
+      );
+      expect(response.data[`pla_${TEST_REALM}_reader`].metadata).toEqual({
+        updated: true,
+      });
+    });
+  });
+
+  describe("User management", () => {
+    it("should create a user", async () => {
+      await kibanaService.createUser(realmUser, TEST_REALM, undefined);
+
+      const response = await esRequest().get(
+        `/_security/user/${realmUser.username}`
+      );
+      expect(response.status).toBe(200);
+      expect(response.data[realmUser.username].enabled).toBe(true);
+    });
+
+    it("should update a user", async () => {
+      await kibanaService.updateUser(
+        { ...realmUser, full_name: "Test Realm User" },
+        TEST_REALM,
+        undefined
+      );
+
+      const response = await esRequest().get(
+        `/_security/user/${realmUser.username}`
+      );
+      expect(response.data[realmUser.username].full_name).toBe(
+        "Test Realm User"
+      );
+    });
+  });
+
+  describe("Data view management", () => {
+    const dataViewId = `filebeat_pla_${TEST_REALM}`;
+
+    it("should create a data view", async () => {
+      await kibanaService.createDataView(TEST_REALM, {
+        id: dataViewId,
+        name: "PLA Filebeat Logs",
+        title: `filebeat-pla-${TEST_REALM}-*`,
+        timeFieldName: "@timestamp",
+      });
+
+      const response = await kibanaRequest().get(
+        `/s/${TEST_REALM}/api/data_views/data_view/${dataViewId}`
+      );
+      expect(response.status).toBe(200);
+      expect(response.data.data_view.id).toBe(dataViewId);
+    });
+
+    it("should update a data view", async () => {
+      await kibanaService.updateDataView(TEST_REALM, {
+        id: dataViewId,
+        name: "PLA Filebeat Logs Updated",
+        title: `filebeat-pla-${TEST_REALM}-*`,
+        timeFieldName: "@timestamp",
+      });
+
+      const response = await kibanaRequest().get(
+        `/s/${TEST_REALM}/api/data_views/data_view/${dataViewId}`
+      );
+      expect(response.data.data_view.name).toBe("PLA Filebeat Logs Updated");
+    });
+  });
+
+  describe("Space cleanup", () => {
+    it("should delete the space", async () => {
+      await kibanaService.deleteSpace(TEST_REALM);
+
+      const response = await kibanaRequest().get(
+        `/api/spaces/space/${TEST_REALM}`
+      );
+      expect(response.status).toBe(404);
     });
   });
 });

@@ -13,7 +13,6 @@ export function createDefaultKibanaSpaceConfig(realm: string): KibanaSpaceConfig
     description: `Tenant space for ${realm.toUpperCase()} dashboards and logs`,
     initials: realm.slice(0, 2).toUpperCase(),
     disabledFeatures: [],
-    solution: "classic",
   };
 }
 

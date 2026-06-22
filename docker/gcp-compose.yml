@@ -1,20 +1,16 @@
-version: "3.8"
-
 services:
-  emulated-gcp:
-    image: jldec/gcp-emulator:latest
+  gcp-emulator:
+    image: ghcr.io/blackwell-systems/gcp-secret-manager-emulator-dual:latest
     container_name: gcp-emulator
     restart: unless-stopped
+    environment:
+      - GCP_MOCK_LOG_LEVEL=info
     ports:
       - "8080:8080"
-    volumes:
-      - gcp-data:/data
+      - "9091:9090"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8080/v1/projects/healthcheck/secrets"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
-
-volumes:
-  gcp-data:

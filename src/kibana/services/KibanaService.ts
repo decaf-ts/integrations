@@ -1,6 +1,6 @@
-import { BadRequestError, ConflictError, InternalError } from "@decaf-ts/db-decorators";
-import { Context, ContextualArgs, MaybeContextualArg } from "@decaf-ts/core";
-import { ClientBasedService, service } from "@decaf-ts/core";
+import { ConflictError } from "@decaf-ts/db-decorators";
+import { ContextualArgs, MaybeContextualArg } from "@decaf-ts/core";
+import { ClientBasedService } from "@decaf-ts/core";
 import type {
   KibanaDataViewConfig,
   KibanaRoleConfig,
@@ -38,9 +38,15 @@ export class KibanaService extends ClientBasedService<
     super();
   }
 
-  async initialize(...args: ContextualArgs<any>): Promise<{ config: KibanaSetupConfig; client: AxiosInstance }> {
-    const { log, ctxArgs } = await this.logCtx(args, this.initialize, true);
-    this._config = this.config;
+  async initialize(
+    ...args: MaybeContextualArg<any>
+  ): Promise<{ config: KibanaSetupConfig; client: AxiosInstance }> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "initialize", true)
+    ).for(this.initialize);
+    const config = ctxArgs[0] as KibanaSetupConfig;
+    this._config = config;
+
     this.spaceService = new KibanaSpaceService();
     await this.spaceService.initialize(...ctxArgs);
     this.dataViewService = new KibanaDataViewService();
@@ -54,13 +60,18 @@ export class KibanaService extends ClientBasedService<
     this.authService = new KibanaAuthService();
     await this.authService.initialize(...ctxArgs);
 
-    const client = this.createHttpClient(...ctxArgs);
-    return { config: this.config, client };
+    const client = this.createHttpClient(config);
+    this._client = client;
+    return { config, client };
   }
 
-  async setupOrganization(...args: MaybeContextualArg<any>): Promise<KibanaSetupConfig> {
-    const { log, ctxArgs } = await this.logCtx(args, this.setupOrganization, false);
-    const config = ctxArgs[0] as KibanaSetupConfig;
+  async setupOrganization(
+    config: KibanaSetupConfig,
+    ...args: MaybeContextualArg<any>
+  ): Promise<KibanaSetupConfig> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "setupOrganization", true)
+    ).for(this.setupOrganization);
     const realmName = config.realm;
     try {
       await this.spaceService.createSpace(
@@ -110,98 +121,167 @@ export class KibanaService extends ClientBasedService<
     return this.dashboardService.generateDashboardEmbedUrl(options);
   }
 
-  async createSpace(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.createSpace, false);
-    const realmName = ctxArgs[0] as string;
-    const payload = ctxArgs[0]?.[1] as Partial<KibanaSpaceConfig>;
+  async createSpace(
+    realmName: string,
+    payload: Partial<KibanaSpaceConfig> | undefined,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "createSpace", true)
+    ).for(this.createSpace);
     await this.spaceService.createSpace(realmName, payload, ...ctxArgs);
   }
 
-  async updateSpace(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.updateSpace, false);
-    const realmName = ctxArgs[0] as string;
-    const payload = ctxArgs[0]?.[1] as Partial<KibanaSpaceConfig>;
+  async updateSpace(
+    realmName: string,
+    payload: Partial<KibanaSpaceConfig>,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "updateSpace", true)
+    ).for(this.updateSpace);
     await this.spaceService.updateSpace(realmName, payload, ...ctxArgs);
   }
 
-  async deleteSpace(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.deleteSpace, false);
-    const realmName = ctxArgs[0] as string;
+  async deleteSpace(
+    realmName: string,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "deleteSpace", true)
+    ).for(this.deleteSpace);
     await this.spaceService.deleteSpace(realmName, ...ctxArgs);
   }
 
-  async createDataView(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.createDataView, false);
-    const realmName = ctxArgs[0] as string;
-    const spec = ctxArgs[0]?.[1] as KibanaDataViewConfig;
+  async createDataView(
+    realmName: string,
+    spec: KibanaDataViewConfig,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "createDataView", true)
+    ).for(this.createDataView);
     await this.dataViewService.createDataView(realmName, spec, ...ctxArgs);
   }
 
-  async updateDataView(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.updateDataView, false);
-    const realmName = ctxArgs[0] as string;
-    const spec = ctxArgs[0]?.[1] as KibanaDataViewConfig;
+  async updateDataView(
+    realmName: string,
+    spec: KibanaDataViewConfig,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "updateDataView", true)
+    ).for(this.updateDataView);
     await this.dataViewService.updateDataView(realmName, spec, ...ctxArgs);
   }
 
-  async createDataViews(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.createDataViews, false);
-    const realmName = ctxArgs[0] as string;
-    const dataViews = ctxArgs[0]?.[1] as KibanaDataViewConfig[] | undefined;
-    await this.dataViewService.createDataViews(realmName, dataViews ?? [], ...ctxArgs);
+  async createDataViews(
+    realmName: string,
+    dataViews: KibanaDataViewConfig[] | undefined,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "createDataViews", true)
+    ).for(this.createDataViews);
+    await this.dataViewService.createDataViews(
+      realmName,
+      dataViews ?? [],
+      ...ctxArgs
+    );
   }
 
-  async setDefaultDataView(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.setDefaultDataView, false);
-    const realmName = ctxArgs[0] as string;
-    const dataViewId = ctxArgs[0]?.[1] as string | undefined;
-    await this.dataViewService.setDefaultDataView(realmName, dataViewId, ...ctxArgs);
+  async setDefaultDataView(
+    realmName: string,
+    dataViewId: string | undefined,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "setDefaultDataView", true)
+    ).for(this.setDefaultDataView);
+    await this.dataViewService.setDefaultDataView(
+      realmName,
+      dataViewId,
+      ...ctxArgs
+    );
   }
 
-  async cloneDefaultDashboards(...args: MaybeContextualArg<any>): Promise<string | undefined> {
-    const { log, ctxArgs } = await this.logCtx(args, this.cloneDefaultDashboards, false);
-    const realmName = ctxArgs[0] as string;
+  async cloneDefaultDashboards(
+    realmName: string,
+    ...args: MaybeContextualArg<any>
+  ): Promise<string | undefined> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "cloneDefaultDashboards", true)
+    ).for(this.cloneDefaultDashboards);
     return this.dashboardService.cloneDefaultDashboards(realmName, ...ctxArgs);
   }
 
-  async createRole(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.createRole, false);
-    const realmName = ctxArgs[0] as string;
-    const payload = ctxArgs[0]?.[1] as Partial<KibanaRoleConfig>;
+  async createRole(
+    realmName: string,
+    payload: Partial<KibanaRoleConfig> | undefined,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "createRole", true)
+    ).for(this.createRole);
     await this.roleService.createRole(realmName, payload, ...ctxArgs);
   }
 
-  async updateRole(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.updateRole, false);
-    const realmName = ctxArgs[0] as string;
-    const payload = ctxArgs[0]?.[1] as Partial<KibanaRoleConfig>;
+  async updateRole(
+    realmName: string,
+    payload: Partial<KibanaRoleConfig>,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "updateRole", true)
+    ).for(this.updateRole);
     await this.roleService.updateRole(realmName, payload, ...ctxArgs);
   }
 
-  async createUser(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.createUser, false);
-    const user = ctxArgs[0] as KibanaUser;
-    const realmName = ctxArgs[0]?.[1] as string;
-    const roleNames = ctxArgs[0]?.[2] as string[] | undefined;
-    await this.userService.createUser(user, realmName, roleNames ?? [], ...ctxArgs);
+  async createUser(
+    user: KibanaUser,
+    realmName: string,
+    roleNames: string[] | undefined,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "createUser", true)
+    ).for(this.createUser);
+    await this.userService.createUser(
+      user,
+      realmName,
+      roleNames ?? [],
+      ...ctxArgs
+    );
   }
 
-  async updateUser(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.updateUser, false);
-    const user = ctxArgs[0] as KibanaUser;
-    const realmName = ctxArgs[0]?.[1] as string;
-    const roleNames = ctxArgs[0]?.[2] as string[] | undefined;
-    await this.userService.updateUser(user, realmName, roleNames ?? [], ...ctxArgs);
+  async updateUser(
+    user: KibanaUser,
+    realmName: string,
+    roleNames: string[] | undefined,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "updateUser", true)
+    ).for(this.updateUser);
+    await this.userService.updateUser(
+      user,
+      realmName,
+      roleNames ?? [],
+      ...ctxArgs
+    );
   }
 
-  async verifySpaceSetup(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.verifySpaceSetup, false);
-    const realmName = ctxArgs[0] as string;
+  async verifySpaceSetup(
+    realmName: string,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "verifySpaceSetup", true)
+    ).for(this.verifySpaceSetup);
     await this.dashboardService.verifySpaceSetup(realmName, ...ctxArgs);
   }
 
-  private createHttpClient(...args: ContextualArgs<any>): AxiosInstance {
-    const config = this.resolveConfig(args);
+  private createHttpClient(config: KibanaSetupConfig): AxiosInstance {
     return Axios.create({
       baseURL: `${config.protocol}://${config.host}`,
       validateStatus: () => true,
@@ -209,16 +289,5 @@ export class KibanaService extends ClientBasedService<
         rejectUnauthorized: !["development", "local"].includes(config.id),
       }),
     });
-  }
-
-  private resolveConfig(args: any[]): KibanaSetupConfig {
-    const configArg = args.find((arg) => arg && arg.host) as
-      | KibanaSetupConfig
-      | undefined;
-    if (configArg) return configArg;
-
-    if (this._config) return this._config;
-
-    throw new InternalError("Config not provided and not initialized");
   }
 }

@@ -1,5 +1,6 @@
 import {
   SecretsManagerClient,
+  CreateSecretCommand,
   GetSecretValueCommand,
   GetSecretValueCommandInput,
   PutSecretValueCommand,
@@ -14,10 +15,10 @@ import {
 import {
   AuthorizationError,
   ClientBasedService,
-  type ContextualArgs,
   type MaybeContextualArg,
 } from "@decaf-ts/core";
 import {
+  SecretProvider,
   SecretName,
   SecretPayload,
   SecretReference,
@@ -56,9 +57,12 @@ export class AwsSecretService extends ClientBasedService<
   }
 
   async initialize(
-    ...args: ContextualArgs<any>
+    ...args: MaybeContextualArg<any>
   ): Promise<{ config: AwsSecretServiceConfig; client: SecretsManagerClient }> {
-    const config = args[0] as AwsSecretServiceConfig;
+    const { ctxArgs } = (
+      await this.logCtx(args, "initialize", true)
+    ).for(this.initialize);
+    const config = ctxArgs[0] as AwsSecretServiceConfig;
     if (!config) {
       throw new Error("Missing configuration for AwsSecretService");
     }
@@ -67,6 +71,8 @@ export class AwsSecretService extends ClientBasedService<
       credentials: config.credentials,
       endpoint: config.endpoint,
     });
+    this._config = config;
+    this._client = client;
     return { config, client };
   }
 
@@ -89,16 +95,29 @@ export class AwsSecretService extends ClientBasedService<
 
     const normalizedName = normalizeSecretName(name);
     const serialized = serializeSecretPayload(value);
-
-    const input: PutSecretValueCommandInput = {
-      SecretId: normalizedName,
-      SecretString: serialized.value,
-    };
+    const secretString = JSON.stringify(serialized);
 
     try {
-      await this.client.send(new PutSecretValueCommand(input));
-    } catch (error) {
-      throw this.parseError(error as Error);
+      await this.client.send(
+        new CreateSecretCommand({
+          Name: normalizedName,
+          SecretString: secretString,
+        })
+      );
+    } catch (error: any) {
+      if (error?.name === "ResourceExistsException") {
+        try {
+          const input: PutSecretValueCommandInput = {
+            SecretId: normalizedName,
+            SecretString: secretString,
+          };
+          await this.client.send(new PutSecretValueCommand(input));
+        } catch (putError) {
+          throw this.parseError(putError as Error);
+        }
+      } else {
+        throw this.parseError(error as Error);
+      }
     }
 
     return {
@@ -146,13 +165,11 @@ export class AwsSecretService extends ClientBasedService<
       input.VersionStage = versionStage;
     }
 
-    let secretValue: string;
+    let payload: SerializedSecretPayload;
     try {
       const response = await this.client.send(new GetSecretValueCommand(input));
       if (response.SecretString !== undefined) {
-        secretValue = response.SecretString;
-      } else if (response.SecretBinary !== undefined) {
-        secretValue = Buffer.from(response.SecretBinary).toString("base64");
+        payload = JSON.parse(response.SecretString) as SerializedSecretPayload;
       } else {
         throw this.parseError(
           new Error(`No secret value found for "${normalizedName}"`)
@@ -161,11 +178,6 @@ export class AwsSecretService extends ClientBasedService<
     } catch (error) {
       throw this.parseError(error as Error);
     }
-
-    const payload: SerializedSecretPayload = {
-      encoding: "utf8",
-      value: secretValue,
-    };
 
     return deserializeSecretPayload(payload) as T;
   }
@@ -246,6 +258,7 @@ export class AwsSecretService extends ClientBasedService<
     } catch (error) {
       const err = error as Error;
       if (
+        err.name === "ResourceNotFoundException" ||
         err.message.toLowerCase().includes("not found") ||
         err.message.includes("404")
       ) {
@@ -378,6 +391,7 @@ export class AwsSecretService extends ClientBasedService<
     } catch (error) {
       const err = error as Error;
       if (
+        err.name === "ResourceNotFoundException" ||
         err.message.toLowerCase().includes("not found") ||
         err.message.includes("404")
       ) {
@@ -392,11 +406,17 @@ export class AwsSecretService extends ClientBasedService<
     const message = err.message || err.name || "Unknown error";
     const lowerMessage = message.toLowerCase();
 
-    if (lowerMessage.includes("not found") || lowerMessage.includes("404")) {
+    if (
+      err.name === "ResourceNotFoundException" ||
+      lowerMessage.includes("not found") ||
+      lowerMessage.includes("can't find") ||
+      lowerMessage.includes("404")
+    ) {
       return new NotFoundError(err);
     }
 
     if (
+      err.name === "ResourceExistsException" ||
       lowerMessage.includes("already exists") ||
       lowerMessage.includes("conflict") ||
       lowerMessage.includes("409")
