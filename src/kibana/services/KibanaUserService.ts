@@ -21,9 +21,9 @@ export class KibanaUserService extends ClientBasedService<
   async initialize(
     ...args: MaybeContextualArg<any>
   ): Promise<{ config: KibanaSetupConfig; client: AxiosInstance }> {
-    const { ctxArgs } = (
-      await this.logCtx(args, "initialize", true)
-    ).for(this.initialize);
+    const { ctxArgs } = (await this.logCtx(args, "initialize", true)).for(
+      this.initialize
+    );
     const config = ctxArgs[0] as KibanaSetupConfig;
     this._config = config;
     const client = this.createHttpClient(config);
@@ -37,9 +37,9 @@ export class KibanaUserService extends ClientBasedService<
     roleNames: string[] | undefined,
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { ctxArgs } = (
-      await this.logCtx(args, "createUser", true)
-    ).for(this.createUser);
+    const { ctxArgs } = (await this.logCtx(args, "createUser", true)).for(
+      this.createUser
+    );
     const defaultRole = this.normalizeRoleConfig(realmName).name;
     const payloadRoles =
       roleNames && roleNames.length > 0 ? roleNames : [defaultRole];
@@ -60,9 +60,21 @@ export class KibanaUserService extends ClientBasedService<
       ...ctxArgs
     );
     if (response.status >= 300) {
-      const operation = "Create user";
       const message = `Unable to create user ${user.username}: ${response.statusText}`;
-      throw this.parseError(new Error(message), message, operation);
+      const status = response.status as number;
+      if (status === 404 || message.toLowerCase().includes("not found")) {
+        throw new NotFoundError(message);
+      }
+      if (status === 409 || message.toLowerCase().includes("conflict")) {
+        throw new ConflictError(message);
+      }
+      if (status === 400) {
+        throw new BadRequestError(message);
+      }
+      if (status === 401 || status === 403) {
+        throw new NotFoundError(message);
+      }
+      throw new InternalError(message);
     }
   }
 
@@ -72,9 +84,9 @@ export class KibanaUserService extends ClientBasedService<
     roleNames: string[] | undefined,
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { ctxArgs } = (
-      await this.logCtx(args, "updateUser", true)
-    ).for(this.updateUser);
+    const { ctxArgs } = (await this.logCtx(args, "updateUser", true)).for(
+      this.updateUser
+    );
     const defaultRole = this.normalizeRoleConfig(realmName).name;
     const payloadRoles =
       roleNames && roleNames.length > 0 ? roleNames : [defaultRole];
@@ -95,9 +107,21 @@ export class KibanaUserService extends ClientBasedService<
       ...ctxArgs
     );
     if (response.status >= 300) {
-      const operation = "Update user";
       const message = `Unable to update user ${user.username}: ${response.statusText}`;
-      throw this.parseError(new Error(message), message, operation);
+      const status = response.status as number;
+      if (status === 404 || message.toLowerCase().includes("not found")) {
+        throw new NotFoundError(message);
+      }
+      if (status === 409 || message.toLowerCase().includes("conflict")) {
+        throw new ConflictError(message);
+      }
+      if (status === 400) {
+        throw new BadRequestError(message);
+      }
+      if (status === 401 || status === 403) {
+        throw new NotFoundError(message);
+      }
+      throw new InternalError(message);
     }
   }
 
@@ -111,30 +135,39 @@ export class KibanaUserService extends ClientBasedService<
     });
   }
 
-  private parseError(err: Error, message: string, operation: string): Error {
+  protected parseError(error: Error): Error {
+    const message = error.message || error.name || "Unknown error";
     const lowerMessage = message.toLowerCase();
 
     if (lowerMessage.includes("not found") || lowerMessage.includes("404")) {
-      return new NotFoundError(message, err);
+      return new NotFoundError(message);
     }
 
-    if (lowerMessage.includes("already exists") || lowerMessage.includes("conflict") || lowerMessage.includes("409")) {
-      return new ConflictError(message, err);
+    if (
+      lowerMessage.includes("already exists") ||
+      lowerMessage.includes("conflict") ||
+      lowerMessage.includes("409")
+    ) {
+      return new ConflictError(message);
     }
 
-    if (lowerMessage.includes("invalid") || lowerMessage.includes("bad request") || lowerMessage.includes("400")) {
-      return new BadRequestError(message, err);
+    if (
+      lowerMessage.includes("invalid") ||
+      lowerMessage.includes("bad request") ||
+      lowerMessage.includes("400")
+    ) {
+      return new BadRequestError(message);
     }
 
     if (lowerMessage.includes("unauthorized") || lowerMessage.includes("401")) {
-      return new NotFoundError(message, err);
+      return new NotFoundError(message);
     }
 
     if (lowerMessage.includes("forbidden") || lowerMessage.includes("403")) {
-      return new NotFoundError(message, err);
+      return new NotFoundError(message);
     }
 
-    return new InternalError(message, err);
+    return new InternalError(message);
   }
 
   private isSecureEnvironment(): boolean {

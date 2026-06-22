@@ -1,9 +1,17 @@
-import { SecretName } from "./SecretTypes";
 import { SecretError } from "./SecretErrors";
 
 const MAX_NAME_LENGTH = 255;
 const SAFE_PATTERN = /^[a-zA-Z0-9_-]+$/;
-const CONTROL_CHARS_REGEX = /[\x00-\x1F\x7F]/;
+
+function hasControlCharacters(value: string): boolean {
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    if (code <= 31 || code === 127) {
+      return true;
+    }
+  }
+  return false;
+}
 
 export function validateSecretName(name: string): boolean {
   if (!name || typeof name !== "string") {
@@ -20,7 +28,7 @@ export function validateSecretName(name: string): boolean {
     return false;
   }
 
-  if (CONTROL_CHARS_REGEX.test(trimmed)) {
+  if (hasControlCharacters(trimmed)) {
     return false;
   }
 

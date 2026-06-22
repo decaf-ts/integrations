@@ -56,9 +56,8 @@ export class KibanaDataViewService extends ClientBasedService<
 
     if (createResp.status === 200 || createResp.status === 201) return;
     if (createResp.status !== 409 && createResp.status !== 400) {
-      const operation = "Create data view";
       const message = `Unable to create data view ${payload.id}: ${createResp.statusText}`;
-      throw this.parseError(new Error(message), message, operation);
+      throw new BadRequestError(message);
     }
 
     await this.updateDataView(realmName, payload, ...ctxArgs);
@@ -84,9 +83,8 @@ export class KibanaDataViewService extends ClientBasedService<
       ...ctxArgs
     );
     if (response.status >= 300) {
-      const operation = "Update data view";
       const message = `Unable to update data view ${payload.id}: ${response.statusText}`;
-      throw this.parseError(new Error(message), message, operation);
+      throw new BadRequestError(message);
     }
   }
 
@@ -145,9 +143,8 @@ export class KibanaDataViewService extends ClientBasedService<
       ...ctxArgs
     );
     if (response.status >= 300) {
-      const operation = "Set default data view";
       const message = `Unable to set default data view for ${realmName}: ${response.statusText}`;
-      throw this.parseError(new Error(message), message, operation);
+      throw new BadRequestError(message);
     }
   }
 
@@ -161,30 +158,31 @@ export class KibanaDataViewService extends ClientBasedService<
     });
   }
 
-  private parseError(err: Error, message: string, operation: string): Error {
+  protected parseError(error: Error): Error {
+    const message = error.message || error.name || "Unknown error";
     const lowerMessage = message.toLowerCase();
 
     if (lowerMessage.includes("not found") || lowerMessage.includes("404")) {
-      return new NotFoundError(message, err);
+      return new NotFoundError(message);
     }
 
     if (lowerMessage.includes("already exists") || lowerMessage.includes("conflict") || lowerMessage.includes("409")) {
-      return new ConflictError(message, err);
+      return new ConflictError(message);
     }
 
     if (lowerMessage.includes("invalid") || lowerMessage.includes("bad request") || lowerMessage.includes("400")) {
-      return new BadRequestError(message, err);
+      return new BadRequestError(message);
     }
 
     if (lowerMessage.includes("unauthorized") || lowerMessage.includes("401")) {
-      return new NotFoundError(message, err);
+      return new NotFoundError(message);
     }
 
     if (lowerMessage.includes("forbidden") || lowerMessage.includes("403")) {
-      return new NotFoundError(message, err);
+      return new NotFoundError(message);
     }
 
-    return new InternalError(message, err);
+    return new InternalError(message);
   }
 
   private isSecureEnvironment(): boolean {

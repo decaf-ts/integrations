@@ -261,35 +261,48 @@ export class KeycloakIdentityProviderService extends ClientBasedService<
   }
 
   private handleHttpResponse(response: any, successCode: number): void {
+    const status = response.status as number;
     const message = `Expected ${successCode}, received ${response.status}: ${response.statusText}`;
-    const operation = "Keycloak HTTP request";
-    throw this.parseError(new Error(message), message, operation);
+    if (status === 404 || message.toLowerCase().includes("not found")) {
+      throw new NotFoundError(message);
+    }
+    if (status === 409 || message.toLowerCase().includes("conflict")) {
+      throw new ConflictError(message);
+    }
+    if (status === 400) {
+      throw new BadRequestError(message);
+    }
+    if (status === 401 || status === 403) {
+      throw new NotFoundError(message);
+    }
+    throw new InternalError(message);
   }
 
-  private parseError(err: Error, message: string, operation: string): Error {
+  protected parseError(error: Error): Error {
+    const message = error.message || error.name || "Unknown error";
     const lowerMessage = message.toLowerCase();
 
     if (lowerMessage.includes("not found") || lowerMessage.includes("404")) {
-      return new NotFoundError(message, err);
+      return new NotFoundError(message);
     }
 
     if (lowerMessage.includes("already exists") || lowerMessage.includes("conflict") || lowerMessage.includes("409")) {
-      return new ConflictError(message, err);
+      return new ConflictError(message);
     }
 
     if (lowerMessage.includes("invalid") || lowerMessage.includes("bad request") || lowerMessage.includes("400")) {
-      return new BadRequestError(message, err);
+      return new BadRequestError(message);
     }
 
     if (lowerMessage.includes("unauthorized") || lowerMessage.includes("401")) {
-      return new NotFoundError(message, err);
+      return new NotFoundError(message);
     }
 
     if (lowerMessage.includes("forbidden") || lowerMessage.includes("403")) {
-      return new NotFoundError(message, err);
+      return new NotFoundError(message);
     }
 
-    return new InternalError(message, err);
+    return new InternalError(message);
   }
 
   private parseJsonResponse<T>(data: unknown): T | undefined {

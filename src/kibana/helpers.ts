@@ -1,9 +1,7 @@
 import type {
   KibanaDataViewConfig,
   KibanaRoleConfig,
-  KibanaSetupConfig,
   KibanaSpaceConfig,
-  KibanaUser,
 } from "./types";
 
 export function createDefaultKibanaSpaceConfig(realm: string): KibanaSpaceConfig {

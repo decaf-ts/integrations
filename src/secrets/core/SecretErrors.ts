@@ -1,4 +1,3 @@
-import { SecretProvider } from "./SecretTypes";
 import { InternalError } from "@decaf-ts/db-decorators";
 
 export type SecretErrorCode =
@@ -31,10 +30,7 @@ export class SecretError extends InternalError {
   }
 }
 
-export function translateError(
-  error: Error,
-  provider: SecretProvider
-): SecretError {
+export function translateError(error: Error): SecretError {
   const message = error.message || error.name;
   const lowerMessage = message.toLowerCase();
 

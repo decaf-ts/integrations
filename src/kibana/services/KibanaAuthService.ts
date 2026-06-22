@@ -69,9 +69,8 @@ export class KibanaAuthService extends ClientBasedService<
     );
 
     if (response.status >= 300) {
-      const operation = "Kibana login";
       const message = `Kibana login failed: ${response.statusText}`;
-      throw this.parseError(new Error(message), message, operation);
+      throw new BadRequestError(message);
     }
 
     const setCookie = response.headers["set-cookie"] as string[] | undefined;
@@ -99,30 +98,31 @@ export class KibanaAuthService extends ClientBasedService<
     );
   }
 
-  private parseError(err: Error, message: string, operation: string): Error {
+  protected parseError(error: Error): Error {
+    const message = error.message || error.name || "Unknown error";
     const lowerMessage = message.toLowerCase();
 
     if (lowerMessage.includes("not found") || lowerMessage.includes("404")) {
-      return new NotFoundError(message, err);
+      return new NotFoundError(message);
     }
 
     if (lowerMessage.includes("already exists") || lowerMessage.includes("conflict") || lowerMessage.includes("409")) {
-      return new ConflictError(message, err);
+      return new ConflictError(message);
     }
 
     if (lowerMessage.includes("invalid") || lowerMessage.includes("bad request") || lowerMessage.includes("400")) {
-      return new BadRequestError(message, err);
+      return new BadRequestError(message);
     }
 
     if (lowerMessage.includes("unauthorized") || lowerMessage.includes("401")) {
-      return new NotFoundError(message, err);
+      return new NotFoundError(message);
     }
 
     if (lowerMessage.includes("forbidden") || lowerMessage.includes("403")) {
-      return new NotFoundError(message, err);
+      return new NotFoundError(message);
     }
 
-    return new InternalError(message, err);
+    return new InternalError(message);
   }
 
   private createHttpClient(config: KibanaSetupConfig): AxiosInstance {

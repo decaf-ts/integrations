@@ -12,7 +12,6 @@ import {
 } from "./SecretTypes";
 
 export abstract class SecretService<
-  TClient = unknown,
   TConfig extends SecretServiceConfig = SecretServiceConfig,
 > extends Service {
   readonly provider: SecretProvider;

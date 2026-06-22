@@ -1,5 +1,5 @@
 import { ConflictError } from "@decaf-ts/db-decorators";
-import { ContextualArgs, MaybeContextualArg } from "@decaf-ts/core";
+import { MaybeContextualArg } from "@decaf-ts/core";
 import { ClientBasedService } from "@decaf-ts/core";
 import type {
   KibanaDataViewConfig,

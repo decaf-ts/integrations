@@ -81,7 +81,7 @@ export class DockerComposeService extends ClientBasedService<
    * Stop Docker Compose services
    */
   async down(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.down, true);
+    const { log } = await this.logCtx(args, this.down, true);
     const command = `docker compose -f ${this.composeFileName} down --volumes`;
 
     await execWithLogging(command, { cwd: this.workingDir }, log);
@@ -92,7 +92,7 @@ export class DockerComposeService extends ClientBasedService<
    * Restart Docker Compose services
    */
   async restart(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx(args, this.restart, true);
+    const { log } = await this.logCtx(args, this.restart, true);
     const command = `docker compose -f ${this.composeFileName} restart`;
 
     await execWithLogging(command, { cwd: this.workingDir }, log);
@@ -140,7 +140,7 @@ export class DockerComposeService extends ClientBasedService<
     command: string,
     ...args: MaybeContextualArg<any>
   ): Promise<string> {
-    const { log, ctxArgs } = await this.logCtx(
+    const { log } = await this.logCtx(
       args,
       this.execInContainer,
       true
@@ -165,7 +165,7 @@ export class DockerComposeService extends ClientBasedService<
     tail = 100,
     ...args: MaybeContextualArg<any>
   ): Promise<string> {
-    const { log, ctxArgs } = await this.logCtx(args, this.getLogs, true);
+    const { log } = await this.logCtx(args, this.getLogs, true);
     const containerArg = containerName ? containerName : "";
     const command = `docker compose -f ${this.composeFileName} logs ${containerArg} --tail=${tail}`;
 

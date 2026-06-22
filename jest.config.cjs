@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 module.exports = {
   displayName: "Decaf Integrations",
   verbose: true,
@@ -37,7 +38,7 @@ module.exports = {
   ],
   watchman: false,
   moduleNameMapper: {
-    "^\.\.\/\.\.\/lib\/keycloak(.*)$": "<rootDir>/../integrations/src/keycloak\1",
+    "^\\.\\.\\/\\.\\.\\/lib\\/keycloak(.*)$": "<rootDir>/../integrations/src/keycloak\\1",
   },
   extensionsToTreatAsEsm: [".ts"],
   preset: "ts-jest/presets/default-esm",

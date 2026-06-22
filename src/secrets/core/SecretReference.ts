@@ -1,10 +1,8 @@
-import { SecretProvider, type SecretReference } from "./SecretTypes";
+import { SecretProvider } from "./SecretTypes";
 import { SecretError } from "./SecretErrors";
 
 const URI_PATTERN =
   /^secrets\/(?<provider>[a-z-]+)\/(?<name>[a-zA-Z0-9_-]+)(?:\/version\/(?<version>[a-zA-Z0-9_-]+))?$/ as unknown as RegExp;
-const NAME_ONLY_PATTERN = /^[a-zA-Z0-9_-]+$/;
-
 export function parseSecretReference(ref: string): {
   provider: SecretProvider;
   name: string;

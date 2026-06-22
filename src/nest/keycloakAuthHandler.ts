@@ -6,7 +6,7 @@ import { DECAF_ADAPTER_OPTIONS, getRealmFromIssuer } from "./utils";
 export class KeycloakAuthHandler {
   constructor(private readonly authService = new AuthService()) {}
 
-  async authorize(context: AuthExecutionContextLike, resource?: string): Promise<void> {
+  async authorize(context: AuthExecutionContextLike): Promise<void> {
     const request = context.switchToHttp().getRequest<AuthRequestLike>();
 
     if (request.path?.startsWith("/public")) return;

@@ -1,7 +1,5 @@
 import { SecretError, SecretProvider } from "../../secrets/core";
 import { SecretName, SecretPayload, SecretReference, SecretMetadata } from "../../secrets/core";
-import { StoreSecretOptions, RetrieveSecretOptions, DeleteSecretOptions } from "../../secrets/core";
-import { ExistsSecretOptions, ListSecretsOptions, SecretMetadataOptions } from "../../secrets/core";
 import { validateSecretName, normalizeSecretName } from "../../secrets/core";
 import { serializeSecretPayload, deserializeSecretPayload, type SerializedSecretPayload } from "../../secrets/core";
 import { ClientBasedService, type ContextualArgs, type MaybeContextualArg } from "@decaf-ts/core";
@@ -21,10 +19,10 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
   async store<T extends SecretPayload = SecretPayload>(
     name: SecretName,
     value: T,
-    options: StoreSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<SecretReference> {
-    const { log, ctxArgs } = (await this.logCtx(args, "store", true)).for(this.store);
+    const { log } = (await this.logCtx(args, "store", true)).for(this.store);
+    log.verbose(`Storing secret ${name}`);
     try {
       validateSecretName(name);
     } catch (error) {
@@ -79,10 +77,9 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
 
   async retrieve<T extends SecretPayload = SecretPayload>(
     nameOrRef: SecretName | SecretReference,
-    options: RetrieveSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<T> {
-    const { log, ctxArgs } = (await this.logCtx(args, "retrieve", true)).for(this.retrieve);
+    const { log } = (await this.logCtx(args, "retrieve", true)).for(this.retrieve);
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Retrieving secret ${nameStr}`);
 
@@ -162,10 +159,9 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
 
   async delete(
     nameOrRef: SecretName | SecretReference,
-    options: DeleteSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log, ctxArgs } = (await this.logCtx(args, "delete", true)).for(this.delete);
+    const { log } = (await this.logCtx(args, "delete", true)).for(this.delete);
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Deleting secret ${nameStr}`);
 
@@ -213,10 +209,9 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
 
   async exists(
     nameOrRef: SecretName | SecretReference,
-    options: ExistsSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<boolean> {
-    const { log, ctxArgs } = (await this.logCtx(args, "exists", true)).for(this.exists);
+    const { log } = (await this.logCtx(args, "exists", true)).for(this.exists);
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Checking if secret ${nameStr} exists`);
 
@@ -267,8 +262,8 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
     }
   }
 
-  async list(options: ListSecretsOptions = {}, ...args: MaybeContextualArg<any>): Promise<SecretMetadata[]> {
-    const { log, ctxArgs } = (await this.logCtx(args, "list", true)).for(this.list);
+  async list(...args: MaybeContextualArg<any>): Promise<SecretMetadata[]> {
+    const { log } = (await this.logCtx(args, "list", true)).for(this.list);
     log.verbose("Listing secrets");
     const result: SecretMetadata[] = [];
     const vaultId = this.config.vaultId;
@@ -303,10 +298,9 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
 
   async metadata(
     nameOrRef: SecretName | SecretReference,
-    options: SecretMetadataOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<SecretMetadata | undefined> {
-    const { log, ctxArgs } = (await this.logCtx(args, "metadata", true)).for(this.metadata);
+    const { log } = (await this.logCtx(args, "metadata", true)).for(this.metadata);
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Getting metadata for secret ${nameStr}`);
 
@@ -358,10 +352,6 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
         externalId: item.id,
         tags: item.category ? { category: item.category } : undefined,
       };
-
-      if (options.includeTags) {
-        meta.tags = meta.tags;
-      }
 
       return meta;
     } catch (error) {

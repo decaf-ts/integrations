@@ -28,11 +28,7 @@ import {
   StoreSecretOptions,
   RetrieveSecretOptions,
   DeleteSecretOptions,
-} from "../../secrets/core";
-import {
-  ExistsSecretOptions,
   ListSecretsOptions,
-  SecretMetadataOptions,
 } from "../../secrets/core";
 import { validateSecretName, normalizeSecretName } from "../../secrets/core";
 import {
@@ -82,7 +78,7 @@ export class AwsSecretService extends ClientBasedService<
     options: StoreSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<SecretReference> {
-    const { log, ctxArgs } = (await this.logCtx(args, "store", true)).for(
+    const { log } = (await this.logCtx(args, "store", true)).for(
       this.store
     );
     log.verbose(`Storing secret ${name}`);
@@ -132,7 +128,7 @@ export class AwsSecretService extends ClientBasedService<
     options: RetrieveSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<T> {
-    const { log, ctxArgs } = (await this.logCtx(args, "retrieve", true)).for(
+    const { log } = (await this.logCtx(args, "retrieve", true)).for(
       this.retrieve
     );
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
@@ -187,7 +183,7 @@ export class AwsSecretService extends ClientBasedService<
     options: DeleteSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log, ctxArgs } = (await this.logCtx(args, "delete", true)).for(
+    const { log } = (await this.logCtx(args, "delete", true)).for(
       this.delete
     );
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
@@ -223,10 +219,9 @@ export class AwsSecretService extends ClientBasedService<
 
   async exists(
     nameOrRef: SecretName | SecretReference,
-    options: ExistsSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<boolean> {
-    const { log, ctxArgs } = (await this.logCtx(args, "exists", true)).for(
+    const { log } = (await this.logCtx(args, "exists", true)).for(
       this.exists
     );
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
@@ -272,7 +267,7 @@ export class AwsSecretService extends ClientBasedService<
     options: ListSecretsOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<SecretMetadata[]> {
-    const { log, ctxArgs } = (await this.logCtx(args, "list", true)).for(
+    const { log } = (await this.logCtx(args, "list", true)).for(
       this.list
     );
     log.verbose("Listing secrets");
@@ -327,10 +322,9 @@ export class AwsSecretService extends ClientBasedService<
 
   async metadata(
     nameOrRef: SecretName | SecretReference,
-    options: SecretMetadataOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<SecretMetadata | undefined> {
-    const { log, ctxArgs } = (await this.logCtx(args, "metadata", true)).for(
+    const { log } = (await this.logCtx(args, "metadata", true)).for(
       this.metadata
     );
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
@@ -382,10 +376,6 @@ export class AwsSecretService extends ClientBasedService<
           {}
         ),
       };
-
-      if (options.includeTags) {
-        meta.tags = meta.tags;
-      }
 
       return meta;
     } catch (error) {

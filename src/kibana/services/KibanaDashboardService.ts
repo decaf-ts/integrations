@@ -54,9 +54,8 @@ export class KibanaDashboardService extends ClientBasedService<
       ...ctxArgs
     );
     if (response.status !== 200) {
-      const operation = "List dashboards";
       const message = `Unable to list dashboards from default space: ${response.statusText}`;
-      throw this.parseError(new Error(message), message, operation);
+      throw new BadRequestError(message);
     }
     const data = this.parseJson(response.data) ?? {};
     const dashboards: Array<{ id: string }> = data.saved_objects ?? [];
@@ -81,9 +80,8 @@ export class KibanaDashboardService extends ClientBasedService<
       ...ctxArgs
     );
     if (copyResp.status >= 300) {
-      const operation = "Copy dashboards";
       const message = `Unable to copy dashboards to ${realmName}: ${copyResp.statusText}`;
-      throw this.parseError(new Error(message), message, operation);
+      throw new BadRequestError(message);
     }
 
     const assetRoot = this.config.dashboardImportPath ?? this.config.assets;
@@ -118,9 +116,8 @@ export class KibanaDashboardService extends ClientBasedService<
       }
     );
     if (importResp.status >= 300) {
-      const operation = "Import dashboards";
       const message = `Unable to import dashboards for ${realmName}: ${importResp.statusText}`;
-      throw this.parseError(new Error(message), message, operation);
+      throw new BadRequestError(message);
     }
     return dashboards[0]?.id;
   }
@@ -172,15 +169,13 @@ export class KibanaDashboardService extends ClientBasedService<
       ...ctxArgs
     );
     if (response.status !== 200) {
-      const operation = "Verify space setup";
       const message = `Unable to verify space ${realmName}: ${response.statusText}`;
-      throw this.parseError(new Error(message), message, operation);
+      throw new BadRequestError(message);
     }
     const data = this.parseJson(response.data);
     if ((data?.total ?? 0) === 0) {
-      const operation = "Verify space setup";
       const message = `No dashboards found in space ${realmName}`;
-      throw this.parseError(new Error(message), message, operation);
+      throw new NotFoundError(message);
     }
   }
 
@@ -194,30 +189,31 @@ export class KibanaDashboardService extends ClientBasedService<
     });
   }
 
-  private parseError(err: Error, message: string, operation: string): Error {
+  protected parseError(error: Error): Error {
+    const message = error.message || error.name || "Unknown error";
     const lowerMessage = message.toLowerCase();
 
     if (lowerMessage.includes("not found") || lowerMessage.includes("404")) {
-      return new NotFoundError(message, err);
+      return new NotFoundError(message);
     }
 
     if (lowerMessage.includes("already exists") || lowerMessage.includes("conflict") || lowerMessage.includes("409")) {
-      return new ConflictError(message, err);
+      return new ConflictError(message);
     }
 
     if (lowerMessage.includes("invalid") || lowerMessage.includes("bad request") || lowerMessage.includes("400")) {
-      return new BadRequestError(message, err);
+      return new BadRequestError(message);
     }
 
     if (lowerMessage.includes("unauthorized") || lowerMessage.includes("401")) {
-      return new NotFoundError(message, err);
+      return new NotFoundError(message);
     }
 
     if (lowerMessage.includes("forbidden") || lowerMessage.includes("403")) {
-      return new NotFoundError(message, err);
+      return new NotFoundError(message);
     }
 
-    return new InternalError(message, err);
+    return new InternalError(message);
   }
 
   private isSecureEnvironment(): boolean {

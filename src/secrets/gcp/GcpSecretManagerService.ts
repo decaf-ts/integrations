@@ -3,8 +3,7 @@ import * as grpc from "@grpc/grpc-js";
 import { SecretProvider } from "../../secrets/core";
 import { ClientBasedService, type MaybeContextualArg } from "@decaf-ts/core";
 import { SecretName, SecretPayload, SecretReference, SecretMetadata } from "../../secrets/core";
-import { StoreSecretOptions, RetrieveSecretOptions, DeleteSecretOptions } from "../../secrets/core";
-import { ExistsSecretOptions, ListSecretsOptions, SecretMetadataOptions } from "../../secrets/core";
+import { StoreSecretOptions, ListSecretsOptions } from "../../secrets/core";
 import { validateSecretName, normalizeSecretName } from "../../secrets/core";
 import { serializeSecretPayload, deserializeSecretPayload, type SerializedSecretPayload } from "../../secrets/core";
 import { GcpSecretManagerServiceConfig } from "./GcpSecretManagerServiceConfig";
@@ -43,7 +42,7 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
     options: StoreSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<SecretReference> {
-    const { log, ctxArgs } = (await this.logCtx(args, "store", true)).for(this.store);
+    const { log } = (await this.logCtx(args, "store", true)).for(this.store);
     log.verbose(`Storing secret ${name}`);
 
     try {
@@ -109,10 +108,9 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
 
   async retrieve<T extends SecretPayload = SecretPayload>(
     nameOrRef: SecretName | SecretReference,
-    options: RetrieveSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<T> {
-    const { log, ctxArgs } = (await this.logCtx(args, "retrieve", true)).for(this.retrieve);
+    const { log } = (await this.logCtx(args, "retrieve", true)).for(this.retrieve);
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Retrieving secret ${nameStr}`);
 
@@ -168,10 +166,9 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
 
   async delete(
     nameOrRef: SecretName | SecretReference,
-    options: DeleteSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log, ctxArgs } = (await this.logCtx(args, "delete", true)).for(this.delete);
+    const { log } = (await this.logCtx(args, "delete", true)).for(this.delete);
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Deleting secret ${nameStr}`);
 
@@ -202,10 +199,9 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
 
   async exists(
     nameOrRef: SecretName | SecretReference,
-    options: ExistsSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<boolean> {
-    const { log, ctxArgs } = (await this.logCtx(args, "exists", true)).for(this.exists);
+    const { log } = (await this.logCtx(args, "exists", true)).for(this.exists);
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Checking if secret ${nameStr} exists`);
 
@@ -244,7 +240,7 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
   }
 
   async list(options: ListSecretsOptions = {}, ...args: MaybeContextualArg<any>): Promise<SecretMetadata[]> {
-    const { log, ctxArgs } = (await this.logCtx(args, "list", true)).for(this.list);
+    const { log } = (await this.logCtx(args, "list", true)).for(this.list);
     log.verbose("Listing secrets");
 
     const result: SecretMetadata[] = [];
@@ -273,10 +269,9 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
 
   async metadata(
     nameOrRef: SecretName | SecretReference,
-    options: SecretMetadataOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<SecretMetadata | undefined> {
-    const { log, ctxArgs } = (await this.logCtx(args, "metadata", true)).for(this.metadata);
+    const { log } = (await this.logCtx(args, "metadata", true)).for(this.metadata);
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Getting metadata for secret ${nameStr}`);
 
@@ -334,7 +329,7 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
       lowerMessage.includes("not found") ||
       lowerMessage.includes("404")
     ) {
-      return new NotFoundError(message, err);
+      return new NotFoundError(message);
     }
 
     if (
@@ -343,23 +338,23 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
       lowerMessage.includes("conflict") ||
       lowerMessage.includes("409")
     ) {
-      return new ConflictError(message, err);
+      return new ConflictError(message);
     }
 
     if (lowerMessage.includes("disabled") || lowerMessage.includes("403")) {
-      return new NotFoundError(message, err);
+      return new NotFoundError(message);
     }
 
     if (lowerMessage.includes("unauthorized") || lowerMessage.includes("401")) {
-      return new NotFoundError(message, err);
+      return new NotFoundError(message);
     }
 
     if (lowerMessage.includes("permission") || lowerMessage.includes("403")) {
-      return new NotFoundError(message, err);
+      return new NotFoundError(message);
     }
 
     if (lowerMessage.includes("rate limit") || lowerMessage.includes("429")) {
-      return new BadRequestError(message, err);
+      return new BadRequestError(message);
     }
 
     if (
@@ -368,9 +363,9 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
       lowerMessage.includes("connection") ||
       lowerMessage.includes("timeout")
     ) {
-      return new InternalError(message, err);
+      return new InternalError(message);
     }
 
-    return new InternalError(message, err);
+    return new InternalError(message);
   }
 }

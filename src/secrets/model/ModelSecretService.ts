@@ -1,10 +1,16 @@
-import { SecretError, SecretProvider, type SecretServiceConfig } from "../core";
+import { SecretError, SecretProvider } from "../core";
 import { SecretName, SecretPayload, SecretReference, SecretMetadata } from "../core";
-import { StoreSecretOptions, RetrieveSecretOptions, DeleteSecretOptions } from "../core";
-import { ExistsSecretOptions, ListSecretsOptions, SecretMetadataOptions } from "../core";
+import {
+  StoreSecretOptions,
+  RetrieveSecretOptions,
+  DeleteSecretOptions,
+  ExistsSecretOptions,
+  ListSecretsOptions,
+  SecretMetadataOptions,
+} from "../core";
 import { validateSecretName, normalizeSecretName } from "../core";
 import { serializeSecretPayload, deserializeSecretPayload, type SerializedSecretPayload } from "../core";
-import { Secret, SecretEncryptionMetadata } from "./Secret";
+import { Secret } from "./Secret";
 import { ClientBasedService, ContextualArgs, MaybeContextualArg, Repository } from "@decaf-ts/core";
 import { ModelSecretServiceConfig } from "./ModelSecretServiceConfig";
 import { Condition } from "@decaf-ts/core";
@@ -30,7 +36,8 @@ export class ModelSecretService extends ClientBasedService<Repository<Secret, an
     options: StoreSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<SecretReference> {
-    const { log, ctxArgs } = (await this.logCtx(args, "store", true)).for(this.store);
+    const { log } = (await this.logCtx(args, "store", true)).for(this.store);
+    log.verbose(`Storing secret ${name}`);
     try {
       validateSecretName(name);
     } catch (error) {
@@ -85,7 +92,7 @@ export class ModelSecretService extends ClientBasedService<Repository<Secret, an
     options: RetrieveSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<T> {
-    const { log, ctxArgs } = (await this.logCtx(args, "retrieve", true)).for(this.retrieve);
+    const { log } = (await this.logCtx(args, "retrieve", true)).for(this.retrieve);
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Retrieving secret ${nameStr}`);
 
@@ -151,7 +158,7 @@ export class ModelSecretService extends ClientBasedService<Repository<Secret, an
     options: DeleteSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log, ctxArgs } = (await this.logCtx(args, "delete", true)).for(this.delete);
+    const { log } = (await this.logCtx(args, "delete", true)).for(this.delete);
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Deleting secret ${nameStr}`);
 
@@ -198,7 +205,7 @@ export class ModelSecretService extends ClientBasedService<Repository<Secret, an
     options: ExistsSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<boolean> {
-    const { log, ctxArgs } = (await this.logCtx(args, "exists", true)).for(this.exists);
+    const { log } = (await this.logCtx(args, "exists", true)).for(this.exists);
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Checking if secret ${nameStr} exists`);
 
@@ -235,7 +242,7 @@ export class ModelSecretService extends ClientBasedService<Repository<Secret, an
   }
 
   async list(options: ListSecretsOptions = {}, ...args: MaybeContextualArg<any>): Promise<SecretMetadata[]> {
-    const { log, ctxArgs } = (await this.logCtx(args, "list", true)).for(this.list);
+    const { log } = (await this.logCtx(args, "list", true)).for(this.list);
     log.verbose("Listing secrets");
 
     let condition: Condition<Secret> | null = null;
@@ -266,7 +273,7 @@ export class ModelSecretService extends ClientBasedService<Repository<Secret, an
     options: SecretMetadataOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<SecretMetadata | undefined> {
-    const { log, ctxArgs } = (await this.logCtx(args, "metadata", true)).for(this.metadata);
+    const { log } = (await this.logCtx(args, "metadata", true)).for(this.metadata);
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Getting metadata for secret ${nameStr}`);
 
