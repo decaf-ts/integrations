@@ -5,10 +5,7 @@ import {
   SecretReference,
   SecretMetadata,
 } from "../../secrets/core";
-import {
-  StoreSecretOptions,
-  ListSecretsOptions,
-} from "../../secrets/core";
+import { StoreSecretOptions, ListSecretsOptions } from "../../secrets/core";
 import { validateSecretName, normalizeSecretName } from "../../secrets/core";
 import {
   serializeSecretPayload,
@@ -143,9 +140,7 @@ export class VaultSecretService extends ClientBasedService<
     options: StoreSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<SecretReference> {
-    const { log } = (await this.logCtx(args, "store", true)).for(
-      this.store
-    );
+    const { log } = (await this.logCtx(args, "store", true)).for(this.store);
     log.verbose(`Storing secret ${name}`);
     try {
       validateSecretName(name);
@@ -174,9 +169,7 @@ export class VaultSecretService extends ClientBasedService<
         error?.name?.toLowerCase().includes("already") ||
         error?.message?.toLowerCase()?.includes("already")
       ) {
-        throw this.parseError(
-          new Error(`Secret "${normalizedName}" already exists`)
-        );
+        throw new ConflictError(`Secret "${normalizedName}" already exists`);
       }
       throw this.parseError(error as Error);
     }
@@ -212,9 +205,7 @@ export class VaultSecretService extends ClientBasedService<
       const response = await this.client.read(normalizedName);
 
       if (!response?.data?.value) {
-        throw this.parseError(
-          new Error(`Secret "${normalizedName}" has no value`)
-        );
+        throw new NotFoundError(`Secret "${normalizedName}" has no value`);
       }
 
       const payload: SerializedSecretPayload = {
@@ -228,9 +219,7 @@ export class VaultSecretService extends ClientBasedService<
         error?.name?.toLowerCase().includes("not found") ||
         error?.message?.toLowerCase()?.includes("not found")
       ) {
-        throw this.parseError(
-          new Error(`Secret "${normalizedName}" not found`)
-        );
+        throw new NotFoundError(`Secret "${normalizedName}" not found`);
       }
       throw this.parseError(error as Error);
     }
@@ -240,9 +229,7 @@ export class VaultSecretService extends ClientBasedService<
     nameOrRef: SecretName | SecretReference,
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log } = (await this.logCtx(args, "delete", true)).for(
-      this.delete
-    );
+    const { log } = (await this.logCtx(args, "delete", true)).for(this.delete);
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Deleting secret ${nameStr}`);
 
@@ -273,9 +260,7 @@ export class VaultSecretService extends ClientBasedService<
     nameOrRef: SecretName | SecretReference,
     ...args: MaybeContextualArg<any>
   ): Promise<boolean> {
-    const { log } = (await this.logCtx(args, "exists", true)).for(
-      this.exists
-    );
+    const { log } = (await this.logCtx(args, "exists", true)).for(this.exists);
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Checking if secret ${nameStr} exists`);
 
@@ -313,9 +298,7 @@ export class VaultSecretService extends ClientBasedService<
     options: ListSecretsOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<SecretMetadata[]> {
-    const { log } = (await this.logCtx(args, "list", true)).for(
-      this.list
-    );
+    const { log } = (await this.logCtx(args, "list", true)).for(this.list);
     log.verbose("Listing secrets");
     const result: SecretMetadata[] = [];
 

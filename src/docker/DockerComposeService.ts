@@ -3,10 +3,12 @@ import {
   ClientBasedService,
   ContextualArgs,
   MaybeContextualArg,
+  PersistenceKeys,
 } from "@decaf-ts/core";
 import path from "path";
 import fs from "fs";
 import { execWithLogging } from "../utils";
+import { InternalError } from "@decaf-ts/db-decorators";
 
 interface DockerComposeServiceConfig {
   composeFile: string;
@@ -30,21 +32,27 @@ export class DockerComposeService extends ClientBasedService<
   async initialize(
     ...args: ContextualArgs<any>
   ): Promise<{ config: DockerComposeServiceConfig; client: void }> {
-    const { log, ctxArgs } = await this.logCtx(args, this.initialize, true);
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PersistenceKeys.INITIALIZATION, true)
+    ).for(this.initialize);
     const config = ctxArgs[0] as DockerComposeServiceConfig;
 
     if (!config.composeFile) {
-      throw new Error("DockerComposeService requires a composeFile path");
+      throw new InternalError(
+        "DockerComposeService requires a composeFile path"
+      );
     }
 
     // Validate compose file exists
     if (!fs.existsSync(config.composeFile)) {
-      throw new Error(`Docker compose file not found: ${config.composeFile}`);
+      throw new InternalError(
+        `Docker compose file not found: ${config.composeFile}`
+      );
     }
 
     log.info(`Initialized with compose file: ${config.composeFile}`);
 
-    this._config = config;
+    this._config = config; // double assignment but allows tests to be cleaner
 
     return { config, client: undefined };
   }
@@ -66,10 +74,7 @@ export class DockerComposeService extends ClientBasedService<
   /**
    * Start Docker Compose services
    */
-  async up(
-    detached = true,
-    ...args: MaybeContextualArg<any>
-  ): Promise<void> {
+  async up(detached = true, ...args: MaybeContextualArg<any>): Promise<void> {
     const { log } = await this.logCtx(args, this.up, true);
     const command = `docker compose -f ${this.composeFileName} up ${detached ? "-d" : ""}`;
 
@@ -127,7 +132,7 @@ export class DockerComposeService extends ClientBasedService<
     }
 
     log.error(`Health check failed for ${url} after ${maxAttempts} attempts`);
-    throw new Error(
+    throw new InternalError(
       `Health check failed for ${url} after ${maxAttempts} attempts`
     );
   }
@@ -140,11 +145,7 @@ export class DockerComposeService extends ClientBasedService<
     command: string,
     ...args: MaybeContextualArg<any>
   ): Promise<string> {
-    const { log } = await this.logCtx(
-      args,
-      this.execInContainer,
-      true
-    );
+    const { log } = await this.logCtx(args, this.execInContainer, true);
     const fullCommand = `docker compose -f ${this.composeFileName} exec ${containerName} ${command}`;
 
     const { stdout } = await execWithLogging(

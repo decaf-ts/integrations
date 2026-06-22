@@ -39,6 +39,7 @@ import {
 import { AwsSecretServiceConfig } from "./AwsSecretServiceConfig";
 import {
   BadRequestError,
+  BaseError,
   ConflictError,
   InternalError,
   NotFoundError,
@@ -55,12 +56,12 @@ export class AwsSecretService extends ClientBasedService<
   async initialize(
     ...args: MaybeContextualArg<any>
   ): Promise<{ config: AwsSecretServiceConfig; client: SecretsManagerClient }> {
-    const { ctxArgs } = (
-      await this.logCtx(args, "initialize", true)
-    ).for(this.initialize);
+    const { ctxArgs } = (await this.logCtx(args, "initialize", true)).for(
+      this.initialize
+    );
     const config = ctxArgs[0] as AwsSecretServiceConfig;
     if (!config) {
-      throw new Error("Missing configuration for AwsSecretService");
+      throw new InternalError("Missing configuration for AwsSecretService");
     }
     const client = new SecretsManagerClient({
       region: config.region,
@@ -78,9 +79,7 @@ export class AwsSecretService extends ClientBasedService<
     options: StoreSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<SecretReference> {
-    const { log } = (await this.logCtx(args, "store", true)).for(
-      this.store
-    );
+    const { log } = (await this.logCtx(args, "store", true)).for(this.store);
     log.verbose(`Storing secret ${name}`);
 
     try {
@@ -167,8 +166,8 @@ export class AwsSecretService extends ClientBasedService<
       if (response.SecretString !== undefined) {
         payload = JSON.parse(response.SecretString) as SerializedSecretPayload;
       } else {
-        throw this.parseError(
-          new Error(`No secret value found for "${normalizedName}"`)
+        throw new NotFoundError(
+          `No secret value found for "${normalizedName}"`
         );
       }
     } catch (error) {
@@ -183,9 +182,7 @@ export class AwsSecretService extends ClientBasedService<
     options: DeleteSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log } = (await this.logCtx(args, "delete", true)).for(
-      this.delete
-    );
+    const { log } = (await this.logCtx(args, "delete", true)).for(this.delete);
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Deleting secret ${nameStr}`);
 
@@ -221,9 +218,7 @@ export class AwsSecretService extends ClientBasedService<
     nameOrRef: SecretName | SecretReference,
     ...args: MaybeContextualArg<any>
   ): Promise<boolean> {
-    const { log } = (await this.logCtx(args, "exists", true)).for(
-      this.exists
-    );
+    const { log } = (await this.logCtx(args, "exists", true)).for(this.exists);
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Checking if secret ${nameStr} exists`);
 
@@ -267,9 +262,7 @@ export class AwsSecretService extends ClientBasedService<
     options: ListSecretsOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<SecretMetadata[]> {
-    const { log } = (await this.logCtx(args, "list", true)).for(
-      this.list
-    );
+    const { log } = (await this.logCtx(args, "list", true)).for(this.list);
     log.verbose("Listing secrets");
 
     const result: SecretMetadata[] = [];
@@ -393,6 +386,7 @@ export class AwsSecretService extends ClientBasedService<
 
   protected parseError(error: unknown): Error {
     const err = error as Error;
+    if (err instanceof BaseError) return err;
     const message = err.message || err.name || "Unknown error";
     const lowerMessage = message.toLowerCase();
 

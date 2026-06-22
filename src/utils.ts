@@ -4,12 +4,14 @@
  * @description Utility helpers used across the integrations package.
  */
 import { exec } from "child_process";
-import { Logger } from "@decaf-ts/logging";
+import { Logger, LogLevel } from "@decaf-ts/logging";
+import { InternalError } from "@decaf-ts/db-decorators";
 
 export async function execWithLogging(
   command: string,
   options: { cwd: string },
-  log: Logger
+  log: Logger,
+  level: LogLevel = LogLevel.info
 ): Promise<{ stdout: string; stderr: string }> {
   log.debug(`Executing: ${command}`);
 
@@ -21,12 +23,12 @@ export async function execWithLogging(
 
     child.stdout?.on("data", (data: string) => {
       stdout += data;
-      log.info(data.trim());
+      log[level](data.trim());
     });
 
     child.stderr?.on("data", (data: string) => {
       stderr += data;
-      log.warn(data.trim());
+      log.error(data.trim());
     });
 
     child.on("close", (code: number) => {
@@ -34,13 +36,15 @@ export async function execWithLogging(
         log.silly(`Command completed successfully`);
         resolve({ stdout, stderr });
       } else {
-        log.error(`Command failed with code ${code}`, stderr as any);
-        reject(new Error(`Command failed with code ${code}: ${stderr}`));
+        log.critical(`Command failed with code ${code}`, stderr as any);
+        reject(
+          new InternalError(`Command failed with code ${code}: ${stderr}`)
+        );
       }
     });
 
     child.on("error", (err: Error) => {
-      log.error(`Command execution error`, err);
+      log.critical(`Command execution error`, err);
       reject(err);
     });
   });

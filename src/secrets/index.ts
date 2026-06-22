@@ -4,3 +4,4 @@
  * @description Re-exports the secret service core abstractions and all provider implementations.
  */
 export * from "./core";
+export * from "./model";

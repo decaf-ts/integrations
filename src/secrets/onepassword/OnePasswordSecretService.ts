@@ -1,17 +1,38 @@
 import { SecretError, SecretProvider } from "../../secrets/core";
-import { SecretName, SecretPayload, SecretReference, SecretMetadata } from "../../secrets/core";
+import {
+  SecretName,
+  SecretPayload,
+  SecretReference,
+  SecretMetadata,
+} from "../../secrets/core";
 import { validateSecretName, normalizeSecretName } from "../../secrets/core";
-import { serializeSecretPayload, deserializeSecretPayload, type SerializedSecretPayload } from "../../secrets/core";
-import { ClientBasedService, type ContextualArgs, type MaybeContextualArg } from "@decaf-ts/core";
+import {
+  serializeSecretPayload,
+  deserializeSecretPayload,
+  type SerializedSecretPayload,
+} from "../../secrets/core";
+import {
+  ClientBasedService,
+  type ContextualArgs,
+  type MaybeContextualArg,
+} from "@decaf-ts/core";
 import { OnePasswordSecretServiceConfig } from "./OnePasswordSecretServiceConfig";
+import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 
-export class OnePasswordSecretService extends ClientBasedService<unknown, OnePasswordSecretServiceConfig> {
+export class OnePasswordSecretService extends ClientBasedService<
+  unknown,
+  OnePasswordSecretServiceConfig
+> {
   readonly provider: SecretProvider = "1password";
 
-  async initialize(...args: ContextualArgs<any>): Promise<{ config: OnePasswordSecretServiceConfig; client: unknown }> {
+  async initialize(
+    ...args: ContextualArgs<any>
+  ): Promise<{ config: OnePasswordSecretServiceConfig; client: unknown }> {
     const config = args[0] as OnePasswordSecretServiceConfig;
     if (!config.connectHost) {
-      throw new Error("1Password service requires connectHost configuration");
+      throw new InternalError(
+        "1Password service requires connectHost configuration"
+      );
     }
     return { config, client: {} };
   }
@@ -34,8 +55,8 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
     const vaultId = this.config.vaultId;
 
     if (!vaultId) {
-      throw this.parseError(
-        new Error("1Password provider requires a vault ID in configuration")
+      throw new InternalError(
+        "1Password provider requires a vault ID in configuration"
       );
     }
 
@@ -53,7 +74,10 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
     };
 
     try {
-      const response = await this.postRequest(`/v1/vaults/${vaultId}/items`, item);
+      const response = await this.postRequest(
+        `/v1/vaults/${vaultId}/items`,
+        item
+      );
 
       if (!response.id) {
         throw new SecretError(
@@ -79,7 +103,9 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
     nameOrRef: SecretName | SecretReference,
     ...args: MaybeContextualArg<any>
   ): Promise<T> {
-    const { log } = (await this.logCtx(args, "retrieve", true)).for(this.retrieve);
+    const { log } = (await this.logCtx(args, "retrieve", true)).for(
+      this.retrieve
+    );
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Retrieving secret ${nameStr}`);
 
@@ -101,39 +127,50 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
     const vaultId = this.config.vaultId;
 
     if (!vaultId) {
-      throw this.parseError(
-        new Error("1Password provider requires a vault ID in configuration")
+      throw new InternalError(
+        "1Password provider requires a vault ID in configuration"
       );
     }
 
     let itemId: string | undefined;
 
-    if (this.config.itemIdTemplate && this.config.itemIdTemplate.includes("${name}")) {
+    if (
+      this.config.itemIdTemplate &&
+      this.config.itemIdTemplate.includes("${name}")
+    ) {
       itemId = this.config.itemIdTemplate.replace("${name}", normalizedName);
     } else {
       const items = await this.getItemsByTitle(normalizedName, vaultId);
       if (items.length === 0) {
-        throw this.parseError(
-          new Error(`Secret "${normalizedName}" not found in vault`)
+        throw new NotFoundError(
+          `Secret "${normalizedName}" not found in vault`
         );
       }
       itemId = items[0].id;
     }
 
     try {
-      const item = await this.getRequest(`/v1/vaults/${vaultId}/items/${itemId}`);
+      const item = await this.getRequest(
+        `/v1/vaults/${vaultId}/items/${itemId}`
+      );
 
       let value = "";
       if (item.fields && Array.isArray(item.fields)) {
-        const secretField = item.fields.find((f: any) => f.purpose === "password" || f.label === "secret");
+        const secretField = item.fields.find(
+          (f: any) => f.purpose === "password" || f.label === "secret"
+        );
         if (secretField && secretField.value !== undefined) {
           value = secretField.value;
         }
       }
 
       if (!value && item.details && item.details.fields) {
-        const fields = Array.isArray(item.details.fields) ? item.details.fields : [];
-        const secretField = fields.find((f: any) => f.purpose === "password" || f.label === "secret");
+        const fields = Array.isArray(item.details.fields)
+          ? item.details.fields
+          : [];
+        const secretField = fields.find(
+          (f: any) => f.purpose === "password" || f.label === "secret"
+        );
         if (secretField && secretField.value !== undefined) {
           value = secretField.value;
         }
@@ -183,14 +220,17 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
     const vaultId = this.config.vaultId;
 
     if (!vaultId) {
-      throw this.parseError(
-        new Error("1Password provider requires a vault ID in configuration")
+      throw new InternalError(
+        "1Password provider requires a vault ID in configuration"
       );
     }
 
     let itemId: string | undefined;
 
-    if (this.config.itemIdTemplate && this.config.itemIdTemplate.includes("${name}")) {
+    if (
+      this.config.itemIdTemplate &&
+      this.config.itemIdTemplate.includes("${name}")
+    ) {
       itemId = this.config.itemIdTemplate.replace("${name}", normalizedName);
     } else {
       const items = await this.getItemsByTitle(normalizedName, vaultId);
@@ -233,14 +273,17 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
     const vaultId = this.config.vaultId;
 
     if (!vaultId) {
-      throw this.parseError(
-        new Error("1Password provider requires a vault ID in configuration")
+      throw new InternalError(
+        "1Password provider requires a vault ID in configuration"
       );
     }
 
     let itemId: string | undefined;
 
-    if (this.config.itemIdTemplate && this.config.itemIdTemplate.includes("${name}")) {
+    if (
+      this.config.itemIdTemplate &&
+      this.config.itemIdTemplate.includes("${name}")
+    ) {
       itemId = this.config.itemIdTemplate.replace("${name}", normalizedName);
     } else {
       const items = await this.getItemsByTitle(normalizedName, vaultId);
@@ -255,7 +298,10 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
       return true;
     } catch (error) {
       const err = error as Error;
-      if (err.message.toLowerCase().includes("not found") || err.message.includes("404")) {
+      if (
+        err.message.toLowerCase().includes("not found") ||
+        err.message.includes("404")
+      ) {
         return false;
       }
       throw this.parseError(err);
@@ -300,7 +346,9 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
     nameOrRef: SecretName | SecretReference,
     ...args: MaybeContextualArg<any>
   ): Promise<SecretMetadata | undefined> {
-    const { log } = (await this.logCtx(args, "metadata", true)).for(this.metadata);
+    const { log } = (await this.logCtx(args, "metadata", true)).for(
+      this.metadata
+    );
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Getting metadata for secret ${nameStr}`);
 
@@ -322,14 +370,17 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
     const vaultId = this.config.vaultId;
 
     if (!vaultId) {
-      throw this.parseError(
-        new Error("1Password provider requires a vault ID in configuration")
+      throw new InternalError(
+        "1Password provider requires a vault ID in configuration"
       );
     }
 
     let itemId: string | undefined;
 
-    if (this.config.itemIdTemplate && this.config.itemIdTemplate.includes("${name}")) {
+    if (
+      this.config.itemIdTemplate &&
+      this.config.itemIdTemplate.includes("${name}")
+    ) {
       itemId = this.config.itemIdTemplate.replace("${name}", normalizedName);
     } else {
       const items = await this.getItemsByTitle(normalizedName, vaultId);
@@ -340,7 +391,9 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
     }
 
     try {
-      const item = await this.getRequest(`/v1/vaults/${vaultId}/items/${itemId}`);
+      const item = await this.getRequest(
+        `/v1/vaults/${vaultId}/items/${itemId}`
+      );
 
       const meta: SecretMetadata = {
         provider: this.provider,
@@ -356,7 +409,10 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
       return meta;
     } catch (error) {
       const err = error as Error;
-      if (err.message.toLowerCase().includes("not found") || err.message.includes("404")) {
+      if (
+        err.message.toLowerCase().includes("not found") ||
+        err.message.includes("404")
+      ) {
         return undefined;
       }
       throw this.parseError(err);
@@ -412,7 +468,12 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
       );
     }
 
-    if (lowerMessage.includes("provider") || lowerMessage.includes("unavailable") || lowerMessage.includes("connection") || lowerMessage.includes("timeout")) {
+    if (
+      lowerMessage.includes("provider") ||
+      lowerMessage.includes("unavailable") ||
+      lowerMessage.includes("connection") ||
+      lowerMessage.includes("timeout")
+    ) {
       return new SecretError(
         "SECRET_PROVIDER_UNAVAILABLE",
         `Provider unavailable: ${message}`,
@@ -443,7 +504,9 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => "");
-      throw new Error(`1Password API error (${response.status}): ${errorBody || response.statusText}`);
+      throw new InternalError(
+        `1Password API error (${response.status}): ${errorBody || response.statusText}`
+      );
     }
 
     return response.json();
@@ -466,7 +529,9 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => "");
-      throw new Error(`1Password API error (${response.status}): ${errorBody || response.statusText}`);
+      throw new InternalError(
+        `1Password API error (${response.status}): ${errorBody || response.statusText}`
+      );
     }
 
     return response.json();
@@ -488,11 +553,16 @@ export class OnePasswordSecretService extends ClientBasedService<unknown, OnePas
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => "");
-      throw new Error(`1Password API error (${response.status}): ${errorBody || response.statusText}`);
+      throw new InternalError(
+        `1Password API error (${response.status}): ${errorBody || response.statusText}`
+      );
     }
   }
 
-  private async getItemsByTitle(title: string, vaultId: string): Promise<any[]> {
+  private async getItemsByTitle(
+    title: string,
+    vaultId: string
+  ): Promise<any[]> {
     try {
       const allItems = await this.getRequest(`/v1/vaults/${vaultId}/items`);
       const items = Array.isArray(allItems) ? allItems : [allItems];

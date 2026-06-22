@@ -1,11 +1,24 @@
 import { SecretClient } from "@azure/keyvault-secrets";
 import { DefaultAzureCredential } from "@azure/identity";
 import { SecretProvider } from "../../secrets/core";
-import { ClientBasedService, type ContextualArgs, type MaybeContextualArg } from "@decaf-ts/core";
-import { SecretName, SecretPayload, SecretReference, SecretMetadata } from "../../secrets/core";
+import {
+  ClientBasedService,
+  type ContextualArgs,
+  type MaybeContextualArg,
+} from "@decaf-ts/core";
+import {
+  SecretName,
+  SecretPayload,
+  SecretReference,
+  SecretMetadata,
+} from "../../secrets/core";
 import { DeleteSecretOptions, ListSecretsOptions } from "../../secrets/core";
 import { validateSecretName, normalizeSecretName } from "../../secrets/core";
-import { serializeSecretPayload, deserializeSecretPayload, type SerializedSecretPayload } from "../../secrets/core";
+import {
+  serializeSecretPayload,
+  deserializeSecretPayload,
+  type SerializedSecretPayload,
+} from "../../secrets/core";
 import { AzureKeyVaultSecretServiceConfig } from "./AzureKeyVaultSecretServiceConfig";
 import {
   BadRequestError,
@@ -14,10 +27,18 @@ import {
   NotFoundError,
 } from "@decaf-ts/db-decorators";
 
-export class AzureKeyVaultSecretService extends ClientBasedService<SecretClient, AzureKeyVaultSecretServiceConfig> {
+export class AzureKeyVaultSecretService extends ClientBasedService<
+  SecretClient,
+  AzureKeyVaultSecretServiceConfig
+> {
   readonly provider: SecretProvider = "azure-key-vault";
 
-  async initialize(...args: ContextualArgs<any>): Promise<{ config: AzureKeyVaultSecretServiceConfig; client: SecretClient }> {
+  async initialize(
+    ...args: ContextualArgs<any>
+  ): Promise<{
+    config: AzureKeyVaultSecretServiceConfig;
+    client: SecretClient;
+  }> {
     const config = args[0] as AzureKeyVaultSecretServiceConfig;
     const client = new SecretClient(
       config.vaultUrl,
@@ -33,7 +54,7 @@ export class AzureKeyVaultSecretService extends ClientBasedService<SecretClient,
   ): Promise<SecretReference> {
     const { log } = (await this.logCtx(args, "store", true)).for(this.store);
     log.verbose(`Storing secret ${name}`);
-    
+
     try {
       validateSecretName(name);
     } catch (error) {
@@ -44,7 +65,10 @@ export class AzureKeyVaultSecretService extends ClientBasedService<SecretClient,
     const serialized = serializeSecretPayload(value);
 
     try {
-      const result = await this.client.setSecret(normalizedName, serialized.value);
+      const result = await this.client.setSecret(
+        normalizedName,
+        serialized.value
+      );
 
       return {
         provider: this.provider,
@@ -61,7 +85,9 @@ export class AzureKeyVaultSecretService extends ClientBasedService<SecretClient,
     nameOrRef: SecretName | SecretReference,
     ...args: MaybeContextualArg<any>
   ): Promise<T> {
-    const { log } = (await this.logCtx(args, "retrieve", true)).for(this.retrieve);
+    const { log } = (await this.logCtx(args, "retrieve", true)).for(
+      this.retrieve
+    );
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Retrieving secret ${nameStr}`);
 
@@ -84,9 +110,7 @@ export class AzureKeyVaultSecretService extends ClientBasedService<SecretClient,
     try {
       const result = await this.client.getSecret(normalizedName);
       if (result.value === undefined) {
-        throw this.parseError(
-          new Error(`Secret "${normalizedName}" has no value`)
-        );
+        throw new NotFoundError(`Secret "${normalizedName}" has no value`);
       }
       const payload: SerializedSecretPayload = {
         encoding: "utf8",
@@ -164,14 +188,20 @@ export class AzureKeyVaultSecretService extends ClientBasedService<SecretClient,
       return true;
     } catch (error) {
       const err = error as Error;
-      if (err.message.toLowerCase().includes("not found") || err.message.includes("404")) {
+      if (
+        err.message.toLowerCase().includes("not found") ||
+        err.message.includes("404")
+      ) {
         return false;
       }
       throw this.parseError(err);
     }
   }
 
-  async list(options: ListSecretsOptions = {}, ...args: MaybeContextualArg<any>): Promise<SecretMetadata[]> {
+  async list(
+    options: ListSecretsOptions = {},
+    ...args: MaybeContextualArg<any>
+  ): Promise<SecretMetadata[]> {
     const { log } = (await this.logCtx(args, "list", true)).for(this.list);
     log.verbose("Listing secrets");
 
@@ -216,7 +246,9 @@ export class AzureKeyVaultSecretService extends ClientBasedService<SecretClient,
     nameOrRef: SecretName | SecretReference,
     ...args: MaybeContextualArg<any>
   ): Promise<SecretMetadata | undefined> {
-    const { log } = (await this.logCtx(args, "metadata", true)).for(this.metadata);
+    const { log } = (await this.logCtx(args, "metadata", true)).for(
+      this.metadata
+    );
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Getting metadata for secret ${nameStr}`);
 
@@ -249,7 +281,10 @@ export class AzureKeyVaultSecretService extends ClientBasedService<SecretClient,
       };
     } catch (error) {
       const err = error as Error;
-      if (err.message.toLowerCase().includes("not found") || err.message.includes("404")) {
+      if (
+        err.message.toLowerCase().includes("not found") ||
+        err.message.includes("404")
+      ) {
         return undefined;
       }
       throw this.parseError(err);

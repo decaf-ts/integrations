@@ -1,6 +1,6 @@
 {
   "name": "@decaf-ts/integrations",
-  "version": "3.2.0",
+  "version": "0.1.0",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.mts",
@@ -16,16 +16,115 @@
       },
       "default": "./lib/index.js"
     },
-    "./*": {
+    "./kibana": {
       "import": {
-        "types": "./lib/*.d.mts",
-        "default": "./lib/*.js"
+        "types": "./lib/types/kibana/index.d.mts",
+        "default": "./lib/esm/kibana/index.js"
       },
       "require": {
-        "types": "./lib/*.d.cts",
-        "default": "./lib/*.js"
+        "types": "./lib/types/kibana/index.d.cts",
+        "default": "./lib/cjs/kibana/index.cjs"
       },
-      "default": "./lib/*.js"
+      "default": "./lib/esm/kibana/index.js"
+    },
+    "./docker": {
+      "import": {
+        "types": "./lib/types/docker/index.d.mts",
+        "default": "./lib/esm/docker/index.js"
+      },
+      "require": {
+        "types": "./lib/types/docker/index.d.cts",
+        "default": "./lib/cjs/docker/index.cjs"
+      },
+      "default": "./lib/esm/docker/index.js"
+    },
+    "./keycloak": {
+      "import": {
+        "types": "./lib/types/keycloak/index.d.mts",
+        "default": "./lib/esm/keycloak/index.js"
+      },
+      "require": {
+        "types": "./lib/types/keycloak/index.d.cts",
+        "default": "./lib/cjs/keycloak/index.cjs"
+      },
+      "default": "./lib/esm/keycloak/index.js"
+    },
+    "./nest": {
+      "import": {
+        "types": "./lib/types/nest/index.d.mts",
+        "default": "./lib/esm/nest/index.js"
+      },
+      "require": {
+        "types": "./lib/types/nest/index.d.cts",
+        "default": "./lib/cjs/nest/index.cjs"
+      },
+      "default": "./lib/esm/nest/index.js"
+    },
+    "./secrets": {
+      "import": {
+        "types": "./lib/types/secrets/index.d.mts",
+        "default": "./lib/esm/secrets/index.js"
+      },
+      "require": {
+        "types": "./lib/types/secrets/index.d.cts",
+        "default": "./lib/cjs/secrets/index.cjs"
+      },
+      "default": "./lib/esm/secrets/index.js"
+    },
+    "./secrets/aws": {
+      "import": {
+        "types": "./lib/types/secrets/aws/index.d.mts",
+        "default": "./lib/esm/secrets/aws/index.js"
+      },
+      "require": {
+        "types": "./lib/types/secrets/aws/index.d.cts",
+        "default": "./lib/cjs/secrets/aws/index.cjs"
+      },
+      "default": "./lib/esm/secrets/aws/index.js"
+    },
+    "./secrets/azure": {
+      "import": {
+        "types": "./lib/types/secrets/azure/index.d.mts",
+        "default": "./lib/esm/secrets/azure/index.js"
+      },
+      "require": {
+        "types": "./lib/types/secrets/azure/index.d.cts",
+        "default": "./lib/cjs/secrets/azure/index.cjs"
+      },
+      "default": "./lib/esm/secrets/azure/index.js"
+    },
+    "./secrets/gcp": {
+      "import": {
+        "types": "./lib/types/secrets/gcp/index.d.mts",
+        "default": "./lib/esm/secrets/gcp/index.js"
+      },
+      "require": {
+        "types": "./lib/types/secrets/gcp/index.d.cts",
+        "default": "./lib/cjs/secrets/gcp/index.cjs"
+      },
+      "default": "./lib/esm/secrets/gcp/index.js"
+    },
+    "./secrets/oneppassword": {
+      "import": {
+        "types": "./lib/types/secrets/oneppassword/index.d.mts",
+        "default": "./lib/esm/secrets/oneppassword/index.js"
+      },
+      "require": {
+        "types": "./lib/types/secrets/oneppassword/index.d.cts",
+        "default": "./lib/cjs/secrets/oneppassword/index.cjs"
+      },
+      "default": "./lib/esm/secrets/oneppassword/index.js"
+    },
+    "./secrets/vault": {
+      "import": {
+        "types": "./lib/types/secrets/vault/index.d.mts",
+        "default": "./lib/esm/secrets/vault/index.js"
+      },
+      "require": {
+        "types": "./lib/types/secrets/vault/index.d.cts",
+        "default": "./lib/cjs/secrets/vault/index.cjs"
+      },
+      "default": "./lib/esm/secrets/vault/index.js"
     }
   },
   "scripts": {
@@ -64,31 +163,30 @@
     "clean": "rimraf ./lib ./workdocs/coverage"
   },
   "dependencies": {
-    "@decaf-ts/core": "workspace:*",
-    "@decaf-ts/crypto": "workspace:*",
-    "@decaf-ts/db-decorators": "workspace:*",
-    "@decaf-ts/decoration": "workspace:*",
-    "aws-sdk": "^2.1691.0",
+    "@decaf-ts/core": "latest",
+    "@decaf-ts/crypto": "latest",
+    "@decaf-ts/db-decorators": "latest",
+    "@decaf-ts/decoration": "latest",
+    "@decaf-ts/injectable-decorators": "latest",
+    "@decaf-ts/logging": "latest",
+    "@decaf-ts/transactional-decorators": "latest",
     "axios": "^1.7.9",
-    "keycloak-admin": "^24.0.5",
     "node-fetch": "^3.3.2",
     "tslib": "^2.8.1",
-    "uuid": "^11.1.0",
-    "@aws-sdk/client-secrets-manager": "^3.758.0",
-    "@azure/keyvault-secrets": "^4.9.0",
-    "@google-cloud/secret-manager": "^5.6.0",
-    "hashicorp-vault": "^0.1.0",
-    "onelogin-node": "^0.1.0"
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
-    "@types/jest": "^29.5.14",
-    "@types/node": "^22.13.10",
-    "@types/uuid": "^10.0.0",
-    "jest": "^29.7.0",
-    "jest-junit": "^16.0.0",
-    "rimraf": "^6.0.1",
-    "ts-jest": "^29.2.6",
-    "tsx": "^4.19.3",
-    "typescript": "^5.8.2"
+    "@decaf-ts/utils": "latest",
+    "@types/jest": "^30.0.0"
+  },
+  "optionalDependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.758.0",
+    "@azure/identity": "^4.13.1",
+    "@azure/keyvault-secrets": "^4.9.0",
+    "@google-cloud/secret-manager": "^5.6.0",
+    "aws-sdk": "^2.1691.0",
+    "hashicorp-vault": "^0.1.0",
+    "keycloak-admin": "^24.0.5",
+    "onelogin-node": "^0.1.0"
   }
 }

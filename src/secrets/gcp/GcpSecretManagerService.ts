@@ -2,10 +2,19 @@ import { SecretManagerServiceClient } from "@google-cloud/secret-manager";
 import * as grpc from "@grpc/grpc-js";
 import { SecretProvider } from "../../secrets/core";
 import { ClientBasedService, type MaybeContextualArg } from "@decaf-ts/core";
-import { SecretName, SecretPayload, SecretReference, SecretMetadata } from "../../secrets/core";
+import {
+  SecretName,
+  SecretPayload,
+  SecretReference,
+  SecretMetadata,
+} from "../../secrets/core";
 import { StoreSecretOptions, ListSecretsOptions } from "../../secrets/core";
 import { validateSecretName, normalizeSecretName } from "../../secrets/core";
-import { serializeSecretPayload, deserializeSecretPayload, type SerializedSecretPayload } from "../../secrets/core";
+import {
+  serializeSecretPayload,
+  deserializeSecretPayload,
+  type SerializedSecretPayload,
+} from "../../secrets/core";
 import { GcpSecretManagerServiceConfig } from "./GcpSecretManagerServiceConfig";
 import {
   BadRequestError,
@@ -14,11 +23,21 @@ import {
   NotFoundError,
 } from "@decaf-ts/db-decorators";
 
-export class GcpSecretManagerService extends ClientBasedService<SecretManagerServiceClient, GcpSecretManagerServiceConfig> {
+export class GcpSecretManagerService extends ClientBasedService<
+  SecretManagerServiceClient,
+  GcpSecretManagerServiceConfig
+> {
   readonly provider: SecretProvider = "gcp-secret-manager";
 
-  async initialize(...args: MaybeContextualArg<any>): Promise<{ config: GcpSecretManagerServiceConfig; client: SecretManagerServiceClient }> {
-    const { ctxArgs } = (await this.logCtx(args, "initialize", true)).for(this.initialize);
+  async initialize(
+    ...args: MaybeContextualArg<any>
+  ): Promise<{
+    config: GcpSecretManagerServiceConfig;
+    client: SecretManagerServiceClient;
+  }> {
+    const { ctxArgs } = (await this.logCtx(args, "initialize", true)).for(
+      this.initialize
+    );
     const config = ctxArgs[0] as GcpSecretManagerServiceConfig;
     const client = new SecretManagerServiceClient({
       projectId: config.projectId,
@@ -110,7 +129,9 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
     nameOrRef: SecretName | SecretReference,
     ...args: MaybeContextualArg<any>
   ): Promise<T> {
-    const { log } = (await this.logCtx(args, "retrieve", true)).for(this.retrieve);
+    const { log } = (await this.logCtx(args, "retrieve", true)).for(
+      this.retrieve
+    );
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Retrieving secret ${nameStr}`);
 
@@ -137,9 +158,7 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
         name: secretPath,
       });
       if (!secret?.name) {
-        throw this.parseError(
-          new Error(`Secret "${normalizedName}" not found`)
-        );
+        throw new NotFoundError(`Secret "${normalizedName}" not found`);
       }
 
       const secretVersionPath = `${secret.name}/versions/latest`;
@@ -149,8 +168,8 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
       });
 
       if (!accessResponse?.payload?.data) {
-        throw this.parseError(
-          new Error(`No secret value found for "${normalizedName}"`)
+        throw new NotFoundError(
+          `No secret value found for "${normalizedName}"`
         );
       }
 
@@ -239,7 +258,10 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
     }
   }
 
-  async list(options: ListSecretsOptions = {}, ...args: MaybeContextualArg<any>): Promise<SecretMetadata[]> {
+  async list(
+    options: ListSecretsOptions = {},
+    ...args: MaybeContextualArg<any>
+  ): Promise<SecretMetadata[]> {
     const { log } = (await this.logCtx(args, "list", true)).for(this.list);
     log.verbose("Listing secrets");
 
@@ -271,7 +293,9 @@ export class GcpSecretManagerService extends ClientBasedService<SecretManagerSer
     nameOrRef: SecretName | SecretReference,
     ...args: MaybeContextualArg<any>
   ): Promise<SecretMetadata | undefined> {
-    const { log } = (await this.logCtx(args, "metadata", true)).for(this.metadata);
+    const { log } = (await this.logCtx(args, "metadata", true)).for(
+      this.metadata
+    );
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Getting metadata for secret ${nameStr}`);
 

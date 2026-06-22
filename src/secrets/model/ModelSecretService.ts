@@ -1,5 +1,10 @@
 import { SecretError, SecretProvider } from "../core";
-import { SecretName, SecretPayload, SecretReference, SecretMetadata } from "../core";
+import {
+  SecretName,
+  SecretPayload,
+  SecretReference,
+  SecretMetadata,
+} from "../core";
 import {
   StoreSecretOptions,
   RetrieveSecretOptions,
@@ -9,22 +14,42 @@ import {
   SecretMetadataOptions,
 } from "../core";
 import { validateSecretName, normalizeSecretName } from "../core";
-import { serializeSecretPayload, deserializeSecretPayload, type SerializedSecretPayload } from "../core";
+import {
+  serializeSecretPayload,
+  deserializeSecretPayload,
+  type SerializedSecretPayload,
+} from "../core";
 import { Secret } from "./Secret";
-import { ClientBasedService, ContextualArgs, MaybeContextualArg, Repository } from "@decaf-ts/core";
+import {
+  ClientBasedService,
+  ContextualArgs,
+  MaybeContextualArg,
+  Repository,
+} from "@decaf-ts/core";
 import { ModelSecretServiceConfig } from "./ModelSecretServiceConfig";
 import { Condition } from "@decaf-ts/core";
 import { CryptoService } from "@decaf-ts/crypto/integration/services";
+import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 
 const DEFAULT_KEY_ID = "default-key";
 
-export class ModelSecretService extends ClientBasedService<Repository<Secret, any>, ModelSecretServiceConfig> {
+export class ModelSecretService extends ClientBasedService<
+  Repository<Secret, any>,
+  ModelSecretServiceConfig
+> {
   readonly provider: SecretProvider = "model";
   private cryptoService!: CryptoService;
 
-  async initialize(...args: ContextualArgs<any>): Promise<{ config: ModelSecretServiceConfig; client: Repository<Secret, any> }> {
+  async initialize(
+    ...args: ContextualArgs<any>
+  ): Promise<{
+    config: ModelSecretServiceConfig;
+    client: Repository<Secret, any>;
+  }> {
     const config = args[0] as ModelSecretServiceConfig;
-    const repository = (args[1] as Repository<Secret, any> | undefined) || new Repository<Secret, any>(undefined, Secret);
+    const repository =
+      (args[1] as Repository<Secret, any> | undefined) ||
+      new Repository<Secret, any>(undefined, Secret);
     this.cryptoService = new CryptoService();
     await this.cryptoService.initialize(config);
     return { config, client: repository };
@@ -46,7 +71,9 @@ export class ModelSecretService extends ClientBasedService<Repository<Secret, an
 
     const normalizedName = normalizeSecretName(name);
     const serialized = serializeSecretPayload(value);
-    const derivedKey = await this.cryptoService.deriveKeyFromSecret(this.config.keySecret as string);
+    const derivedKey = await this.cryptoService.deriveKeyFromSecret(
+      this.config.keySecret as string
+    );
     const { encryptedData, metadata } = await this.cryptoService.encryptPayload(
       serialized.value,
       this.config.keyId || DEFAULT_KEY_ID,
@@ -71,7 +98,10 @@ export class ModelSecretService extends ClientBasedService<Repository<Secret, an
     try {
       await this.client.create(secret);
     } catch (error: any) {
-      if (error?.message?.toLowerCase()?.includes?.("already") || error?.name === "ConflictError") {
+      if (
+        error?.message?.toLowerCase()?.includes?.("already") ||
+        error?.name === "ConflictError"
+      ) {
         throw this.parseError(error as Error);
       }
       throw this.parseError(error as Error);
@@ -92,7 +122,9 @@ export class ModelSecretService extends ClientBasedService<Repository<Secret, an
     options: RetrieveSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<T> {
-    const { log } = (await this.logCtx(args, "retrieve", true)).for(this.retrieve);
+    const { log } = (await this.logCtx(args, "retrieve", true)).for(
+      this.retrieve
+    );
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Retrieving secret ${nameStr}`);
 
@@ -116,23 +148,23 @@ export class ModelSecretService extends ClientBasedService<Repository<Secret, an
     const normalizedName = normalizeSecretName(name);
 
     let condition = Condition.attr<Secret>("name").eq(normalizedName);
-    
+
     if (version) {
       condition = condition.and(Condition.attr<Secret>("version").eq(version));
     }
-    
+
     condition = condition.and(Condition.attr<Secret>("enabled").eq(true));
 
     const results = await this.client.select().where(condition).execute();
     const existing = results[0];
 
     if (!existing) {
-      throw this.parseError(
-        new Error(`Secret "${normalizedName}" not found`)
-      );
+      throw new NotFoundError(`Secret "${normalizedName}" not found`);
     }
 
-    const derivedKey = await this.cryptoService.deriveKeyFromSecret(this.config.keySecret as string);
+    const derivedKey = await this.cryptoService.deriveKeyFromSecret(
+      this.config.keySecret as string
+    );
     let decryptedValue: string;
     try {
       decryptedValue = await this.cryptoService.decryptPayload(
@@ -140,8 +172,8 @@ export class ModelSecretService extends ClientBasedService<Repository<Secret, an
         this.cryptoService.extractKeyFromDerivedKey(derivedKey).key
       );
     } catch (error) {
-      throw this.parseError(
-        new Error(`Failed to decrypt secret "${normalizedName}": ${(error as Error).message}`)
+      throw new InternalError(
+        `Failed to decrypt secret "${normalizedName}": ${(error as Error).message}`
       );
     }
 
@@ -227,21 +259,23 @@ export class ModelSecretService extends ClientBasedService<Repository<Secret, an
 
     let filter = Condition.attr<Secret>("name").eq(normalizedName);
     filter = filter.and(Condition.attr<Secret>("enabled").eq(true));
-    
-    const version = options.version ?? (typeof nameOrRef === "object" ? nameOrRef.version : undefined);
+
+    const version =
+      options.version ??
+      (typeof nameOrRef === "object" ? nameOrRef.version : undefined);
     if (version) {
       filter = filter.and(Condition.attr<Secret>("version").eq(version));
     }
 
-    const count = await this.client
-      .count()
-      .where(filter)
-      .execute();
+    const count = await this.client.count().where(filter).execute();
 
     return count > 0;
   }
 
-  async list(options: ListSecretsOptions = {}, ...args: MaybeContextualArg<any>): Promise<SecretMetadata[]> {
+  async list(
+    options: ListSecretsOptions = {},
+    ...args: MaybeContextualArg<any>
+  ): Promise<SecretMetadata[]> {
     const { log } = (await this.logCtx(args, "list", true)).for(this.list);
     log.verbose("Listing secrets");
 
@@ -273,7 +307,9 @@ export class ModelSecretService extends ClientBasedService<Repository<Secret, an
     options: SecretMetadataOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<SecretMetadata | undefined> {
-    const { log } = (await this.logCtx(args, "metadata", true)).for(this.metadata);
+    const { log } = (await this.logCtx(args, "metadata", true)).for(
+      this.metadata
+    );
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Getting metadata for secret ${nameStr}`);
 
@@ -294,13 +330,18 @@ export class ModelSecretService extends ClientBasedService<Repository<Secret, an
     const normalizedName = normalizeSecretName(name);
 
     let filter = Condition.attr<Secret>("name").eq(normalizedName);
-    
-    const version = options.version ?? (typeof nameOrRef === "object" ? nameOrRef.version : undefined);
+
+    const version =
+      options.version ??
+      (typeof nameOrRef === "object" ? nameOrRef.version : undefined);
     if (version) {
       filter = filter.and(Condition.attr<Secret>("version").eq(version));
     }
 
-    const results: Secret[] = await this.client.select().where(filter).execute();
+    const results: Secret[] = await this.client
+      .select()
+      .where(filter)
+      .execute();
     const secret = results[0];
 
     if (!secret) {
@@ -349,7 +390,10 @@ export class ModelSecretService extends ClientBasedService<Repository<Secret, an
       );
     }
 
-    if (lowerMessage.includes("decryption") || lowerMessage.includes("decrypt")) {
+    if (
+      lowerMessage.includes("decryption") ||
+      lowerMessage.includes("decrypt")
+    ) {
       return new SecretError(
         "SECRET_DECRYPTION_FAILED",
         `Decryption failed: ${message}`,
