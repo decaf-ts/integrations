@@ -143,7 +143,7 @@
     "test:e2e": "jest --testPathPatterns=\"/tests/(e2e)\" --passWithNoTests --detectOpenHandles",
     "test:all": "jest --testPathPatterns=\"/tests\" --passWithNoTests",
     "test:circular": "dpdm -T --no-warning --no-tree ./src/index.ts",
-    "coverage": "rimraf ./workdocs/reports/data/*.json && npm run test:all -- --coverage --config=$(pwd)/../workdocs/reports/jest.coverage.config.js",
+    "coverage": "rimraf ./workdocs/reports/data/*.json && npm run test:all -- --coverage --config=./workdocs/reports/jest.coverage.config.cjs",
     "lint": "eslint .",
     "lint-fix": "eslint --fix .",
     "prepare-pr": "npm run lint-fix && npm run build:prod && npm run coverage && npm run docs",

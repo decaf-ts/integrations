@@ -1,8 +1,9 @@
-/* eslint-disable no-undef */
-module.exports = {
-  displayName: "Decaf Integrations",
+const config = {
   verbose: true,
-  transform: { 
+  // eslint-disable-next-line no-undef
+  rootDir: __dirname,
+  testEnvironment: "node",
+  transform: {
     "^.+\\.ts?$": [
       "ts-jest",
       {
@@ -17,32 +18,20 @@ module.exports = {
       },
     ],
   },
-  testEnvironment: "node",
+  testRegex: "/tests/.*\\.(test|spec)\\.(ts|tsx)$",
+  transformIgnorePatterns: ["node_modules/(uuid)/.*"],
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
-  collectCoverage: true,
-  coverageDirectory: "./workdocs/coverage",
-  collectCoverageFrom: [
-    "src/**/*.{ts,tsx}", 
-    "!src/**/*.d.ts",
-  ],
-  coverageReporters: ["json-summary", "text-summary", "text", "html"],
-  reporters: [
-    "default",
-    [
-      "jest-junit",
-      {
-        outputDirectory: "./workdocs/coverage",
-        outputName: "junit-report.xml",
-      },
-    ],
-  ],
-  watchman: false,
+  coverageDirectory: "./workdocs/reports/coverage",
+  collectCoverage: false,
+  collectCoverageFrom: ["src/**/*.{js,jsx,ts,tsx}", "!src/bin/**/*.ts"],
+  reporters: ["default"],
   moduleNameMapper: {
-    "^\\.\\.\\/\\.\\.\\/lib\\/keycloak(.*)$": "<rootDir>/../integrations/src/keycloak\\1",
+    "^\\.\\.\\/\\.\\.\\/lib\\/keycloak(.*)$":
+      "<rootDir>/../integrations/src/keycloak\\1",
   },
   extensionsToTreatAsEsm: [".ts"],
   preset: "ts-jest/presets/default-esm",
-  testMatch: ["**/tests/**/*.test.ts"],
-  testPathIgnorePatterns: ["/node_modules/", "/lib/"],
-  testTimeout: 30000,
 };
+
+// eslint-disable-next-line no-undef
+module.exports = config;

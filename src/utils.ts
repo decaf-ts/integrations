@@ -18,27 +18,31 @@ export async function execWithLogging(
   return new Promise((resolve, reject) => {
     const child = exec(command, options);
 
-    let stdout = "";
-    let stderr = "";
+    const stdout: string[] = [];
+    const stderr: string[] = [];
 
     child.stdout?.on("data", (data: string) => {
-      stdout += data;
+      stdout.push(data);
       log[level](data.trim());
     });
 
     child.stderr?.on("data", (data: string) => {
-      stderr += data;
+      stderr.push(data);
       log.error(data.trim());
     });
 
     child.on("close", (code: number) => {
       if (code === 0) {
         log.silly(`Command completed successfully`);
-        resolve({ stdout, stderr });
+        resolve({ stdout: stdout.join("\n"), stderr: stderr.join("\n") });
       } else {
-        log.critical(`Command failed with code ${code}`, stderr as any);
+        log.critical(
+          `Command failed with code ${code}:\n ${stderr.join("\n")}`
+        );
         reject(
-          new InternalError(`Command failed with code ${code}: ${stderr}`)
+          new InternalError(
+            `Command failed with code ${code}: ${stderr.join("\n")}`
+          )
         );
       }
     });
