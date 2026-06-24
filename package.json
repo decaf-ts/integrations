@@ -173,11 +173,14 @@
     "axios": "^1.7.9",
     "node-fetch": "^3.3.2",
     "tslib": "^2.8.1",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.1"
   },
   "devDependencies": {
     "@decaf-ts/utils": "latest",
     "@types/jest": "^30.0.0"
+  },
+  "overrides": {
+    "js-yaml": "^4.2.0"
   },
   "optionalDependencies": {
     "@aws-sdk/client-secrets-manager": "^3.758.0",

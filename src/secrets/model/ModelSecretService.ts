@@ -28,7 +28,7 @@ import {
 } from "@decaf-ts/core";
 import { ModelSecretServiceConfig } from "./ModelSecretServiceConfig";
 import { Condition } from "@decaf-ts/core";
-import { CryptoService } from "@decaf-ts/crypto/integration/services";
+import { CryptoService } from "@decaf-ts/crypto/integration/services/crypto";
 import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 
 const DEFAULT_KEY_ID = "default-key";
@@ -40,9 +40,7 @@ export class ModelSecretService extends ClientBasedService<
   readonly provider: SecretProvider = "model";
   private cryptoService!: CryptoService;
 
-  async initialize(
-    ...args: ContextualArgs<any>
-  ): Promise<{
+  async initialize(...args: ContextualArgs<any>): Promise<{
     config: ModelSecretServiceConfig;
     client: Repository<Secret, any>;
   }> {
