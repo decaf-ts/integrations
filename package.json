@@ -183,13 +183,18 @@
     "js-yaml": "^4.2.0"
   },
   "optionalDependencies": {
+    "@aws-sdk/client-s3": "^3.1075.0",
     "@aws-sdk/client-secrets-manager": "^3.758.0",
+    "@aws-sdk/s3-request-presigner": "^3.1075.0",
     "@azure/identity": "^4.13.1",
     "@azure/keyvault-secrets": "^4.9.0",
+    "@azure/storage-blob": "^12.33.0",
     "@google-cloud/secret-manager": "^5.6.0",
+    "@google-cloud/storage": "^7.21.0",
     "aws-sdk": "^2.1691.0",
     "hashicorp-vault": "^0.1.0",
     "keycloak-admin": "^24.0.5",
+    "kubo-rpc-client": "^7.1.0",
     "onelogin-node": "^0.1.0"
   }
 }
