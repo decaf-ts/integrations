@@ -1,0 +1,21 @@
+services:
+  # Azurite - Azure Blob storage emulator (covers the azure-blob provider)
+  azurite-blob:
+    image: mcr.microsoft.com/azure-storage/azurite:3.33.0
+    container_name: azurite-blob-integration
+    restart: unless-stopped
+    command: azurite -l /data --blobHost 0.0.0.0 --blobPort 10000
+    ports:
+      - "10000:10000"
+    volumes:
+      - azurite-blob-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:10000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  azurite-blob-data:
+    name: azurite-blob-data

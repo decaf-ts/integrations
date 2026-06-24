@@ -1,0 +1,25 @@
+services:
+  # Kubo - IPFS node (covers the ipfs blob provider)
+  # API on 5001, gateway on 8080
+  ipfs:
+    image: ipfs/kubo:v0.32.1
+    container_name: ipfs-blob-integration
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+      - "8080:8080"
+    volumes:
+      - ipfs-blob-data:/data/ipfs
+      - ipfs-blob-staging:/export
+    healthcheck:
+      test: ["CMD-SHELL", "ipfs id > /dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  ipfs-blob-data:
+    name: ipfs-blob-data
+  ipfs-blob-staging:
+    name: ipfs-blob-staging
