@@ -5,7 +5,7 @@ import {
 } from "../../src/secrets/aws";
 import { DockerComposeService } from "../../src/docker";
 
-const composeFile = path.resolve(__dirname, "../../docker/aws-compose.yml");
+const composeFile = path.resolve(import.meta.dirname, "../../docker/aws-compose.yml");
 const workingDir = path.dirname(composeFile);
 
 let dockerService: DockerComposeService;

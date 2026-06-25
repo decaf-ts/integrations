@@ -18,6 +18,12 @@ interface DockerComposeServiceConfig {
 interface DockerHealthCheckOptions {
   maxAttempts?: number;
   interval?: number;
+  /**
+   * When true (default), only HTTP 2xx responses count as healthy.
+   * When false, any HTTP response (i.e. the port is accepting connections) counts as healthy.
+   * Set to false for emulators that do not expose an unauthenticated 2xx health endpoint.
+   */
+  requireOk?: boolean;
 }
 
 @description("Docker Compose service for managing containerized environments")
@@ -113,14 +119,14 @@ export class DockerComposeService extends ClientBasedService<
     ...args: MaybeContextualArg<any>
   ): Promise<boolean> {
     const { log } = await this.logCtx(args, this.waitForHealth, true);
-    const { maxAttempts = 60, interval = 2000 } = options;
+    const { maxAttempts = 60, interval = 2000, requireOk = true } = options;
 
     log.info(`Waiting for health check at ${url}`);
 
     for (let i = 0; i < maxAttempts; i++) {
       try {
         const response = await fetch(url);
-        if (response.ok) {
+        if (!requireOk || response.ok) {
           log.info(`Health check passed after ${i + 1} attempts`);
           return true;
         }

@@ -5,7 +5,7 @@ import {
 } from "../../src/secrets/gcp";
 import { DockerComposeService } from "../../src/docker";
 
-const composeFile = path.resolve(__dirname, "../../docker/gcp-compose.yml");
+const composeFile = path.resolve(import.meta.dirname, "../../docker/gcp-compose.yml");
 const workingDir = path.dirname(composeFile);
 
 let dockerService: DockerComposeService;

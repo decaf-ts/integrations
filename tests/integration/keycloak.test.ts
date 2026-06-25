@@ -8,7 +8,7 @@ import {
 import { DockerComposeService } from "../../src/docker";
 
 const composeFile = path.resolve(
-  __dirname,
+  import.meta.dirname,
   "../../docker/keycloak-compose.yml"
 );
 const workingDir = path.dirname(composeFile);

@@ -125,6 +125,83 @@
         "default": "./lib/cjs/secrets/vault/index.cjs"
       },
       "default": "./lib/esm/secrets/vault/index.js"
+    },
+    "./blob": {
+      "import": {
+        "types": "./lib/types/blob/index.d.mts",
+        "default": "./lib/esm/blob/index.js"
+      },
+      "require": {
+        "types": "./lib/types/blob/index.d.cts",
+        "default": "./lib/cjs/blob/index.cjs"
+      },
+      "default": "./lib/esm/blob/index.js"
+    },
+    "./blob/s3": {
+      "import": {
+        "types": "./lib/types/blob/s3/index.d.mts",
+        "default": "./lib/esm/blob/s3/index.js"
+      },
+      "require": {
+        "types": "./lib/types/blob/s3/index.d.cts",
+        "default": "./lib/cjs/blob/s3/index.cjs"
+      },
+      "default": "./lib/esm/blob/s3/index.js"
+    },
+    "./blob/azure": {
+      "import": {
+        "types": "./lib/types/blob/azure/index.d.mts",
+        "default": "./lib/esm/blob/azure/index.js"
+      },
+      "require": {
+        "types": "./lib/types/blob/azure/index.d.cts",
+        "default": "./lib/cjs/blob/azure/index.cjs"
+      },
+      "default": "./lib/esm/blob/azure/index.js"
+    },
+    "./blob/gcp": {
+      "import": {
+        "types": "./lib/types/blob/gcp/index.d.mts",
+        "default": "./lib/esm/blob/gcp/index.js"
+      },
+      "require": {
+        "types": "./lib/types/blob/gcp/index.d.cts",
+        "default": "./lib/cjs/blob/gcp/index.cjs"
+      },
+      "default": "./lib/esm/blob/gcp/index.js"
+    },
+    "./blob/local": {
+      "import": {
+        "types": "./lib/types/blob/local/index.d.mts",
+        "default": "./lib/esm/blob/local/index.js"
+      },
+      "require": {
+        "types": "./lib/types/blob/local/index.d.cts",
+        "default": "./lib/cjs/blob/local/index.cjs"
+      },
+      "default": "./lib/esm/blob/local/index.js"
+    },
+    "./blob/ipfs": {
+      "import": {
+        "types": "./lib/types/blob/ipfs/index.d.mts",
+        "default": "./lib/esm/blob/ipfs/index.js"
+      },
+      "require": {
+        "types": "./lib/types/blob/ipfs/index.d.cts",
+        "default": "./lib/cjs/blob/ipfs/index.cjs"
+      },
+      "default": "./lib/esm/blob/ipfs/index.js"
+    },
+    "./blob/memory": {
+      "import": {
+        "types": "./lib/types/blob/memory/index.d.mts",
+        "default": "./lib/esm/blob/memory/index.js"
+      },
+      "require": {
+        "types": "./lib/types/blob/memory/index.d.cts",
+        "default": "./lib/cjs/blob/memory/index.cjs"
+      },
+      "default": "./lib/esm/blob/memory/index.js"
     }
   },
   "scripts": {
@@ -137,11 +214,11 @@
     "reset": "rm -rf * && git checkout . && git pull && npm run do-install",
     "build": "build-scripts --dev",
     "build:prod": "build-scripts --prod",
-    "test": "npm run build && jest --runInBand --coverage --detectOpenHandles",
-    "test:unit": "jest --testPathPatterns=\"/tests/unit\" --passWithNoTests --detectOpenHandles",
-    "test:integration": "jest --testPathPatterns=\"/tests/(integration)\" --passWithNoTests --detectOpenHandles",
-    "test:e2e": "jest --testPathPatterns=\"/tests/(e2e)\" --passWithNoTests --detectOpenHandles",
-    "test:all": "jest --testPathPatterns=\"/tests\" --passWithNoTests",
+    "test": "npm run build && NODE_OPTIONS=\"--experimental-vm-modules\" jest --runInBand --coverage --detectOpenHandles",
+    "test:unit": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --testPathPatterns=\"/tests/unit\" --passWithNoTests --detectOpenHandles",
+    "test:integration": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --testPathPatterns=\"/tests/(integration)\" --passWithNoTests --detectOpenHandles",
+    "test:e2e": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --testPathPatterns=\"/tests/(e2e)\" --passWithNoTests --detectOpenHandles",
+    "test:all": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --runInBand --testPathPatterns=\"/tests\" --passWithNoTests",
     "test:circular": "dpdm -T --no-warning --no-tree ./src/index.ts",
     "coverage": "rimraf ./workdocs/reports/data/*.json && npm run test:all -- --coverage --config=./workdocs/reports/jest.coverage.config.cjs",
     "lint": "eslint .",

@@ -7,7 +7,7 @@ import {
 } from "../../src/kibana";
 import { DockerComposeService } from "../../src/docker";
 
-const composeFile = path.resolve(__dirname, "../../docker/kibana-compose.yml");
+const composeFile = path.resolve(import.meta.dirname, "../../docker/kibana-compose.yml");
 const workingDir = path.dirname(composeFile);
 
 const KIBANA_HOST = "localhost:5601";
