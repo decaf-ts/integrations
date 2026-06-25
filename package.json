@@ -244,6 +244,7 @@
     "@decaf-ts/crypto": "latest",
     "@decaf-ts/db-decorators": "latest",
     "@decaf-ts/decoration": "latest",
+    "@decaf-ts/decorator-validation": "latest",
     "@decaf-ts/injectable-decorators": "latest",
     "@decaf-ts/logging": "latest",
     "@decaf-ts/transactional-decorators": "latest",
@@ -253,8 +254,26 @@
     "uuid": "^11.1.1"
   },
   "devDependencies": {
+    "@decaf-ts/for-http": "latest",
+    "@decaf-ts/for-nest": "latest",
     "@decaf-ts/utils": "latest",
-    "@types/jest": "^30.0.0"
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/testing": "^11.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/supertest": "^6.0.0",
+    "reflect-metadata": "^0.2.0",
+    "rxjs": "^7.8.0",
+    "supertest": "^7.0.0"
+  },
+  "peerDependencies": {
+    "@decaf-ts/for-http": ">=0.18.0"
+  },
+  "peerDependenciesMeta": {
+    "@decaf-ts/for-http": {
+      "optional": true
+    }
   },
   "overrides": {
     "js-yaml": "^4.2.0"

@@ -1,8 +1,27 @@
 /**
  * @module integrations/nest/types
  * @summary Nest integration types.
- * @description Shared request-context and auth payload types for Nest integration helpers.
+ * @description Keycloak-specific payload types, a platform-specific execution context
+ * type, and re-exports of the framework-agnostic auth primitives from
+ * `@decaf-ts/for-http/server`.
  */
+import type { AuthData, AuthRequestLike } from "@decaf-ts/for-http/server";
+
+export type { AuthData, AuthRequestLike };
+
+/**
+ * Structural subset of a NestJS-like execution context that exposes the HTTP request.
+ *
+ * Defined here (not in for-http) because the base `AuthHandler` class is intentionally
+ * generic over its execution context — only the platform that consumes it needs to know
+ * the concrete shape.
+ */
+export interface AuthExecutionContextLike {
+  switchToHttp(): { getRequest<T = AuthRequestLike>(): T };
+  getHandler?(): { name?: string };
+  getClass?(): { name?: string };
+}
+
 export interface KeycloakAccessTokenPayload {
   preferred_username?: string;
   email?: string;
@@ -25,20 +44,4 @@ export interface KeycloakUser {
   given_name?: string;
   family_name?: string;
   realm?: string;
-}
-
-export interface AuthRequestLike {
-  path?: string;
-  method?: string;
-  headers?: Record<string, unknown>;
-  [key: symbol | string]: unknown;
-}
-
-export interface AuthExecutionContextLike {
-  switchToHttp(): { getRequest<T extends AuthRequestLike = AuthRequestLike>(): T };
-  getHandler?(): { name?: string };
-}
-
-export interface AuthHandlerLike {
-  authorize(context: AuthExecutionContextLike, resource?: string): Promise<void>;
 }
