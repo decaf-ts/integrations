@@ -105,7 +105,7 @@ describe("KeycloakAuthHandler (e2e)", () => {
       const res = await ProductHttp.post(payload, PARTNER_TOKEN);
 
       expect(res.status).toBeGreaterThanOrEqual(400);
-      expect(res.raw.error).toContain("required model roles");
+      expect(res.raw.error).toContain("Missing required roles");
     });
 
     it("allows partner to create a FakePartner (model role: partner)", async () => {
@@ -126,7 +126,7 @@ describe("KeycloakAuthHandler (e2e)", () => {
       const res = await PartnerHttp.post(payload, ADMIN_TOKEN);
 
       expect(res.status).toBeGreaterThanOrEqual(400);
-      expect(res.raw.error).toContain("required model roles");
+      expect(res.raw.error).toContain("Missing required roles");
     });
 
     it("blocks users with no roles from any protected route", async () => {
@@ -369,7 +369,7 @@ describe("KeycloakAuthHandler (e2e)", () => {
         PARTNER_TOKEN
       );
       expect(res.status).toBeGreaterThanOrEqual(400);
-      expect(res.raw.error).toContain("required model roles");
+      expect(res.raw.error).toContain("Missing required roles");
     });
 
     it("deletes an FsProduct", async () => {

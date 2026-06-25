@@ -1,10 +1,18 @@
 /**
  * @module integrations/nest/keycloakAuthHandler
  * @summary Keycloak request auth handler.
- * @description Translates Keycloak JWT payloads into Decaf-friendly auth context values.
- * Extends the framework-agnostic {@link AuthHandler} from `@decaf-ts/for-http/server`,
- * overriding `extractFromAuth` to parse Keycloak JWTs and `bindToContext` to also
- * populate `DECAF_ADAPTER_OPTIONS` on the request for persistence-layer overrides.
+ * @description Translates Keycloak JWT payloads into Decaf-friendly auth data.
+ * Extends the framework-agnostic {@link AuthHandler} from `@decaf-ts/for-http/server`.
+ *
+ * Only overrides the two extension points:
+ * - {@link extractFromAuth} — decodes the JWT and returns auth data (no validation).
+ *   Returns empty data for public routes without requiring a token.
+ * - {@link validate} — validates the JWT via {@link AuthService.assertValidToken},
+ *   then delegates to the base class for route-level and model-level role checks.
+ *   Skips entirely for public routes.
+ *
+ * Does NOT override `bindToContext` — the base class default `ctx.accumulate(data)`
+ * is sufficient. Does NOT override `authorize`.
  */
 import type { Constructor } from "@decaf-ts/decoration";
 import { AuthorizationError, Context, ContextualArgs } from "@decaf-ts/core";
@@ -12,62 +20,74 @@ import { AuthHandler, AuthData } from "@decaf-ts/for-http/server";
 
 import { AuthService } from "./authService";
 import type { AuthExecutionContextLike, AuthRequestLike } from "./types";
-import { DECAF_ADAPTER_OPTIONS, getRealmFromIssuer } from "./utils";
+import {
+  getRealmFromIssuer,
+  getTokenPayload,
+  extractKeycloakRoles,
+} from "./utils";
+
+/**
+ * Auth data returned by {@link KeycloakAuthHandler.extractFromAuth}.
+ *
+ * Carries the raw JWT `token` so that {@link KeycloakAuthHandler.validate} can
+ * validate it against the Keycloak instance (signature, expiry, revocation, etc.).
+ */
+export interface KeycloakAuthData extends AuthData {
+  /** The raw JWT extracted from the request. Empty for public routes. */
+  token: string;
+  /** Whether the request targets a public route (skips validation). */
+  isPublic: boolean;
+}
 
 export class KeycloakAuthHandler extends AuthHandler<
   AuthExecutionContextLike,
-  Context
+  Context,
+  KeycloakAuthData
 > {
   constructor(private readonly authService = new AuthService()) {
     super();
   }
 
-  /**
-   * Bypasses auth for public routes before delegating to the base class
-   * `authorize` which orchestrates extraction → role checks → binding.
-   */
-  override async authorize(
-    ctx: AuthExecutionContextLike,
-    model: string | Constructor,
-    ...args: ContextualArgs<Context, [string[]?]>
-  ): Promise<void> {
+  protected extractFromAuth(ctx: AuthExecutionContextLike): KeycloakAuthData {
     const request = ctx.switchToHttp().getRequest<AuthRequestLike>();
-    if (request.path?.startsWith("/public")) return;
-    if (request.path === "/account" && request.method === "POST") return;
-    return super.authorize(ctx, model, ...args);
-  }
 
-  protected extractFromAuth(ctx: AuthExecutionContextLike): AuthData {
-    const request = ctx.switchToHttp().getRequest<AuthRequestLike>();
+    if (isPublicRoute(request)) {
+      return { roles: [], token: "", isPublic: true };
+    }
+
     const token = getToken(request);
     if (!token) throw new AuthorizationError("Token not found");
 
-    const payload = this.authService.assertValidToken(token);
-    const roles = this.authService.getRoles(token);
+    // Decode only — validation happens in `validate`
+    const payload = getTokenPayload(token);
+    const roles = extractKeycloakRoles(payload);
     const organization = resolveOrganization(payload, token);
-    const user = payload.email ?? payload.preferred_username;
+    const user = payload?.email ?? payload?.preferred_username;
 
-    return { user, organization, roles };
+    return { user, organization, roles, token, isPublic: false };
   }
 
-  protected bindToContext(
-    context: Context,
-    data: AuthData,
-    ctx?: AuthExecutionContextLike
-  ): void {
-    context.accumulate({
-      UUID: data.user,
-      organization: data.organization,
-    });
-    if (ctx) {
-      const request = ctx.switchToHttp().getRequest<AuthRequestLike>();
-      request[DECAF_ADAPTER_OPTIONS] = {
-        roles: data.roles,
-        user: data.user,
-        msp: data.organization,
-      };
-    }
+  /**
+   * Validates the JWT against the Keycloak instance (signature, expiry, etc.)
+   * via {@link AuthService.assertValidToken}, then delegates to the base class
+   * for route-level and model-level role checks. Skips entirely for public routes.
+   */
+  protected override async validate(
+    data: KeycloakAuthData,
+    routeRoles: string[] | undefined,
+    model: string | Constructor,
+    ...args: ContextualArgs<Context>
+  ): Promise<void> {
+    if (data.isPublic) return;
+    this.authService.assertValidToken(data.token);
+    await super.validate(data, routeRoles, model, ...args);
   }
+}
+
+function isPublicRoute(req: AuthRequestLike): boolean {
+  if (req.path?.startsWith("/public")) return true;
+  if (req.path === "/account" && req.method === "POST") return true;
+  return false;
 }
 
 function getToken(req: AuthRequestLike): string | undefined {
@@ -78,10 +98,10 @@ function getToken(req: AuthRequestLike): string | undefined {
 }
 
 function resolveOrganization(
-  payload: { aud?: string; azp?: string },
+  payload: { aud?: string; azp?: string } | null,
   token: string
 ): string {
-  if (payload.aud) return payload.aud;
-  if (payload.azp) return payload.azp;
+  if (payload?.aud) return payload.aud;
+  if (payload?.azp) return payload.azp;
   return getRealmFromIssuer(token);
 }

@@ -5,9 +5,9 @@
  * type, and re-exports of the framework-agnostic auth primitives from
  * `@decaf-ts/for-http/server`.
  */
-import type { AuthData, AuthRequestLike } from "@decaf-ts/for-http/server";
+import type { AuthData, AuthRequestLike, UserData } from "@decaf-ts/for-http/server";
 
-export type { AuthData, AuthRequestLike };
+export type { AuthData, AuthRequestLike, UserData };
 
 /**
  * Structural subset of a NestJS-like execution context that exposes the HTTP request.

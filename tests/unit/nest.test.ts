@@ -1,5 +1,4 @@
 import {
-  DECAF_ADAPTER_OPTIONS,
   AuthService,
   getRealmFromIssuer,
   getTokenPayload,
@@ -55,7 +54,6 @@ describe("nest auth helpers", () => {
     expect(new AuthService().getRoles(jwt)).toEqual(["reader", "writer"]);
     expect(getRealmFromIssuer(jwt)).toBe("demo");
     expect(getUser(jwt)?.realm).toBe("demo");
-    expect(DECAF_ADAPTER_OPTIONS).toBeDefined();
   });
 
   describe("KeycloakAuthHandler", () => {
@@ -65,24 +63,19 @@ describe("nest auth helpers", () => {
       handler = new KeycloakAuthHandler();
     });
 
-    it("authorizes a valid token and populates context + request", async () => {
-      const jwt = buildJwt(VALID_PAYLOAD);
+    it("authorizes a valid token and accumulates auth data onto context", async () => {
       const request: Partial<AuthRequestLike> = {
         path: "/products",
         method: "GET",
-        headers: { authorization: `Bearer ${jwt}` },
+        headers: { authorization: `Bearer ${buildJwt(VALID_PAYLOAD)}` },
       };
       const ctx = buildAuthContext();
 
-      await handler.authorize(buildContext(request), "Product", ctx);
+      await handler.authorize(buildContext(request), "Product", undefined, ctx);
 
-      expect(request[DECAF_ADAPTER_OPTIONS]).toEqual({
-        roles: ["reader", "writer"],
-        user: "user@example.com",
-        msp: "my-client",
-      });
-      expect(ctx.store["UUID"]).toBe("user@example.com");
+      expect(ctx.store["user"]).toBe("user@example.com");
       expect(ctx.store["organization"]).toBe("my-client");
+      expect(ctx.store["roles"]).toEqual(["reader", "writer"]);
     });
 
     it("throws AuthorizationError when token is missing", async () => {
@@ -93,11 +86,11 @@ describe("nest auth helpers", () => {
       };
 
       await expect(
-        handler.authorize(buildContext(request), "Product", new Context())
+        handler.authorize(buildContext(request), "Product", undefined, new Context())
       ).rejects.toThrow(AuthorizationError);
     });
 
-    it("skips public routes", async () => {
+    it("skips public routes without requiring a token", async () => {
       const request: Partial<AuthRequestLike> = {
         path: "/public/health",
         method: "GET",
@@ -105,17 +98,15 @@ describe("nest auth helpers", () => {
       };
 
       await expect(
-        handler.authorize(buildContext(request), "Product", new Context())
+        handler.authorize(buildContext(request), "Product", undefined, new Context())
       ).resolves.toBeUndefined();
-      expect(request[DECAF_ADAPTER_OPTIONS]).toBeUndefined();
     });
 
     it("enforces requiredRoles against JWT roles", async () => {
-      const jwt = buildJwt(VALID_PAYLOAD);
       const request: Partial<AuthRequestLike> = {
         path: "/products",
         method: "GET",
-        headers: { authorization: `Bearer ${jwt}` },
+        headers: { authorization: `Bearer ${buildJwt(VALID_PAYLOAD)}` },
       };
 
       await expect(
@@ -129,11 +120,10 @@ describe("nest auth helpers", () => {
     });
 
     it("passes when requiredRoles are satisfied", async () => {
-      const jwt = buildJwt(VALID_PAYLOAD);
       const request: Partial<AuthRequestLike> = {
         path: "/products",
         method: "GET",
-        headers: { authorization: `Bearer ${jwt}` },
+        headers: { authorization: `Bearer ${buildJwt(VALID_PAYLOAD)}` },
       };
 
       await expect(
@@ -159,10 +149,21 @@ describe("nest auth helpers", () => {
       };
       const ctx = buildAuthContext();
 
-      await handler.authorize(buildContext(request), "Product", ctx);
+      await handler.authorize(buildContext(request), "Product", undefined, ctx);
 
       expect(ctx.store["organization"]).toBe("demo");
-      expect(request[DECAF_ADAPTER_OPTIONS]?.msp).toBe("demo");
+    });
+
+    it("validate rejects invalid tokens", async () => {
+      const request: Partial<AuthRequestLike> = {
+        path: "/products",
+        method: "GET",
+        headers: { authorization: "Bearer not-a-jwt" },
+      };
+
+      await expect(
+        handler.authorize(buildContext(request), "Product", undefined, new Context())
+      ).rejects.toThrow(AuthorizationError);
     });
   });
 });
