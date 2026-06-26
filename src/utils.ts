@@ -28,7 +28,7 @@ export async function execWithLogging(
 
     child.stderr?.on("data", (data: string) => {
       stderr.push(data);
-      log.error(data.trim());
+      log.debug(data.trim());
     });
 
     child.on("close", (code: number) => {

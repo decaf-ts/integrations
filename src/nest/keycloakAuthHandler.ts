@@ -5,9 +5,9 @@
  * Extends the framework-agnostic {@link AuthHandler} from `@decaf-ts/for-http/server`.
  *
  * Only overrides the two extension points:
- * - {@link extractFromAuth} — decodes the JWT and returns auth data (no validation).
+ * - {@link KeycloakAuthHandler.extractFromAuth} — decodes the JWT and returns auth data (no validation).
  *   Returns empty data for public routes without requiring a token.
- * - {@link validate} — validates the JWT via {@link AuthService.assertValidToken},
+ * - {@link KeycloakAuthHandler.validate} — validates the JWT via {@link AuthService.assertValidToken},
  *   then delegates to the base class for route-level and model-level role checks.
  *   Skips entirely for public routes.
  *
@@ -18,12 +18,13 @@ import type { Constructor } from "@decaf-ts/decoration";
 import { AuthorizationError, Context, ContextualArgs } from "@decaf-ts/core";
 import { AuthHandler, AuthData } from "@decaf-ts/for-http/server";
 
-import { AuthService } from "./authService";
+import { AuthService, type AuthServiceOptions } from "./authService";
 import type { AuthExecutionContextLike, AuthRequestLike } from "./types";
 import {
   getRealmFromIssuer,
   getTokenPayload,
   extractKeycloakRoles,
+  getClientRoles,
 } from "./utils";
 
 /**
@@ -44,9 +45,23 @@ export class KeycloakAuthHandler extends AuthHandler<
   Context,
   KeycloakAuthData
 > {
-  constructor(private readonly authService = new AuthService()) {
+  /**
+   * @param authService  An {@link AuthService} configured with JWKS verification
+   *                     options.  When omitted a default decode-only service is
+   *                     used.
+   * @param authServiceOptions  Convenience: if `authService` is omitted, these
+   *                     options are used to construct one.
+   */
+  constructor(
+    authService?: AuthService,
+    authServiceOptions?: AuthServiceOptions
+  ) {
     super();
+    this.authService =
+      authService ?? new AuthService(authServiceOptions ?? {});
   }
+
+  protected readonly authService: AuthService;
 
   protected extractFromAuth(ctx: AuthExecutionContextLike): KeycloakAuthData {
     const request = ctx.switchToHttp().getRequest<AuthRequestLike>();
@@ -79,14 +94,13 @@ export class KeycloakAuthHandler extends AuthHandler<
     ...args: ContextualArgs<Context>
   ): Promise<void> {
     if (data.isPublic) return;
-    this.authService.assertValidToken(data.token);
+    await this.authService.assertValidToken(data.token);
     await super.validate(data, routeRoles, model, ...args);
   }
 }
 
 function isPublicRoute(req: AuthRequestLike): boolean {
   if (req.path?.startsWith("/public")) return true;
-  if (req.path === "/account" && req.method === "POST") return true;
   return false;
 }
 
@@ -105,3 +119,5 @@ function resolveOrganization(
   if (payload?.azp) return payload.azp;
   return getRealmFromIssuer(token);
 }
+
+export { getClientRoles };

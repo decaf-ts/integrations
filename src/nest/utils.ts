@@ -31,6 +31,30 @@ export function extractKeycloakRoles(payload: KeycloakAccessTokenPayload | null)
   return [...roles];
 }
 
+/**
+ * Extracts roles from the `resource_access` claim only, optionally excluding
+ * specified client IDs (e.g. `"account"`).  Unlike {@link extractKeycloakRoles}
+ * this does NOT include `realm_access.roles`.
+ *
+ * @param payload   The decoded JWT payload.
+ * @param excluded  Client IDs to skip.  @default ["account"]
+ */
+export function getClientRoles(
+  payload: KeycloakAccessTokenPayload | null,
+  excluded: string[] = ["account"]
+): string[] {
+  const resourceAccess = payload?.resource_access;
+  if (!resourceAccess || typeof resourceAccess !== "object") return [];
+  const roles = new Set<string>();
+  for (const [clientId, data] of Object.entries(resourceAccess)) {
+    if (excluded.includes(clientId)) continue;
+    if (Array.isArray(data?.roles)) {
+      for (const role of data.roles) roles.add(role);
+    }
+  }
+  return [...roles];
+}
+
 export function getUser(jwt: string): KeycloakUser | undefined {
   const payload = getTokenPayload(jwt);
   if (!payload) return undefined;

@@ -255,7 +255,7 @@
   },
   "devDependencies": {
     "@decaf-ts/for-http": "latest",
-    "@decaf-ts/for-nest": "^0.11.2-refactor",
+    "@decaf-ts/for-nest": "^0.11.2-refactor.2",
     "@decaf-ts/utils": "latest",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
@@ -269,10 +269,18 @@
     "supertest": "^7.0.0"
   },
   "peerDependencies": {
-    "@decaf-ts/for-http": ">=0.18.0"
+    "@decaf-ts/for-http": "latest",
+    "@decaf-ts/for-nest": "0.11.2.refactor.2",
+    "jose": ">=5.0.0"
   },
   "peerDependenciesMeta": {
     "@decaf-ts/for-http": {
+      "optional": true
+    },
+    "@decaf-ts/for-nest": {
+      "optional": true
+    },
+    "jose": {
       "optional": true
     }
   },
