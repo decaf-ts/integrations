@@ -4,8 +4,8 @@
 
 ## What It Provides
 
-- [`AuthService`](../../src/nest/authService.ts): request-context-aware auth helper.
-- [`keycloakAuthHandler`](../../src/nest/keycloakAuthHandler.ts): Keycloak token decoding and request identity extraction.
+- [`AuthService`](../../src/nest/authService.ts): JWT verification service with JWKS support.
+- [`KeycloakAuthHandler`](../../src/nest/keycloakAuthHandler.ts): Keycloak token decoding, verification, and request identity extraction. Extends `AuthHandler` from `@decaf-ts/for-http/server`.
 - [`keycloakModule`](../../src/nest/keycloakModule.ts): module wiring for Nest consumers.
 - `types.ts` and `utils.ts`: shared request and auth helper types.
 
@@ -14,6 +14,7 @@
 Use these helpers when you need:
 
 - to extract a user identity from a Keycloak token
+- to verify JWT signatures against the Keycloak JWKS endpoint
 - to bridge Decaf request context into a Nest application
 - to reuse the same auth and role handling across HTTP handlers and Nest modules
 
@@ -24,10 +25,66 @@ Use these helpers when you need:
 3. Use the auth helper in your request pipeline or controller setup.
 
 ```ts
-import { AuthService, keycloakModule } from "@decaf-ts/integrations/nest";
+import { AuthService, KeycloakAuthHandler } from "@decaf-ts/integrations/nest";
 ```
+
+## `AuthService`
+
+JWT verification service supporting two modes:
+
+- **Verify mode** (when `verifyToken: true` and `verifyUrl` is set): validates the JWT signature against the Keycloak JWKS endpoint using `jose.jwtVerify`.
+- **Decode-only mode** (when `verifyToken: false` or `verifyUrl` is empty): decodes the JWT without signature verification (dev/local mode only).
+
+### `AuthServiceOptions`
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `verifyToken` | `boolean` | `false` | Whether to verify the JWT signature against the Keycloak JWKS endpoint. When `false` (or `verifyUrl` is empty), tokens are decoded without signature verification (dev/local mode only). |
+| `verifyUrl` | `string` | `""` | The Keycloak JWKS URL (e.g. `https://keycloak/realms/myrealm/protocol/openid-connect/certs`). Required when `verifyToken` is `true`. |
+| `clockToleranceSeconds` | `number` | `5` | Clock tolerance for JWT expiry verification (in seconds). |
+| `excludedClients` | `string[]` | `["account"]` | Keycloak client IDs to exclude when extracting roles from `resource_access`. |
+
+```ts
+const authService = new AuthService({
+  verifyToken: true,
+  verifyUrl: "https://keycloak/realms/myrealm/protocol/openid-connect/certs",
+  clockToleranceSeconds: 10,
+});
+```
+
+## `KeycloakAuthHandler`
+
+Extends `AuthHandler<AuthExecutionContextLike, Context, KeycloakAuthData>` from `@decaf-ts/for-http/server`.
+
+Overrides two extension points:
+
+- `extractFromAuth(ctx)` — decodes the JWT and returns auth data (no validation). Returns empty data for public routes (`/public/*`) without requiring a token.
+- `validate(data, routeRoles, model, ...args)` — validates the JWT via `AuthService.assertValidToken`, then delegates to the base class for route-level and model-level role checks. Skips entirely for public routes.
+
+Does NOT override `bindToContext` — the base class default `ctx.accumulate(data)` is sufficient.
+
+### Constructor
+
+```ts
+new KeycloakAuthHandler(authService?, authServiceOptions?)
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `authService` | `AuthService` | — | Pre-configured auth service. When omitted, a new one is created from `authServiceOptions`. |
+| `authServiceOptions` | `AuthServiceOptions` | `{}` | Used only when `authService` is omitted. |
+
+### `KeycloakAuthData`
+
+Extends `AuthData` with:
+
+| Field | Type | Description |
+|---|---|---|
+| `token` | `string` | The raw JWT extracted from the request. Empty for public routes. |
+| `isPublic` | `boolean` | Whether the request targets a public route (skips validation). |
 
 ## Notes
 
 - The helpers are intentionally framework-lean; they translate authentication concerns into Decaf-friendly request context objects.
-- `keycloakAuthHandler` is the main adapter when you need to read roles or identity from a Keycloak JWT.
+- `KeycloakAuthHandler` is the main adapter when you need to read roles or identity from a Keycloak JWT.
+- `getClientRoles` is re-exported for applications that need to inspect Keycloak client roles directly.
