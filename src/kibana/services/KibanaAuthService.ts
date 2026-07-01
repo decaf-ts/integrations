@@ -61,7 +61,7 @@ export class KibanaAuthService extends ClientBasedService<
         },
         withCredentials: true,
         httpsAgent: new https.Agent({
-          rejectUnauthorized: this.isSecureEnvironment(),
+          rejectUnauthorized: this.config.isProduction(),
         }),
       },
       200,
@@ -130,15 +130,9 @@ export class KibanaAuthService extends ClientBasedService<
       baseURL: `${config.protocol}://${config.host}`,
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: this.isSecureEnvironment(),
+        rejectUnauthorized: config.isProduction(),
       }),
     });
-  }
-
-  private isSecureEnvironment(): boolean {
-    return (
-      !this.config.id || !["development", "local"].includes(this.config.id)
-    );
   }
 
   private async request(
@@ -165,7 +159,7 @@ export class KibanaAuthService extends ClientBasedService<
         : undefined,
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: this.isSecureEnvironment(),
+        rejectUnauthorized: this.config.isProduction(),
       }),
       ...extra,
     });

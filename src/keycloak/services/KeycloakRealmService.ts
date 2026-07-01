@@ -13,6 +13,7 @@ import type {
 } from "../types";
 import Axios, { AxiosInstance } from "axios";
 import * as https from "node:https";
+import { parseJsonBody } from "../../shared/runtime";
 
 type KeycloakRealmRepresentation = {
   realm?: string;
@@ -162,13 +163,9 @@ export class KeycloakRealmService extends ClientBasedService<
       headers: { "Content-Type": "application/json" },
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: this.isProduction(config),
+        rejectUnauthorized: config.isProduction(),
       }),
     });
-  }
-
-  private isProduction(config: KeycloakSetupConfig): boolean {
-    return config.id === "production" || config.host.includes("prod");
   }
 
   private async getAccessToken(
@@ -189,9 +186,7 @@ export class KeycloakRealmService extends ClientBasedService<
         "content-type": "application/x-www-form-urlencoded",
       },
     });
-    const data = this.parseJsonResponse<{ access_token?: string }>(
-      response.data
-    );
+    const data = parseJsonBody<{ access_token?: string }>(response.data);
     if (data?.access_token) return data.access_token;
     throw new BadRequestError(
       `Unable to get Keycloak access token for user ${keycloakUser.username}`
@@ -213,9 +208,7 @@ export class KeycloakRealmService extends ClientBasedService<
       {},
       ...ctxArgs
     );
-    return (
-      this.parseJsonResponse<KeycloakRealmRepresentation>(response.data) ?? {}
-    );
+    return parseJsonBody<KeycloakRealmRepresentation>(response.data) ?? {};
   }
 
   private async request(
@@ -245,7 +238,7 @@ export class KeycloakRealmService extends ClientBasedService<
           : {}),
       },
       httpsAgent: new https.Agent({
-        rejectUnauthorized: this.isProduction(this.config),
+        rejectUnauthorized: this.config.isProduction(),
       }),
       validateStatus: () => true,
     });
@@ -300,14 +293,4 @@ export class KeycloakRealmService extends ClientBasedService<
     return new InternalError(message);
   }
 
-  private parseJsonResponse<T>(data: unknown): T | undefined {
-    if (typeof data === "string") {
-      try {
-        return JSON.parse(data) as T;
-      } catch {
-        return undefined;
-      }
-    }
-    return data as T;
-  }
 }

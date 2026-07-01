@@ -16,6 +16,7 @@ import * as path from "node:path";
 import * as https from "node:https";
 import FormData from "form-data";
 import { KibanaAuthService } from "./KibanaAuthService";
+import { parseJsonBody } from "../../shared/runtime";
 
 export class KibanaDashboardService extends ClientBasedService<
   AxiosInstance,
@@ -57,7 +58,7 @@ export class KibanaDashboardService extends ClientBasedService<
       const message = `Unable to list dashboards from default space: ${response.statusText}`;
       throw new BadRequestError(message);
     }
-    const data = this.parseJson(response.data) ?? {};
+    const data = parseJsonBody<any>(response.data) ?? {};
     const dashboards: Array<{ id: string }> = data.saved_objects ?? [];
     if (dashboards.length === 0) return undefined;
 
@@ -111,7 +112,7 @@ export class KibanaDashboardService extends ClientBasedService<
         maxContentLength: Infinity,
         validateStatus: () => true,
         httpsAgent: new https.Agent({
-          rejectUnauthorized: this.isSecureEnvironment(),
+          rejectUnauthorized: this.config.isProduction(),
         }),
       }
     );
@@ -172,7 +173,7 @@ export class KibanaDashboardService extends ClientBasedService<
       const message = `Unable to verify space ${realmName}: ${response.statusText}`;
       throw new BadRequestError(message);
     }
-    const data = this.parseJson(response.data);
+    const data = parseJsonBody<any>(response.data);
     if ((data?.total ?? 0) === 0) {
       const message = `No dashboards found in space ${realmName}`;
       throw new NotFoundError(message);
@@ -184,7 +185,7 @@ export class KibanaDashboardService extends ClientBasedService<
       baseURL: `${config.protocol}://${config.host}`,
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: this.isSecureEnvironment(),
+        rejectUnauthorized: config.isProduction(),
       }),
     });
   }
@@ -216,12 +217,6 @@ export class KibanaDashboardService extends ClientBasedService<
     return new InternalError(message);
   }
 
-  private isSecureEnvironment(): boolean {
-    return (
-      !this.config.id || !["development", "local"].includes(this.config.id)
-    );
-  }
-
   private async request(
     method: "GET" | "POST" | "PUT" | "DELETE",
     url: string,
@@ -246,18 +241,9 @@ export class KibanaDashboardService extends ClientBasedService<
         : undefined,
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: this.isSecureEnvironment(),
+        rejectUnauthorized: this.config.isProduction(),
       }),
       ...extra,
     });
-  }
-
-  private parseJson(value: unknown): any {
-    if (typeof value !== "string") return value;
-    try {
-      return JSON.parse(value);
-    } catch {
-      return undefined;
-    }
   }
 }

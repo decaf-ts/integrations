@@ -31,6 +31,7 @@ const keycloakConfig: KeycloakSetupConfig = {
   id: "integration-test",
   host: KEYCLOAK_HOST,
   protocol: "http",
+  isProduction: () => false,
   rootApiUser: adminUser,
   adminApiUser: adminUser,
   realmApiUser: adminUser,
@@ -45,6 +46,39 @@ const keycloakConfig: KeycloakSetupConfig = {
 
 let dockerService: DockerComposeService | undefined;
 let keycloakService: KeycloakService;
+
+async function waitForAdminToken(): Promise<void> {
+  const tokenUrl = `${KEYCLOAK_BASE_URL}/realms/master/protocol/openid-connect/token`;
+  const body = new URLSearchParams({
+    client_id: adminUser.apiClientId,
+    username: adminUser.username,
+    password: adminUser.password,
+    grant_type: "password",
+  }).toString();
+
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    try {
+      const response = await fetch(tokenUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+      });
+      const data = await response.json().catch(() => undefined);
+      if (response.ok && data?.access_token) return;
+      lastError = new Error(
+        `Keycloak token not ready (${response.status}): ${JSON.stringify(data)}`
+      );
+    } catch (error) {
+      lastError = error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Keycloak token endpoint did not become ready");
+}
 
 // Independent verification helpers: hit the Keycloak Admin REST API directly
 // with axios so assertions don't rely on the same code path being tested.
@@ -89,6 +123,7 @@ describe("Keycloak Integration Tests", () => {
       await dockerService.initialize({ composeFile, workingDir });
       await dockerService.up();
       await dockerService.waitForHealth(`${KEYCLOAK_BASE_URL}/realms/master`);
+      await waitForAdminToken();
     }
     keycloakService = new KeycloakService();
     await keycloakService.initialize(keycloakConfig);

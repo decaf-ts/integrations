@@ -14,6 +14,7 @@ import type {
 import Axios, { AxiosInstance } from "axios";
 import * as https from "node:https";
 import { KibanaAuthService } from "./KibanaAuthService";
+import { parseJsonBody } from "../../shared/runtime";
 
 export class KibanaDataViewService extends ClientBasedService<
   AxiosInstance,
@@ -129,7 +130,7 @@ export class KibanaDataViewService extends ClientBasedService<
     if (statusResp.status !== 200 || !dvId) {
       return;
     }
-    const statusData = this.parseJson(statusResp.data);
+    const statusData = parseJsonBody<any>(statusResp.data);
     const kibanaVersion =
       statusData?.version?.number ?? statusData?.kibana?.version;
     if (!kibanaVersion) return;
@@ -153,7 +154,7 @@ export class KibanaDataViewService extends ClientBasedService<
       baseURL: `${config.protocol}://${config.host}`,
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: this.isSecureEnvironment(),
+        rejectUnauthorized: config.isProduction(),
       }),
     });
   }
@@ -183,12 +184,6 @@ export class KibanaDataViewService extends ClientBasedService<
     }
 
     return new InternalError(message);
-  }
-
-  private isSecureEnvironment(): boolean {
-    return (
-      !this.config.id || !["development", "local"].includes(this.config.id)
-    );
   }
 
   private normalizeDataViewConfig(
@@ -250,18 +245,9 @@ export class KibanaDataViewService extends ClientBasedService<
         : undefined,
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: this.isSecureEnvironment(),
+        rejectUnauthorized: this.config.isProduction(),
       }),
       ...extra,
     });
-  }
-
-  private parseJson(value: unknown): any {
-    if (typeof value !== "string") return value;
-    try {
-      return JSON.parse(value);
-    } catch {
-      return undefined;
-    }
   }
 }

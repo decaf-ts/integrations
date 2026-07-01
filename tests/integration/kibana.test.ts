@@ -31,6 +31,7 @@ const kibanaConfig: KibanaSetupConfig = {
   host: KIBANA_HOST,
   es_host: ES_HOST,
   protocol: "http",
+  isProduction: () => false,
   realm: TEST_REALM,
   adminApiUser: adminUser,
   realmApiUser: realmUser,

@@ -16,6 +16,7 @@ import { jest, describe, beforeAll, afterAll, it, expect } from "@jest/globals";
 import "reflect-metadata";
 import "../../src/nest";
 
+import path from "path";
 import { Test } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
 import { Adapter, ModelService, PersistenceService } from "@decaf-ts/core";
@@ -42,6 +43,7 @@ import {
   type KeycloakSetupConfig,
   type KeycloakUser,
 } from "../../src/keycloak";
+import { DockerComposeService } from "../../src/docker";
 import { RoleArticle } from "./fakes/models/RoleArticle";
 import { AuthHttpModelClient, genStr } from "./fakes/http";
 import request from "supertest";
@@ -51,11 +53,18 @@ Adapter.setCurrent(RamFlavour);
 
 jest.setTimeout(180000);
 
-const KEYCLOAK_HOST = process.env.KEYCLOAK_HOST || "localhost:8180";
+const EXTERNAL_KEYCLOAK_HOST = process.env.KEYCLOAK_HOST;
+const KEYCLOAK_HOST = EXTERNAL_KEYCLOAK_HOST || "localhost:8180";
 const KEYCLOAK_PROTOCOL =
   (process.env.KEYCLOAK_PROTOCOL as "http" | "https") || "http";
 const KEYCLOAK_ADMIN_USER = process.env.KEYCLOAK_ADMIN_USER || "admin";
 const KEYCLOAK_ADMIN_PASSWORD = process.env.KEYCLOAK_ADMIN_PASSWORD || "admin";
+const KEYCLOAK_BASE_URL = `${KEYCLOAK_PROTOCOL}://${KEYCLOAK_HOST}`;
+const composeFile = path.resolve(
+  import.meta.dirname,
+  "../../docker/keycloak-compose.yml"
+);
+const workingDir = path.dirname(composeFile);
 
 const REALM = `e2e-roles-${Math.random().toString(36).slice(2, 10)}`;
 const CLIENT_ID = "e2e-roles-client";
@@ -137,17 +146,60 @@ describe("Keycloak per-operation role E2E (reader/writer/admin)", () => {
   let ArticleHttp: AuthHttpModelClient<RoleArticle>;
   let keycloakService: KeycloakService;
   let keycloakAuthService: KeycloakAuthService;
+let dockerService: DockerComposeService | undefined;
   let readerToken: string;
   let writerToken: string;
   let adminToken: string;
   let noroleToken: string;
 
+  async function waitForAdminToken(): Promise<void> {
+    const tokenUrl = `${KEYCLOAK_BASE_URL}/realms/master/protocol/openid-connect/token`;
+    const body = new URLSearchParams({
+      client_id: "admin-cli",
+      username: KEYCLOAK_ADMIN_USER,
+      password: KEYCLOAK_ADMIN_PASSWORD,
+      grant_type: "password",
+    }).toString();
+
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      try {
+        const response = await fetch(tokenUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body,
+        });
+        const data = await response.json().catch(() => undefined);
+        if (response.ok && data?.access_token) return;
+        lastError = new Error(
+          `Keycloak token not ready (${response.status}): ${JSON.stringify(data)}`
+        );
+      } catch (error) {
+        lastError = error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+
+    throw lastError instanceof Error
+      ? lastError
+      : new Error("Keycloak token endpoint did not become ready");
+  }
+
   beforeAll(async () => {
+    if (!EXTERNAL_KEYCLOAK_HOST) {
+      dockerService = new DockerComposeService();
+      await dockerService.initialize({ composeFile, workingDir });
+      await dockerService.up();
+      await dockerService.waitForHealth(`${KEYCLOAK_BASE_URL}/realms/master`);
+      await waitForAdminToken();
+    }
+
     // ── 1. Provision Keycloak realm, realm-admin, client via setupOrganization ──
     const setup: KeycloakSetupConfig = {
       id: "e2e-roles-test",
       host: KEYCLOAK_HOST,
       protocol: KEYCLOAK_PROTOCOL,
+      isProduction: () => false,
       rootApiUser: {
         realm: "master",
         apiClientId: "admin-cli",
@@ -320,6 +372,9 @@ describe("Keycloak per-operation role E2E (reader/writer/admin)", () => {
       await keycloakService?.deleteOrganization(REALM);
     } catch {
       // ignore
+    }
+    if (dockerService) {
+      await dockerService.down();
     }
   });
 

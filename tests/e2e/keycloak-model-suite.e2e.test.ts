@@ -12,6 +12,7 @@ import "reflect-metadata";
 import { jest, describe, beforeAll, afterAll, it, expect } from "@jest/globals";
 import "../../src/nest";
 
+import path from "path";
 import { Test } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
 import { Adapter } from "@decaf-ts/core";
@@ -31,6 +32,7 @@ import {
   type KeycloakSetupConfig,
   type KeycloakUser,
 } from "../../src/keycloak";
+import { DockerComposeService } from "../../src/docker";
 import { Product } from "./fakes/models/Product";
 import { FakePartner } from "./fakes/models/FakePartner";
 import { AuthHttpModelClient, genStr } from "./fakes/http";
@@ -40,11 +42,18 @@ Adapter.setCurrent(RamFlavour);
 
 jest.setTimeout(180000);
 
-const KEYCLOAK_HOST = process.env.KEYCLOAK_HOST || "localhost:8180";
+const EXTERNAL_KEYCLOAK_HOST = process.env.KEYCLOAK_HOST;
+const KEYCLOAK_HOST = EXTERNAL_KEYCLOAK_HOST || "localhost:8180";
 const KEYCLOAK_PROTOCOL =
   (process.env.KEYCLOAK_PROTOCOL as "http" | "https") || "http";
 const KEYCLOAK_ADMIN_USER = process.env.KEYCLOAK_ADMIN_USER || "admin";
 const KEYCLOAK_ADMIN_PASSWORD = process.env.KEYCLOAK_ADMIN_PASSWORD || "admin";
+const KEYCLOAK_BASE_URL = `${KEYCLOAK_PROTOCOL}://${KEYCLOAK_HOST}`;
+const composeFile = path.resolve(
+  import.meta.dirname,
+  "../../docker/keycloak-compose.yml"
+);
+const workingDir = path.dirname(composeFile);
 
 const REALM = `e2e-role-${Math.random().toString(36).slice(2, 10)}`;
 const CLIENT_ID = "e2e-role-client";
@@ -65,9 +74,43 @@ describe("Keycloak full E2E with per-route role verification", () => {
   let PartnerHttp: AuthHttpModelClient<FakePartner>;
   let keycloakService: KeycloakService;
   let keycloakAuthService: KeycloakAuthService;
+  let dockerService: DockerComposeService | undefined;
   let adminToken: string;
   let partnerToken: string;
   let noroleToken: string;
+
+  async function waitForAdminToken(): Promise<void> {
+    const tokenUrl = `${KEYCLOAK_BASE_URL}/realms/master/protocol/openid-connect/token`;
+    const body = new URLSearchParams({
+      client_id: "admin-cli",
+      username: KEYCLOAK_ADMIN_USER,
+      password: KEYCLOAK_ADMIN_PASSWORD,
+      grant_type: "password",
+    }).toString();
+
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      try {
+        const response = await fetch(tokenUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body,
+        });
+        const data = await response.json().catch(() => undefined);
+        if (response.ok && data?.access_token) return;
+        lastError = new Error(
+          `Keycloak token not ready (${response.status}): ${JSON.stringify(data)}`
+        );
+      } catch (error) {
+        lastError = error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+
+    throw lastError instanceof Error
+      ? lastError
+      : new Error("Keycloak token endpoint did not become ready");
+  }
 
   const users: Record<string, KeycloakUser & { roles: string[] }> = {
     admin: {
@@ -94,11 +137,20 @@ describe("Keycloak full E2E with per-route role verification", () => {
   };
 
   beforeAll(async () => {
+    if (!EXTERNAL_KEYCLOAK_HOST) {
+      dockerService = new DockerComposeService();
+      await dockerService.initialize({ composeFile, workingDir });
+      await dockerService.up();
+      await dockerService.waitForHealth(`${KEYCLOAK_BASE_URL}/realms/master`);
+      await waitForAdminToken();
+    }
+
     // ── 1. Provision Keycloak realm, client, roles, users ──
     const setup: KeycloakSetupConfig = {
       id: "e2e-role-test",
       host: KEYCLOAK_HOST,
       protocol: KEYCLOAK_PROTOCOL,
+      isProduction: () => false,
       rootApiUser: {
         realm: "master",
         apiClientId: "admin-cli",
@@ -228,6 +280,9 @@ describe("Keycloak full E2E with per-route role verification", () => {
       await keycloakService?.deleteOrganization(REALM);
     } catch {
       // ignore
+    }
+    if (dockerService) {
+      await dockerService.down();
     }
   });
 

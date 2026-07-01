@@ -117,7 +117,7 @@ export class KibanaSpaceService extends ClientBasedService<
       baseURL: `${config.protocol}://${config.host}`,
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: this.isSecureEnvironment(),
+        rejectUnauthorized: config.isProduction(),
       }),
     });
   }
@@ -147,12 +147,6 @@ export class KibanaSpaceService extends ClientBasedService<
     }
 
     return new InternalError(message);
-  }
-
-  private isSecureEnvironment(): boolean {
-    return (
-      !this.config.id || !["development", "local"].includes(this.config.id)
-    );
   }
 
   private normalizeSpaceConfig(
@@ -204,7 +198,7 @@ export class KibanaSpaceService extends ClientBasedService<
         : undefined,
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: this.isSecureEnvironment(),
+        rejectUnauthorized: this.config.isProduction(),
       }),
       ...extra,
     });

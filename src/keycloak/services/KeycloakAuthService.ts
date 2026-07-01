@@ -146,13 +146,9 @@ export class KeycloakAuthService extends ClientBasedService<
       headers: { "Content-Type": "application/json" },
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: this.isProduction(config),
+        rejectUnauthorized: config.isProduction(),
       }),
     });
-  }
-
-  private isProduction(config: KeycloakSetupConfig): boolean {
-    return config.id === "production" || config.host.includes("prod");
   }
 
   private async request(
@@ -182,7 +178,7 @@ export class KeycloakAuthService extends ClientBasedService<
           : {}),
       },
       httpsAgent: new https.Agent({
-        rejectUnauthorized: this.isProduction(this.config),
+        rejectUnauthorized: this.config.isProduction(),
       }),
       validateStatus: () => true,
     });
