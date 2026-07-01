@@ -62,6 +62,47 @@ export class KeycloakRoleService extends ClientBasedService<
     }
   }
 
+  /**
+   * Creates a realm-level role in the specified realm.
+   *
+   * When `compositeRoles` is provided, the role is created as a Keycloak
+   * composite role that includes the given sub-roles.  This allows role
+   * hierarchies (e.g. `admin ⊃ writer ⊃ reader`) so that a user assigned
+   * the composite role automatically inherits all sub-roles in their JWT.
+   *
+   * @param realmName      The realm in which to create the role.
+   * @param roleName       The name of the realm role to create.
+   * @param compositeRoles Optional array of existing realm role names to
+   *                       include as composites.
+   */
+  async createRealmRole(
+    realmName: string,
+    roleName: string,
+    compositeRoles: string[] | undefined,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "createRealmRole", true)
+    ).for(this.createRealmRole);
+    const adminAccessToken = await this.getAdminAccessToken(...ctxArgs);
+    await this.request(
+      "POST",
+      `/admin/realms/${realmName}/roles`,
+      adminAccessToken,
+      {
+        name: roleName,
+        description: `Auto-created realm role ${roleName}`,
+        composite: !!compositeRoles && compositeRoles.length > 0,
+        ...(compositeRoles && compositeRoles.length > 0
+          ? { composites: { realm: compositeRoles } }
+          : {}),
+      },
+      201,
+      {},
+      ...ctxArgs
+    );
+  }
+
   async getRealmRoles(
     realmName: string,
     ...args: MaybeContextualArg<any>

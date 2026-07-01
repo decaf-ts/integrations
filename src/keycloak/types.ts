@@ -108,4 +108,15 @@ export interface KeycloakSetupConfig {
   client: KeycloakClientConfig;
   identityProvider?: KeycloakIdentityProviderConfig;
   realmConfig?: KeycloakRealmConfig;
+  /**
+   * When true, realm roles are created as Keycloak composite roles forming a
+   * hierarchy (e.g. admin ⊃ writer ⊃ reader).  A user assigned the composite
+   * role automatically inherits all sub-roles in their JWT.
+   *
+   * When false (default), roles are independent — admin does NOT imply writer
+   * or reader.  Each user must be explicitly granted every role they need.
+   *
+   * @default false
+   */
+  useCompositeRoles?: boolean;
 }

@@ -183,6 +183,40 @@ export class KeycloakService extends ClientBasedService<
     );
   }
 
+  /**
+   * Creates a realm-level role, optionally as a composite of existing roles.
+   */
+  async createRealmRole(
+    realmName: string,
+    roleName: string,
+    compositeRoles: string[] | undefined,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "createRealmRole", true)
+    ).for(this.createRealmRole);
+    await this.roleService.createRealmRole(
+      realmName,
+      roleName,
+      compositeRoles,
+      ...ctxArgs
+    );
+  }
+
+  /**
+   * Creates a client in the configured realm and returns its UUID.
+   */
+  async createClient(
+    config: KeycloakSetupConfig,
+    overrides: Partial<import("../types").KeycloakClientConfig> | undefined,
+    ...args: MaybeContextualArg<any>
+  ): Promise<string> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "createClient", true)
+    ).for(this.createClient);
+    return this.clientService.createClient(config, overrides, ...ctxArgs);
+  }
+
   async addClientRolesToUser(
     realmName: string,
     clientUUID: string,

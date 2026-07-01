@@ -13,7 +13,10 @@ const composeFile = path.resolve(
 );
 const workingDir = path.dirname(composeFile);
 
-const KEYCLOAK_HOST = "localhost:8180";
+// Use KEYCLOAK_HOST env var if provided (external Keycloak), otherwise
+// fall back to localhost:8180 and start a fresh container via docker-compose.
+const EXTERNAL_KEYCLOAK_HOST = process.env.KEYCLOAK_HOST;
+const KEYCLOAK_HOST = EXTERNAL_KEYCLOAK_HOST || "localhost:8180";
 const KEYCLOAK_BASE_URL = `http://${KEYCLOAK_HOST}`;
 const TEST_REALM = "integration-test-realm";
 
@@ -40,7 +43,7 @@ const keycloakConfig: KeycloakSetupConfig = {
   },
 };
 
-let dockerService: DockerComposeService;
+let dockerService: DockerComposeService | undefined;
 let keycloakService: KeycloakService;
 
 // Independent verification helpers: hit the Keycloak Admin REST API directly
@@ -81,16 +84,27 @@ async function fetchUserByUsername(
 
 describe("Keycloak Integration Tests", () => {
   beforeAll(async () => {
-    dockerService = new DockerComposeService();
-    await dockerService.initialize({ composeFile, workingDir });
-    await dockerService.up();
-    await dockerService.waitForHealth(`${KEYCLOAK_BASE_URL}/realms/master`);
+    if (!EXTERNAL_KEYCLOAK_HOST) {
+      dockerService = new DockerComposeService();
+      await dockerService.initialize({ composeFile, workingDir });
+      await dockerService.up();
+      await dockerService.waitForHealth(`${KEYCLOAK_BASE_URL}/realms/master`);
+    }
     keycloakService = new KeycloakService();
     await keycloakService.initialize(keycloakConfig);
+
+    // Clean up any leftover realm from a previous run
+    try {
+      await keycloakService.removeRealm(TEST_REALM);
+    } catch {
+      // realm may not exist
+    }
   }, 60000);
 
   afterAll(async () => {
-    await dockerService.down();
+    if (dockerService) {
+      await dockerService.down();
+    }
   }, 60000);
 
   describe("Realm management", () => {
