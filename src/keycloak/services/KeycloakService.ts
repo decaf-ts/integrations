@@ -5,7 +5,7 @@ import {
   MaybeContextualArg,
   service,
 } from "@decaf-ts/core";
-import { NotFoundError } from "@decaf-ts/db-decorators";
+import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 import type { KeycloakSetupConfig, KeycloakUser } from "../types";
 import Axios, { AxiosInstance } from "axios";
 import * as https from "node:https";
@@ -238,6 +238,7 @@ export class KeycloakService extends ClientBasedService<
       config.realmConfig ?? {},
       ...ctxArgs
     );
+    await this.waitForRealm(config.realmApiUser!.realm, ...ctxArgs);
 
     const realmUserUUID = await this.userService.createRealmUser(
       config.realmApiUser!,
@@ -318,6 +319,26 @@ export class KeycloakService extends ClientBasedService<
         rejectUnauthorized: !["development", "local"].includes(config.id),
       }),
     });
+  }
+
+  private async waitForRealm(
+    realmName: string,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "waitForRealm", true)
+    ).for(this.waitForRealm);
+
+    const deadline = Date.now() + 15000;
+    while (Date.now() < deadline) {
+      try {
+        await this.realmService.getRealm(realmName, ...ctxArgs);
+        return;
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    }
+    throw new InternalError(`Timed out waiting for realm ${realmName}`);
   }
 
   private async updateClientScopesRolesMappers(
