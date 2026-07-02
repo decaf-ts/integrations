@@ -202,6 +202,17 @@
         "default": "./lib/cjs/blob/memory/index.cjs"
       },
       "default": "./lib/esm/blob/memory/index.js"
+    },
+    "./graph": {
+      "import": {
+        "types": "./lib/types/graph/index.d.mts",
+        "default": "./lib/esm/graph/index.js"
+      },
+      "require": {
+        "types": "./lib/types/graph/index.d.cts",
+        "default": "./lib/cjs/graph/index.cjs"
+      },
+      "default": "./lib/esm/graph/index.js"
     }
   },
   "scripts": {
@@ -248,6 +259,7 @@
     "@decaf-ts/injectable-decorators": "latest",
     "@decaf-ts/logging": "latest",
     "@decaf-ts/transactional-decorators": "latest",
+    "@decaf-ts/ui-decorators": "latest",
     "axios": "^1.7.9",
     "node-fetch": "^3.3.2",
     "tslib": "^2.8.1",
@@ -257,7 +269,8 @@
     "@decaf-ts/cli": "latest",
     "@decaf-ts/for-http": "latest",
     "@decaf-ts/for-nano": "latest",
-    "@decaf-ts/for-nest": "0.11.2-refactor.5",
+    "@decaf-ts/as-zod": "latest",
+    "@decaf-ts/for-nest": "0.11.2-refactor.7",
     "@decaf-ts/utils": "latest",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
@@ -272,7 +285,8 @@
   },
   "peerDependencies": {
     "@decaf-ts/for-http": "latest",
-    "@decaf-ts/for-nest": "0.11.2-refactor.5",
+    "@decaf-ts/as-zod": "latest",
+    "@decaf-ts/for-nest": "0.11.2-refactor.7",
     "jose": ">=5.0.0"
   },
   "peerDependenciesMeta": {
