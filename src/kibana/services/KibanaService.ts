@@ -18,6 +18,10 @@ import { KibanaUserService } from "./KibanaUserService";
 import { KibanaDashboardService } from "./KibanaDashboardService";
 import { KibanaAuthService } from "./KibanaAuthService";
 
+type KibanaRuntimeSetupConfig = KibanaSetupConfig & {
+  isProduction(): boolean;
+};
+
 /**
  * @class KibanaService
  * @summary Orchestrates Kibana setup and provisioning flows.
@@ -43,6 +47,12 @@ export class KibanaService extends ClientBasedService<
     super();
   }
 
+  protected isProduction(): boolean {
+    return !["development", "local"].includes(
+      process.env["NODE_ENV"] ?? ""
+    );
+  }
+
   async initialize(
     ...args: MaybeContextualArg<any>
   ): Promise<{ config: KibanaSetupConfig; client: AxiosInstance }> {
@@ -50,22 +60,26 @@ export class KibanaService extends ClientBasedService<
       await this.logCtx(args, "initialize", true)
     ).for(this.initialize);
     const config = ctxArgs[0] as KibanaSetupConfig;
-    this._config = config;
+    const runtimeConfig: KibanaRuntimeSetupConfig = {
+      ...config,
+      isProduction: this.isProduction.bind(this),
+    };
+    this._config = runtimeConfig;
 
     this.spaceService = new KibanaSpaceService();
-    await this.spaceService.initialize(...ctxArgs);
+    await this.spaceService.initialize(runtimeConfig, ...ctxArgs);
     this.dataViewService = new KibanaDataViewService();
-    await this.dataViewService.initialize(...ctxArgs);
+    await this.dataViewService.initialize(runtimeConfig, ...ctxArgs);
     this.roleService = new KibanaRoleService();
-    await this.roleService.initialize(...ctxArgs);
+    await this.roleService.initialize(runtimeConfig, ...ctxArgs);
     this.userService = new KibanaUserService();
-    await this.userService.initialize(...ctxArgs);
+    await this.userService.initialize(runtimeConfig, ...ctxArgs);
     this.dashboardService = new KibanaDashboardService();
-    await this.dashboardService.initialize(...ctxArgs);
+    await this.dashboardService.initialize(runtimeConfig, ...ctxArgs);
     this.authService = new KibanaAuthService();
-    await this.authService.initialize(...ctxArgs);
+    await this.authService.initialize(runtimeConfig, ...ctxArgs);
 
-    const client = this.createHttpClient(config);
+    const client = this.createHttpClient(runtimeConfig);
     this._client = client;
     return { config, client };
   }
@@ -291,7 +305,7 @@ export class KibanaService extends ClientBasedService<
       baseURL: `${config.protocol}://${config.host}`,
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: !["development", "local"].includes(config.id),
+        rejectUnauthorized: this.isProduction(),
       }),
     });
   }

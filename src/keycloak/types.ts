@@ -24,10 +24,6 @@ export interface KeycloakClientRoleConfig {
   description?: string;
 }
 
-export interface ProductionAwareConfig {
-  isProduction(): boolean;
-}
-
 export interface KeycloakClientConfig {
   clientId: string;
   secret: string;
@@ -102,7 +98,7 @@ export interface KeycloakIdentityProviderConfigOverrides {
   payload?: Partial<Record<string, unknown>>;
 }
 
-export interface KeycloakSetupConfig extends ProductionAwareConfig {
+export interface KeycloakSetupConfig {
   id: string;
   host: string;
   protocol: "http" | "https";

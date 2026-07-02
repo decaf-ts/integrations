@@ -117,7 +117,7 @@ export class KibanaSpaceService extends ClientBasedService<
       baseURL: `${config.protocol}://${config.host}`,
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: config.isProduction(),
+        rejectUnauthorized: ((this.config as any).isProduction()),
       }),
     });
   }
@@ -198,7 +198,7 @@ export class KibanaSpaceService extends ClientBasedService<
         : undefined,
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: this.config.isProduction(),
+        rejectUnauthorized: ((this.config as any).isProduction()),
       }),
       ...extra,
     });

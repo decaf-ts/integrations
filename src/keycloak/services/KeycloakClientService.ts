@@ -156,7 +156,7 @@ export class KeycloakClientService extends ClientBasedService<
       headers: { "Content-Type": "application/json" },
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: config.isProduction(),
+        rejectUnauthorized: ((this.config as any).isProduction()),
       }),
     });
   }
@@ -269,7 +269,7 @@ export class KeycloakClientService extends ClientBasedService<
           : {}),
       },
       httpsAgent: new https.Agent({
-        rejectUnauthorized: this.config.isProduction(),
+        rejectUnauthorized: ((this.config as any).isProduction()),
       }),
       validateStatus: () => true,
     });

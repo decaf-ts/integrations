@@ -17,6 +17,10 @@ import { KeycloakClientService } from "./KeycloakClientService";
 import { KeycloakIdentityProviderService } from "./KeycloakIdentityProviderService";
 import { KeycloakAuthService } from "./KeycloakAuthService";
 
+type KeycloakRuntimeSetupConfig = KeycloakSetupConfig & {
+  isProduction(): boolean;
+};
+
 @description("Orchestrates Keycloak realm/user/client provisioning across the inner Keycloak services")
 export class KeycloakService extends ClientBasedService<
   AxiosInstance,
@@ -38,6 +42,12 @@ export class KeycloakService extends ClientBasedService<
     super();
   }
 
+  protected isProduction(): boolean {
+    return !["development", "local"].includes(
+      process.env["NODE_ENV"] ?? ""
+    );
+  }
+
   async initialize(
     ...args: MaybeContextualArg<any>
   ): Promise<{ config: KeycloakSetupConfig; client: AxiosInstance }> {
@@ -45,7 +55,11 @@ export class KeycloakService extends ClientBasedService<
       await this.logCtx(args, "initialize", true)
     ).for(this.initialize);
     const config = ctxArgs[0] as KeycloakSetupConfig;
-    this._config = config;
+    const runtimeConfig: KeycloakRuntimeSetupConfig = {
+      ...config,
+      isProduction: this.isProduction.bind(this),
+    };
+    this._config = runtimeConfig;
 
     log.debug(`Binding inner services...`);
     service()(KeycloakRealmService);
@@ -57,19 +71,19 @@ export class KeycloakService extends ClientBasedService<
 
     log.debug(`Initializing inner services...`);
     this.realmService = new KeycloakRealmService();
-    await this.realmService.initialize(config, ...ctxArgs);
+    await this.realmService.initialize(runtimeConfig, ...ctxArgs);
     this.userService = new KeycloakUserService();
-    await this.userService.initialize(config, ...ctxArgs);
+    await this.userService.initialize(runtimeConfig, ...ctxArgs);
     this.roleService = new KeycloakRoleService();
-    await this.roleService.initialize(config, ...ctxArgs);
+    await this.roleService.initialize(runtimeConfig, ...ctxArgs);
     this.clientService = new KeycloakClientService();
-    await this.clientService.initialize(config, ...ctxArgs);
+    await this.clientService.initialize(runtimeConfig, ...ctxArgs);
     this.identityProviderService = new KeycloakIdentityProviderService();
-    await this.identityProviderService.initialize(config, ...ctxArgs);
+    await this.identityProviderService.initialize(runtimeConfig, ...ctxArgs);
     this.authService = new KeycloakAuthService();
-    await this.authService.initialize(config, ...ctxArgs);
+    await this.authService.initialize(runtimeConfig, ...ctxArgs);
 
-    const client = this.createHttpClient(config);
+    const client = this.createHttpClient(runtimeConfig);
     this._client = client;
     log.debug(
       `Keycloak Service initialized with config: ${JSON.stringify(config)}`
@@ -350,7 +364,7 @@ export class KeycloakService extends ClientBasedService<
       headers: { "Content-Type": "application/json" },
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: config.isProduction(),
+        rejectUnauthorized: this.isProduction(),
       }),
     });
   }

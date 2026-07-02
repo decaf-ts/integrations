@@ -23,10 +23,6 @@ export interface KibanaSpaceConfig {
   imageUrl?: string;
 }
 
-export interface ProductionAwareConfig {
-  isProduction(): boolean;
-}
-
 /**
  * @module integrations/kibana/types
  * @summary Kibana configuration and payload types.
@@ -64,7 +60,7 @@ export interface KibanaRoleConfig {
   metadata?: Record<string, unknown>;
 }
 
-export interface KibanaSetupConfig extends ProductionAwareConfig {
+export interface KibanaSetupConfig {
   id: string;
   host: string;
   es_host: string;

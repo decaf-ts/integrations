@@ -61,7 +61,7 @@ export class KibanaAuthService extends ClientBasedService<
         },
         withCredentials: true,
         httpsAgent: new https.Agent({
-          rejectUnauthorized: this.config.isProduction(),
+          rejectUnauthorized: ((this.config as any).isProduction()),
         }),
       },
       200,
@@ -130,7 +130,7 @@ export class KibanaAuthService extends ClientBasedService<
       baseURL: `${config.protocol}://${config.host}`,
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: config.isProduction(),
+        rejectUnauthorized: ((this.config as any).isProduction()),
       }),
     });
   }
@@ -159,7 +159,7 @@ export class KibanaAuthService extends ClientBasedService<
         : undefined,
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: this.config.isProduction(),
+        rejectUnauthorized: ((this.config as any).isProduction()),
       }),
       ...extra,
     });
