@@ -52,6 +52,7 @@ export * from "./validation/GraphValueValidator";
 
 // Loops (TASK-216)
 export * from "./loops/GraphConditionEvaluator";
+export * from "./loops/ConditionExpressionEvaluator";
 export * from "./loops/GraphLoopExecutionContext";
 export * from "./loops/ForeachGraphNodeExecutor";
 export * from "./loops/WhileGraphNodeExecutor";
@@ -65,3 +66,6 @@ export * from "./pinning/GraphPinningService";
 
 // Snapshots (TASK-219)
 export * from "./snapshots/GraphExecutionSnapshotMapper";
+
+// Production node kind declarations (TASK-228 / §22.2)
+export * from "./nodes";

@@ -156,6 +156,10 @@ export interface GraphLoopMetadata {
 
 /**
  * Definition of a condition evaluated by the loop condition evaluator.
+ *
+ * When the condition object carries an `op` field (see {@link ConditionExpression}),
+ * the {@link GraphConditionEvaluator} dispatches to the {@link ConditionExpressionEvaluator}
+ * instead of the built-in `type`-based switch.
  */
 export interface GraphConditionDefinition {
   type:
@@ -174,6 +178,38 @@ export interface GraphConditionDefinition {
   evaluator?: string;
   metadata?: Record<string, unknown>;
 }
+
+/**
+ * A value reference inside a {@link ConditionExpression}.
+ *
+ * - `{ const: x }` — a literal constant.
+ * - `{ path: "a.b" }` — a dotted path resolved against the current loop state.
+ * - `{ step: "nodeId", path: "out" }` — a cross-node reference (resolved from
+ *   the execution state in v1; reserved for future multi-step evaluation).
+ */
+export type ExprValue =
+  | { const: unknown }
+  | { path: string }
+  | { step: string; path: string };
+
+/**
+ * Declarative, serializable condition expression DSL (ALFRED-5 §8 / DECAF-32 §22.3).
+ *
+ * The engine's {@link GraphConditionEvaluator} recognises this DSL when the
+ * condition object carries an `op` field and dispatches to the
+ * {@link ConditionExpressionEvaluator}.
+ */
+export type ConditionExpression =
+  | { op: "eq"; left: ExprValue; right: ExprValue }
+  | { op: "neq"; left: ExprValue; right: ExprValue }
+  | { op: "gt"; left: ExprValue; right: ExprValue }
+  | { op: "gte"; left: ExprValue; right: ExprValue }
+  | { op: "lt"; left: ExprValue; right: ExprValue }
+  | { op: "lte"; left: ExprValue; right: ExprValue }
+  | { op: "and"; conditions: ConditionExpression[] }
+  | { op: "or"; conditions: ConditionExpression[] }
+  | { op: "not"; condition: ConditionExpression }
+  | { op: "exists"; value: ExprValue };
 
 /**
  * Pinning metadata attached to a node via `@pinnable()`.
