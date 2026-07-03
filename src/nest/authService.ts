@@ -62,6 +62,10 @@ export class AuthService {
     this.excludedClients = options.excludedClients ?? ["account"];
   }
 
+  isTokenVerificationEnabled(): boolean {
+    return this.verifyToken;
+  }
+
   getTokenPayload(jwt: string): KeycloakAccessTokenPayload | null {
     return getTokenPayload(jwt);
   }

@@ -11,7 +11,6 @@ import type { GraphNodeExecutor } from "./GraphNodeExecutor";
 import type { GraphExecutionContext } from "./GraphExecutionContext";
 import type {
   GraphExecutionValues,
-  SwitchCase,
   SwitchCaseCondition,
   SwitchNodeMetadata,
   ConditionExpression,
@@ -24,8 +23,12 @@ import type { CodeSandboxEvaluator } from "./CodeSandboxEvaluator";
 /**
  * Reads the Switch metadata from the node definition's graph metadata.
  */
-function readSwitchMetadata(context: GraphExecutionContext): SwitchNodeMetadata {
-  const meta = context.node.graph?.metadata as Record<string, unknown> | undefined;
+function readSwitchMetadata(
+  context: GraphExecutionContext
+): SwitchNodeMetadata {
+  const meta = context.node.graph?.metadata as
+    | Record<string, unknown>
+    | undefined;
   if (!meta) return { cases: [], defaultPort: "default" };
   const switchMeta = meta["switch"] as SwitchNodeMetadata | undefined;
   if (!switchMeta || !Array.isArray(switchMeta.cases)) {
@@ -41,14 +44,26 @@ function readSwitchMetadata(context: GraphExecutionContext): SwitchNodeMetadata 
  * Detects whether a condition is a `CodeCondition` (has `type: "code"`).
  */
 function isCodeCondition(cond: SwitchCaseCondition): cond is CodeCondition {
-  return typeof cond === "object" && cond !== null && "type" in cond && cond.type === "code";
+  return (
+    typeof cond === "object" &&
+    cond !== null &&
+    "type" in cond &&
+    cond.type === "code"
+  );
 }
 
 /**
  * Detects whether a condition is a `ConditionExpression` (has `op` field).
  */
-function isConditionExpression(cond: SwitchCaseCondition): cond is ConditionExpression {
-  return typeof cond === "object" && cond !== null && "op" in cond && typeof cond.op === "string";
+function isConditionExpression(
+  cond: SwitchCaseCondition
+): cond is ConditionExpression {
+  return (
+    typeof cond === "object" &&
+    cond !== null &&
+    "op" in cond &&
+    typeof cond.op === "string"
+  );
 }
 
 /**
@@ -67,7 +82,9 @@ function isConditionExpression(cond: SwitchCaseCondition): cond is ConditionExpr
 export class SwitchGraphNodeExecutor implements GraphNodeExecutor {
   private readonly expressionEvaluator = new ConditionExpressionEvaluator();
 
-  constructor(private readonly engine?: { codeSandboxEvaluator?: CodeSandboxEvaluator }) {}
+  constructor(
+    private readonly engine?: { codeSandboxEvaluator?: CodeSandboxEvaluator }
+  ) {}
 
   async execute(
     input: GraphExecutionValues,
@@ -77,7 +94,12 @@ export class SwitchGraphNodeExecutor implements GraphNodeExecutor {
     const inputValue = input["value"] ?? input;
 
     for (const switchCase of meta.cases) {
-      const matches = await this.evaluateCondition(switchCase.condition, inputValue, input, context);
+      const matches = await this.evaluateCondition(
+        switchCase.condition,
+        inputValue,
+        input,
+        context
+      );
       if (matches) {
         return { [switchCase.outputPort]: inputValue };
       }
@@ -128,7 +150,9 @@ export class SwitchGraphNodeExecutor implements GraphNodeExecutor {
       );
     }
 
-    await context.log(`Evaluating code condition`, { language: condition.language ?? "javascript" });
+    await context.log(`Evaluating code condition`, {
+      language: condition.language ?? "javascript",
+    });
 
     const result = await evaluator.evaluate({
       code: condition.code,
