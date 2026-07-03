@@ -85,17 +85,18 @@ export class KibanaService extends ClientBasedService<
   }
 
   async setupOrganization(
-    config: KibanaSetupConfig,
+    config?: KibanaSetupConfig,
     ...args: MaybeContextualArg<any>
   ): Promise<KibanaSetupConfig> {
     const { ctxArgs } = (
       await this.logCtx(args, "setupOrganization", true)
     ).for(this.setupOrganization);
-    const realmName = config.realm;
+    const effectiveConfig = config ?? this.config;
+    const realmName = effectiveConfig.realm;
     try {
       await this.spaceService.createSpace(
         realmName,
-        config.space ?? {},
+        effectiveConfig.space ?? {},
         ...ctxArgs
       );
     } catch (error) {
@@ -106,26 +107,26 @@ export class KibanaService extends ClientBasedService<
       realmName,
       ...ctxArgs
     );
-    if (config.dashboards && dashboardId) {
-      config.dashboards = { ...config.dashboards, dashboard: dashboardId };
+    if (effectiveConfig.dashboards && dashboardId) {
+      effectiveConfig.dashboards = { ...effectiveConfig.dashboards, dashboard: dashboardId };
     }
 
     await this.dataViewService.createDataViews(
       realmName,
-      config.dataViews,
+      effectiveConfig.dataViews,
       ...ctxArgs
     );
     await this.dataViewService.setDefaultDataView(realmName, undefined, ...ctxArgs);
-    await this.roleService.createRole(realmName, config.role ?? {}, ...ctxArgs);
+    await this.roleService.createRole(realmName, effectiveConfig.role ?? {}, ...ctxArgs);
     await this.userService.createUser(
-      config.realmApiUser,
+      effectiveConfig.realmApiUser,
       realmName,
       undefined,
       ...ctxArgs
     );
     await this.dashboardService.verifySpaceSetup(realmName, ...ctxArgs);
 
-    return config;
+    return effectiveConfig;
   }
 
   generateDashboardEmbedUrl(options: {

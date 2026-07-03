@@ -50,6 +50,13 @@ export interface GraphExecutionEngineConfig {
   valueStoreAdapter?: GraphValueStoreAdapter;
   eventEmitter?: GraphExecutionEventEmitter;
   defaultOptions?: Partial<GraphExecutionOptions>;
+  /**
+   * Optional callback invoked at the end of engine construction with the
+   * fully-initialised engine instance. Use this to register executors that
+   * need a back-reference to the engine (e.g. loop executors that execute
+   * sub-workflows through the same engine).
+   */
+  onEngineCreated?: (engine: GraphExecutionEngine) => void;
 }
 
 /**
@@ -77,6 +84,7 @@ export class GraphExecutionEngine
       config.valueStoreAdapter ?? new InMemoryGraphValueStoreAdapter();
     this.defaultOptions = config.defaultOptions ?? {};
     this.config = config;
+    config.onEngineCreated?.(this);
   }
 
   private readonly config: GraphExecutionEngineConfig;

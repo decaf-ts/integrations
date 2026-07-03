@@ -269,56 +269,60 @@ export class KeycloakService extends ClientBasedService<
   }
 
   async setupOrganization(
-    config: KeycloakSetupConfig,
+    config?: KeycloakSetupConfig,
     ...args: MaybeContextualArg<any>
   ): Promise<KeycloakSetupConfig> {
     const { ctxArgs } = (
       await this.logCtx(args, "setupOrganization", true)
     ).for(this.setupOrganization);
+    const effectiveConfig = config ?? this.config;
 
     const adminAccessToken = await this.authService.getAccessToken(
-      config.adminApiUser!,
+      effectiveConfig.adminApiUser!,
       ...ctxArgs
     );
 
     await this.realmService.createRealm(
-      config.realmApiUser!.realm,
-      config.realmConfig ?? {},
+      effectiveConfig.realmApiUser!.realm,
+      effectiveConfig.realmConfig ?? {},
       ...ctxArgs
     );
-    await this.waitForRealm(config.realmApiUser!.realm, ...ctxArgs);
+    await this.waitForRealm(effectiveConfig.realmApiUser!.realm, ...ctxArgs);
 
     const realmUserUUID = await this.userService.createRealmUser(
-      config.realmApiUser!,
+      effectiveConfig.realmApiUser!,
       {},
       ...ctxArgs
     );
-    config.realmApiUser!.usernameUUID = realmUserUUID;
+    effectiveConfig.realmApiUser!.usernameUUID = realmUserUUID;
 
     const realmManagementUUID = await this.clientService.getClientUUID(
       adminAccessToken,
-      config.realmApiUser!.realm,
+      effectiveConfig.realmApiUser!.realm,
       "realm-management",
       ...ctxArgs
     );
     await this.roleService.assignRolesToUser(
-      `/admin/realms/${config.realmApiUser!.realm}/clients/${realmManagementUUID}/roles`,
-      `/admin/realms/${config.realmApiUser!.realm}/users/${realmUserUUID}/role-mappings/clients/${realmManagementUUID}`,
+      `/admin/realms/${effectiveConfig.realmApiUser!.realm}/clients/${realmManagementUUID}/roles`,
+      `/admin/realms/${effectiveConfig.realmApiUser!.realm}/users/${realmUserUUID}/role-mappings/clients/${realmManagementUUID}`,
       ["manage-clients", "manage-identity-providers"],
       adminAccessToken,
       ...ctxArgs
     );
 
     const clientUUID = await this.clientService.createClient(
-      config,
+      effectiveConfig,
       undefined,
       ...ctxArgs
     );
-    config.client.clientUUID = clientUUID;
+    effectiveConfig.client.clientUUID = clientUUID;
 
-    await this.updateClientScopesRolesMappers(config.realmApiUser!, ...ctxArgs);
+    await this.updateClientScopesRolesMappers(
+      effectiveConfig.realmApiUser!,
+      ...ctxArgs
+    );
 
-    return config;
+    return effectiveConfig;
   }
 
   async setupOrganizationSSO(
