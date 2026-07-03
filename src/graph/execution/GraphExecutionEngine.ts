@@ -40,6 +40,7 @@ import { GraphPinningDependencyResolver } from "../pinning/GraphPinningDependenc
 import { GraphExecutionContext } from "./GraphExecutionContext";
 import { GraphExecutionFrame } from "./GraphExecutionFrame";
 import { buildGraphExecutionResult } from "./GraphExecutionResult";
+import type { CodeSandboxEvaluator } from "./CodeSandboxEvaluator";
 
 /**
  * Configuration for the {@link GraphExecutionEngine}.
@@ -50,6 +51,13 @@ export interface GraphExecutionEngineConfig {
   valueStoreAdapter?: GraphValueStoreAdapter;
   eventEmitter?: GraphExecutionEventEmitter;
   defaultOptions?: Partial<GraphExecutionOptions>;
+  /**
+   * Optional pluggable code sandbox evaluator for code-based conditions
+   * (DECAF-32 §22.4). When absent, code conditions throw
+   * `GRAPH_CODE_SANDBOX_NOT_CONFIGURED`. Downstream projects (e.g. ALFRED)
+   * supply the actual VM sandbox implementation.
+   */
+  codeSandboxEvaluator?: CodeSandboxEvaluator;
   /**
    * Optional callback invoked at the end of engine construction with the
    * fully-initialised engine instance. Use this to register executors that
@@ -76,6 +84,8 @@ export class GraphExecutionEngine
   private readonly planner: GraphExecutionPlanner;
   private readonly valueStoreAdapter: GraphValueStoreAdapter;
   private readonly defaultOptions: Partial<GraphExecutionOptions>;
+  /** Pluggable code sandbox evaluator (§22.4); may be undefined. */
+  readonly codeSandboxEvaluator?: CodeSandboxEvaluator;
 
   constructor(config: GraphExecutionEngineConfig) {
     this.emitter = config.eventEmitter ?? new GraphExecutionEventEmitter();
@@ -83,6 +93,7 @@ export class GraphExecutionEngine
     this.valueStoreAdapter =
       config.valueStoreAdapter ?? new InMemoryGraphValueStoreAdapter();
     this.defaultOptions = config.defaultOptions ?? {};
+    this.codeSandboxEvaluator = config.codeSandboxEvaluator;
     this.config = config;
     config.onEngineCreated?.(this);
   }

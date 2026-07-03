@@ -13,6 +13,7 @@ import type {
 } from "../types";
 import Axios, { AxiosInstance } from "axios";
 import * as https from "node:https";
+import { resolveKibanaIsProduction } from "./runtime";
 import { KibanaAuthService } from "./KibanaAuthService";
 
 export class KibanaSpaceService extends ClientBasedService<
@@ -117,7 +118,7 @@ export class KibanaSpaceService extends ClientBasedService<
       baseURL: `${config.protocol}://${config.host}`,
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: ((this.config as any).isProduction()),
+        rejectUnauthorized: (resolveKibanaIsProduction(this.config as any)),
       }),
     });
   }
@@ -198,7 +199,7 @@ export class KibanaSpaceService extends ClientBasedService<
         : undefined,
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: ((this.config as any).isProduction()),
+        rejectUnauthorized: (resolveKibanaIsProduction(this.config as any)),
       }),
       ...extra,
     });

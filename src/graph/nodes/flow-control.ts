@@ -51,21 +51,30 @@ export class IfFlowNode extends Model {
 }
 
 /**
- * Switch — multi-branch. Routes the input to one of `case_<n>` outputs or
- * `default` based on matching cases.
+ * Switch — multi-branch. Routes the input to one of the case output ports
+ * or `default` based on matching conditions. Each case defines a
+ * {@link SwitchCaseCondition} (graphical or code mode) and a dedicated
+ * output port. Cases are stored in `metadata.switch.cases` and the
+ * renderer creates dynamic output ports from them (DECAF-32 §22.2.2).
+ *
+ * The node grows in height as cases are added. Each case gets its own
+ * output port on the right side, labeled with the case label.
  */
 @node("core.flow.switch", {
   kind: "core.flow.switch",
   category: "Flow Control",
   color: "#f97316",
   icon: "ti-arrows-shuffle",
-  width: 96,
-  height: 96,
+  width: 120,
+  height: 140,
   labels: ["flow", "switch", "multi-branch"],
   metadata: {
     title: "Switch",
     description: "Multi-branch switch. Routes the input to the first matching case output, or the default output.",
-    cases: [],
+    switch: {
+      cases: [],
+      defaultPort: "default",
+    },
   },
 })
 @model()

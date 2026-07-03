@@ -13,6 +13,7 @@ import type {
 } from "../types";
 import Axios, { AxiosInstance } from "axios";
 import * as https from "node:https";
+import { resolveKeycloakIsProduction } from "./runtime";
 import { parseJsonBody } from "../../shared/runtime";
 
 type KeycloakRealmRepresentation = {
@@ -163,7 +164,7 @@ export class KeycloakRealmService extends ClientBasedService<
       headers: { "Content-Type": "application/json" },
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: ((this.config as any).isProduction()),
+        rejectUnauthorized: (resolveKeycloakIsProduction(this.config as any)),
       }),
     });
   }
@@ -238,7 +239,7 @@ export class KeycloakRealmService extends ClientBasedService<
           : {}),
       },
       httpsAgent: new https.Agent({
-        rejectUnauthorized: ((this.config as any).isProduction()),
+        rejectUnauthorized: (resolveKeycloakIsProduction(this.config as any)),
       }),
       validateStatus: () => true,
     });

@@ -14,6 +14,7 @@ import Axios, { type AxiosInstance } from "axios";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as https from "node:https";
+import { resolveKibanaIsProduction } from "./runtime";
 import FormData from "form-data";
 import { KibanaAuthService } from "./KibanaAuthService";
 import { parseJsonBody } from "../../shared/runtime";
@@ -112,7 +113,7 @@ export class KibanaDashboardService extends ClientBasedService<
         maxContentLength: Infinity,
         validateStatus: () => true,
         httpsAgent: new https.Agent({
-          rejectUnauthorized: ((this.config as any).isProduction()),
+          rejectUnauthorized: (resolveKibanaIsProduction(this.config as any)),
         }),
       }
     );
@@ -185,7 +186,7 @@ export class KibanaDashboardService extends ClientBasedService<
       baseURL: `${config.protocol}://${config.host}`,
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: ((this.config as any).isProduction()),
+        rejectUnauthorized: (resolveKibanaIsProduction(this.config as any)),
       }),
     });
   }
@@ -241,7 +242,7 @@ export class KibanaDashboardService extends ClientBasedService<
         : undefined,
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: ((this.config as any).isProduction()),
+        rejectUnauthorized: (resolveKibanaIsProduction(this.config as any)),
       }),
       ...extra,
     });

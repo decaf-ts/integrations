@@ -7,6 +7,10 @@
  * workspace/context). Connections are rendered on the bottom side of the node
  * (DECAF-32 §21.3). Each connection category has a distinct color defined in
  * the category style registry.
+ *
+ * The single `prompt` input accepts placeholder expressions (§22.4) such as
+ * `{{ $input.brief }}` or `{{ $node["Research"].output.summary }}` that are
+ * resolved at execution time by the placeholder compiler.
  */
 import { Model, model, required } from "@decaf-ts/decorator-validation";
 import { uielement } from "@decaf-ts/ui-decorators";
@@ -19,8 +23,8 @@ import "./category-styles";
  * Agent node — an AI agent that orchestrates a model, memory, and workspace.
  *
  * The agent has:
- * - `@input` ports on the **left**: `instructions` (the task prompt), `context`
- *   (additional context data).
+ * - `@input` port on the **left**: `prompt` (the task prompt; supports
+ *   placeholder expressions like `{{ $input.something }}` per §22.4).
  * - `@output` ports on the **right**: `response` (the agent's output), `actions`
  *   (any actions the agent decided to take).
  * - `@connection` ports on the **bottom**: `model` (LLM), `memory` (memory
@@ -50,14 +54,12 @@ export class AgentNode extends Model {
   // --- Inputs (left side) ---
 
   @required()
-  @uielement("textarea", { label: "Instructions", placeholder: "Task instructions for the agent" })
-  @input({ handle: "instructions" })
-  instructions!: string;
-
-  @required()
-  @uielement("textarea", { label: "Context", placeholder: "Additional context data" })
-  @input({ handle: "context" })
-  context!: unknown;
+  @uielement("textarea", {
+    label: "Prompt",
+    placeholder: "Enter task prompt. Supports placeholders like {{ $input.brief }} or {{ $node[\"Research\"].output.summary }}",
+  })
+  @input({ handle: "prompt" })
+  prompt!: string;
 
   // --- Outputs (right side) ---
 
@@ -73,18 +75,12 @@ export class AgentNode extends Model {
 
   // --- Connections (bottom side) ---
 
-  @required()
-  @uielement("input", { label: "Model", placeholder: "LLM model connection" })
   @connection({ category: "model", handle: "model" })
   model!: unknown;
 
-  @required()
-  @uielement("input", { label: "Memory", placeholder: "Memory store connection" })
   @connection({ category: "memory", handle: "memory" })
   memory!: unknown;
 
-  @required()
-  @uielement("input", { label: "Workspace", placeholder: "Workspace connection" })
   @connection({ category: "workspace", handle: "workspace" })
   workspace!: unknown;
 }

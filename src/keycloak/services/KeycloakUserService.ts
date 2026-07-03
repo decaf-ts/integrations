@@ -9,6 +9,7 @@ import { ClientBasedService } from "@decaf-ts/core";
 import type { KeycloakSetupConfig, KeycloakUser } from "../types";
 import Axios, { AxiosInstance } from "axios";
 import * as https from "node:https";
+import { resolveKeycloakIsProduction } from "./runtime";
 
 export type KeycloakUserRepresentation = {
   username?: string;
@@ -408,7 +409,7 @@ export class KeycloakUserService extends ClientBasedService<
       headers: { "Content-Type": "application/json" },
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: ((this.config as any).isProduction()),
+        rejectUnauthorized: (resolveKeycloakIsProduction(this.config as any)),
       }),
     });
   }
@@ -475,7 +476,7 @@ export class KeycloakUserService extends ClientBasedService<
           : {}),
       },
       httpsAgent: new https.Agent({
-        rejectUnauthorized: ((this.config as any).isProduction()),
+        rejectUnauthorized: (resolveKeycloakIsProduction(this.config as any)),
       }),
       validateStatus: () => true,
     });

@@ -17,6 +17,7 @@ import { KibanaRoleService } from "./KibanaRoleService";
 import { KibanaUserService } from "./KibanaUserService";
 import { KibanaDashboardService } from "./KibanaDashboardService";
 import { KibanaAuthService } from "./KibanaAuthService";
+import { setKibanaProductionResolver } from "./runtime";
 
 type KibanaRuntimeSetupConfig = KibanaSetupConfig & {
   isProduction(): boolean;
@@ -65,6 +66,7 @@ export class KibanaService extends ClientBasedService<
       isProduction: this.isProduction.bind(this),
     };
     this._config = runtimeConfig;
+    setKibanaProductionResolver(this.isProduction.bind(this));
 
     this.spaceService = new KibanaSpaceService();
     await this.spaceService.initialize(runtimeConfig, ...ctxArgs);

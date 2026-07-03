@@ -8,3 +8,5 @@ export * from "./GraphNodeExecutor";
 export * from "./GraphExecutionResult";
 export * from "./GraphExecutionFrame";
 export * from "./GraphExecutionEngine";
+export * from "./CodeSandboxEvaluator";
+export * from "./SwitchGraphNodeExecutor";

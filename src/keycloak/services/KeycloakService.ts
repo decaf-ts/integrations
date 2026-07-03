@@ -16,6 +16,7 @@ import { KeycloakRoleService } from "./KeycloakRoleService";
 import { KeycloakClientService } from "./KeycloakClientService";
 import { KeycloakIdentityProviderService } from "./KeycloakIdentityProviderService";
 import { KeycloakAuthService } from "./KeycloakAuthService";
+import { setKeycloakProductionResolver } from "./runtime";
 
 type KeycloakRuntimeSetupConfig = KeycloakSetupConfig & {
   isProduction(): boolean;
@@ -60,6 +61,7 @@ export class KeycloakService extends ClientBasedService<
       isProduction: this.isProduction.bind(this),
     };
     this._config = runtimeConfig;
+    setKeycloakProductionResolver(this.isProduction.bind(this));
 
     log.debug(`Binding inner services...`);
     service()(KeycloakRealmService);

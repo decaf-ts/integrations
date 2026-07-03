@@ -212,6 +212,48 @@ export type ConditionExpression =
   | { op: "exists"; value: ExprValue };
 
 /**
+ * A code-based condition evaluated in a restricted VM sandbox (§22.4).
+ *
+ * The engine does NOT implement the sandbox directly — a pluggable
+ * {@link CodeSandboxEvaluator} must be registered for code conditions to work.
+ * The code must follow the same restrictions as the Code Node (§22.4):
+ * no system API access, placeholder syntax for workflow data references.
+ */
+export interface CodeCondition {
+  type: "code";
+  code: string;
+  language?: "javascript" | "typescript";
+}
+
+/**
+ * A condition on a Switch case — either a declarative
+ * {@link ConditionExpression} (graphical mode) or a {@link CodeCondition}
+ * (code mode).
+ */
+export type SwitchCaseCondition = ConditionExpression | CodeCondition;
+
+/**
+ * A single case in a Switch node.
+ *
+ * Each case pairs a condition with a dedicated output port. When the
+ * condition evaluates to `true`, the input is routed to `outputPort`.
+ */
+export interface SwitchCase {
+  id: string;
+  label: string;
+  condition: SwitchCaseCondition;
+  outputPort: string;
+}
+
+/**
+ * Metadata for a Switch node, stored in `metadata.switch`.
+ */
+export interface SwitchNodeMetadata {
+  cases: SwitchCase[];
+  defaultPort?: string;
+}
+
+/**
  * Pinning metadata attached to a node via `@pinnable()`.
  */
 export interface GraphPinningMetadata {

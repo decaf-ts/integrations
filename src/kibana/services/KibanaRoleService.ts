@@ -9,6 +9,7 @@ import { ClientBasedService, service } from "@decaf-ts/core";
 import type { KibanaRoleConfig, KibanaSetupConfig, KibanaUser } from "../types";
 import Axios, { AxiosInstance } from "axios";
 import * as https from "node:https";
+import { resolveKibanaIsProduction } from "./runtime";
 import { KibanaAuthService } from "./KibanaAuthService";
 
 export class KibanaRoleService extends ClientBasedService<
@@ -92,7 +93,7 @@ export class KibanaRoleService extends ClientBasedService<
       baseURL: `${config.protocol}://${config.host}`,
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: ((this.config as any).isProduction()),
+        rejectUnauthorized: (resolveKibanaIsProduction(this.config as any)),
       }),
     });
   }
@@ -183,7 +184,7 @@ export class KibanaRoleService extends ClientBasedService<
         : undefined,
       validateStatus: () => true,
       httpsAgent: new https.Agent({
-        rejectUnauthorized: ((this.config as any).isProduction()),
+        rejectUnauthorized: (resolveKibanaIsProduction(this.config as any)),
       }),
       ...extra,
     });

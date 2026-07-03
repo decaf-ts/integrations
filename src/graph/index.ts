@@ -27,6 +27,8 @@ export * from "./execution/GraphNodeExecutor";
 export * from "./execution/GraphExecutionFrame";
 export * from "./execution/GraphExecutionResult";
 export * from "./execution/GraphExecutionEngine";
+export * from "./execution/CodeSandboxEvaluator";
+export * from "./execution/SwitchGraphNodeExecutor";
 
 export * from "./registry/GraphNodeExecutorRegistry";
 export * from "./registry/GraphNodeExecutorResolver";
