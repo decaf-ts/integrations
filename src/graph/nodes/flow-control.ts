@@ -12,7 +12,16 @@
  */
 import { Model, model, required } from "@decaf-ts/decorator-validation";
 import { uielement } from "@decaf-ts/ui-decorators";
-import { input, node, output } from "@decaf-ts/ui-decorators/graph";
+import {
+  graphDefinitionOf,
+  input,
+  node,
+  output,
+  PortDirection,
+  type GraphPortDefinition,
+} from "@decaf-ts/ui-decorators/graph";
+import type { NodeMetadataChange, SwitchNodeMetadata } from "../types";
+import { GraphNode } from "./base";
 
 /**
  * If — conditional branch. Evaluates a `ConditionExpression` (§22.3) and
@@ -78,7 +87,7 @@ export class IfFlowNode extends Model {
   },
 })
 @model()
-export class SwitchFlowNode extends Model {
+export class SwitchFlowNode extends GraphNode {
   @required()
   @uielement("textarea", { label: "Input value", placeholder: "Value to switch on" })
   @input({ handle: "value" })
@@ -88,6 +97,36 @@ export class SwitchFlowNode extends Model {
   @uielement("input", { label: "Default", placeholder: "Default output when no case matches" })
   @output({ handle: "default" })
   default!: unknown;
+
+  /**
+   * Computes the node's ports, size, and data patch from the given switch
+   * metadata. Each case gets its own output port on the right side; the
+   * node grows in height as cases are added.
+   */
+  static override applyMetadata(meta: SwitchNodeMetadata): NodeMetadataChange {
+    const definition = graphDefinitionOf(this as never);
+    const basePorts = definition.ports.filter(
+      (p) => !meta.cases.some((c) => c.outputPort === p.property)
+    );
+    const casePorts: GraphPortDefinition[] = meta.cases.map((c) => ({
+      property: c.outputPort,
+      name: c.label,
+      direction: PortDirection.OUTPUT,
+      label: c.label,
+      required: false,
+      hidden: false,
+      path: c.outputPort,
+    }));
+    const caseCount = meta.cases.length;
+    return {
+      ports: [...basePorts, ...casePorts],
+      size: {
+        width: definition.width ?? 120,
+        height: caseCount > 0 ? 140 + caseCount * 24 : definition.height ?? 140,
+      },
+      dataPatch: { switchMetadata: meta },
+    };
+  }
 }
 
 /**

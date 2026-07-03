@@ -5,6 +5,7 @@
  */
 import type {
   GraphNodeDefinition,
+  GraphPortDefinition,
   GraphWorkflowDefinition,
 } from "@decaf-ts/ui-decorators/graph";
 
@@ -251,6 +252,18 @@ export interface SwitchCase {
 export interface SwitchNodeMetadata {
   cases: SwitchCase[];
   defaultPort?: string;
+}
+
+/**
+ * The result of applying a metadata change to a node. Each concrete node
+ * class that overrides `GraphNode.applyMetadata()` returns this so the
+ * renderer can update the diagram model — the node owns its ports, its
+ * size, and any data patches.
+ */
+export interface NodeMetadataChange {
+  ports: GraphPortDefinition[];
+  size: { width: number; height: number };
+  dataPatch: Record<string, unknown>;
 }
 
 /**

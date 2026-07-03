@@ -10,6 +10,7 @@
  * Consumers (for-angular, ALFRED, etc.) import these declarations to populate
  * node palettes, registries, and reference snapshots.
  */
+export * from "./base";
 export * from "./category-styles";
 export * from "./triggers";
 export * from "./flow-control";
