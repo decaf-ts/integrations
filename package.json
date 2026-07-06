@@ -60,6 +60,17 @@
       },
       "default": "./lib/esm/nest/index.js"
     },
+    "./namespaces": {
+      "import": {
+        "types": "./lib/types/namespaces/index.d.mts",
+        "default": "./lib/esm/namespaces/index.js"
+      },
+      "require": {
+        "types": "./lib/types/namespaces/index.d.cts",
+        "default": "./lib/cjs/namespaces/index.cjs"
+      },
+      "default": "./lib/esm/namespaces/index.js"
+    },
     "./secrets": {
       "import": {
         "types": "./lib/types/secrets/index.d.mts",

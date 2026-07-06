@@ -1,0 +1,2 @@
+-- Add partial, JSONB, and graph-specific indexes in migrations.
+-- The exact columns depend on the generated TypeORM column names in the runtime schema.

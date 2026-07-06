@@ -1,0 +1,11 @@
+CREATE UNIQUE INDEX uq_tenant_memberships_tenant_user ON tenant_memberships (tenant_id, user_id);
+CREATE UNIQUE INDEX uq_org_unit_memberships_org_user ON org_unit_memberships (tenant_id, org_unit_id, user_id);
+CREATE UNIQUE INDEX uq_principals_tenant_kind_subject ON principals (tenant_id, kind, subject_id);
+CREATE UNIQUE INDEX uq_groups_tenant_org_name ON groups (tenant_id, org_unit_id, lower(name));
+CREATE UNIQUE INDEX uq_roles_tenant_key ON roles (coalesce(tenant_id, '00000000-0000-0000-0000-000000000000'), key);
+CREATE UNIQUE INDEX uq_role_permissions_role_permission ON role_permissions (role_id, permission_id);
+CREATE UNIQUE INDEX uq_role_assignments_identity ON role_assignments (tenant_id, principal_id, role_id, scope_kind, scope_id);
+CREATE UNIQUE INDEX uq_org_closure_pair ON org_unit_closure (tenant_id, ancestor_org_unit_id, descendant_org_unit_id);
+CREATE UNIQUE INDEX uq_resource_domain ON protected_resources (tenant_id, resource_type, resource_id);
+CREATE UNIQUE INDEX uq_resource_grant ON resource_grants (tenant_id, resource_id, principal_id, permission_key);
+CREATE UNIQUE INDEX uq_storage_binding ON storage_bindings (tenant_id, storage_kind);

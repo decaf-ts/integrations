@@ -4,6 +4,7 @@
  * @description Exposes the package utilities and build-time version metadata for `@decaf-ts/integrations`.
  */
 export * from "./utils";
+export * from "./namespaces";
 
 export const VERSION: string = "##VERSION##";
 
