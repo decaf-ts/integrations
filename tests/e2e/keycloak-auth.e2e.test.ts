@@ -24,6 +24,7 @@ import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
 import { Adapter } from "@decaf-ts/core";
 
 import { KeycloakAuthHandler } from "../../src/nest";
+import { AuthService } from "../../src/nest";
 import { Product } from "./fakes/models/Product";
 import { FakePartner } from "./fakes/models/FakePartner";
 import { FsProduct } from "./fakes/models/FsProduct";
@@ -39,6 +40,16 @@ import {
 
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
+
+const authService = new AuthService();
+
+function expectedCreator(token: string): string {
+  const user = authService.getUser(token);
+  if (!user?.email) {
+    throw new Error("Test token is missing an email claim");
+  }
+  return user.email;
+}
 
 jest.setTimeout(180000);
 
@@ -89,12 +100,13 @@ describe("KeycloakAuthHandler (e2e)", () => {
       const productCode = genStr(14);
       const batchNumber = `BATCH${genStr(3)}`;
       const payload = { productCode, batchNumber, name: "Widget" };
+      const creator = expectedCreator(ADMIN_TOKEN);
 
       const res = await ProductHttp.post(payload, ADMIN_TOKEN);
 
       expect(res.status).toBe(201);
       expect(res.toJSON()).toMatchObject(payload);
-      expect(res.toJSON().createdBy).toBe("admin@example.com");
+      expect(res.toJSON().createdBy).toBe(creator);
     });
 
     it("blocks partner from creating a Product (model role: admin, token role: partner)", async () => {
@@ -111,12 +123,13 @@ describe("KeycloakAuthHandler (e2e)", () => {
     it("allows partner to create a FakePartner (model role: partner)", async () => {
       const id = genStr(6);
       const payload = { id, name: "Acme Corp" };
+      const creator = expectedCreator(PARTNER_TOKEN);
 
       const res = await PartnerHttp.post(payload, PARTNER_TOKEN);
 
       expect(res.status).toBe(201);
       expect(res.toJSON()).toMatchObject(payload);
-      expect(res.toJSON().createdBy).toBe("partner@example.com");
+      expect(res.toJSON().createdBy).toBe(creator);
     });
 
     it("blocks admin from creating a FakePartner (model role: partner, token role: admin)", async () => {
@@ -183,6 +196,7 @@ describe("KeycloakAuthHandler (e2e)", () => {
       const productCode = genStr(14);
       const batchNumber = `BATCH${genStr(3)}`;
       const payload = { productCode, batchNumber, name: "Original" };
+      const creator = expectedCreator(ADMIN_TOKEN);
 
       const created = await ProductHttp.post(payload, ADMIN_TOKEN);
       expect(created.status).toBe(201);
@@ -195,7 +209,7 @@ describe("KeycloakAuthHandler (e2e)", () => {
       );
       expect(res.status).toBe(200);
       expect(res.toJSON().name).toBe("Updated");
-      expect(res.toJSON().createdBy).toBe("admin@example.com");
+      expect(res.toJSON().createdBy).toBe(creator);
     });
 
     it("blocks partner from updating a Product", async () => {
