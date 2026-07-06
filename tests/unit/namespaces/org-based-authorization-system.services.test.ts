@@ -1,16 +1,14 @@
 import {
-  GroupMembershipService,
-  PrincipalService,
-  StorageBindingService,
-  TenantService,
-} from "../../../src/namespaces/org-based-authorization-system.services";
-import {
   IsolationTier,
   MembershipStatus,
   PrincipalKind,
   StorageBindingKind,
   StorageKind,
-} from "../../../src/namespaces/org-based-authorization-system";
+} from "../../../src/namespaces/types";
+import { GroupMembershipService } from "../../../src/namespaces/services/group-membership.service";
+import { PrincipalService } from "../../../src/namespaces/services/principal.service";
+import { StorageBindingService } from "../../../src/namespaces/services/storage-binding.service";
+import { TenantService } from "../../../src/namespaces/services/tenant.service";
 
 describe("DECAF-33 org-based authorization services", () => {
   it("creates a tenant with a default pooled isolation tier", async () => {

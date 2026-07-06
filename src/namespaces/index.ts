@@ -3,6 +3,7 @@
  * @summary Namespace exports for integration scaffolds.
  */
 
-export * from "./org-based-authorization-system";
-export * from "./org-based-authorization-system.models";
-export * from "./org-based-authorization-system.services";
+export * from "./types";
+export * from "./utils";
+export * from "./models";
+export * from "./services";

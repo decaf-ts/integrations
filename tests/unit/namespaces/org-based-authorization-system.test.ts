@@ -1,11 +1,6 @@
-import {
-  AuthzService,
-  ResourceVisibility,
-  ScopeKind,
-  buildAccessContext,
-  buildArangoContext,
-  buildQdrantFilter,
-} from "../../../src/namespaces/org-based-authorization-system";
+import { AuthzService } from "../../../src/namespaces/services/authz.service";
+import { ResourceVisibility, ScopeKind } from "../../../src/namespaces/types";
+import { buildAccessContext, buildArangoContext, buildQdrantFilter } from "../../../src/namespaces/utils";
 
 describe("DECAF-33 org-based authorization namespace", () => {
   it("builds an Arango context from allowed ids", async () => {
