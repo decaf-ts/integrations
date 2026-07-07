@@ -3,7 +3,6 @@ export * from "./utils";
 export * from "./authService";
 export * from "./keycloakAuthHandler";
 export * from "./keycloakModule";
-export * from "./graph";
 
 import "./logging";
 

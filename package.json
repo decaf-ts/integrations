@@ -60,6 +60,17 @@
       },
       "default": "./lib/esm/nest/index.js"
     },
+    "./nest/graph": {
+      "import": {
+        "types": "./lib/types/nest/graph/index.d.mts",
+        "default": "./lib/esm/nest/graph/index.js"
+      },
+      "require": {
+        "types": "./lib/types/nest/graph/index.d.cts",
+        "default": "./lib/cjs/nest/graph/index.cjs"
+      },
+      "default": "./lib/esm/nest/graph/index.js"
+    },
     "./namespaces": {
       "import": {
         "types": "./lib/types/namespaces/index.d.mts",
