@@ -2,10 +2,10 @@
  * @module integrations/tests/unit/graph/ConditionExpressionEvaluator.test
  * @summary Unit tests for the ConditionExpression DSL evaluator (DECAF-32 §22.3).
  */
-import { ConditionExpressionEvaluator } from "../../../src/graph/loops/ConditionExpressionEvaluator";
-import { GraphConditionEvaluator } from "../../../src/graph/loops/GraphConditionEvaluator";
-import { GraphExecutionError } from "../../../src/graph/errors/GraphExecutionError";
-import type { ConditionExpression } from "../../../src/graph/types";
+import { ConditionExpressionEvaluator } from "../../../src/graph/engine/loops/ConditionExpressionEvaluator";
+import { GraphConditionEvaluator } from "../../../src/graph/engine/loops/GraphConditionEvaluator";
+import { GraphExecutionError } from "../../../src/graph/engine/errors/GraphExecutionError";
+import type { ConditionExpression } from "../../../src/graph/shared/types";
 
 describe("ConditionExpressionEvaluator", () => {
   const evaluator = new ConditionExpressionEvaluator();

@@ -4,9 +4,9 @@
  */
 import { jest } from "@jest/globals";
 
-import { GraphNodeExecutorRegistry } from "../../../src/graph/registry";
-import { GraphExecutionError } from "../../../src/graph/errors";
-import type { GraphNodeExecutor } from "../../../src/graph/execution";
+import { GraphNodeExecutorRegistry } from "../../../src/graph/engine/registry";
+import { GraphExecutionError } from "../../../src/graph/engine/errors";
+import type { GraphNodeExecutor } from "../../../src/graph/engine/execution";
 
 describe("GraphNodeExecutorRegistry", () => {
   it("register adds an executor and has returns true", () => {

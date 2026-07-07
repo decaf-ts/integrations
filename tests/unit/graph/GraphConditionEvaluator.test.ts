@@ -2,9 +2,9 @@
  * @module integrations/tests/unit/graph/GraphConditionEvaluator.test
  * @summary Unit tests for the loop condition evaluator.
  */
-import { GraphConditionType } from "../../../src/graph/constants";
-import { GraphExecutionError } from "../../../src/graph/errors/GraphExecutionError";
-import { GraphConditionEvaluator } from "../../../src/graph/loops/GraphConditionEvaluator";
+import { GraphConditionType } from "../../../src/graph/engine/constants";
+import { GraphExecutionError } from "../../../src/graph/engine/errors/GraphExecutionError";
+import { GraphConditionEvaluator } from "../../../src/graph/engine/loops/GraphConditionEvaluator";
 
 describe("GraphConditionEvaluator", () => {
   const evaluator = new GraphConditionEvaluator();

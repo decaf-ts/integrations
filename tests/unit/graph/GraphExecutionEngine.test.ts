@@ -2,11 +2,11 @@
  * @module integrations/tests/unit/graph/GraphExecutionEngine.test
  * @summary End-to-end unit tests for the graph execution engine.
  */
-import { GraphExecutionEventType } from "../../../src/graph/constants";
-import { GraphExecutionEngine } from "../../../src/graph/execution/GraphExecutionEngine";
-import type { GraphNodeExecutor } from "../../../src/graph/execution/GraphNodeExecutor";
-import { GraphNodeExecutorRegistry } from "../../../src/graph/registry/GraphNodeExecutorRegistry";
-import type { GraphExecutionEvent } from "../../../src/graph/types";
+import { GraphExecutionEventType } from "../../../src/graph/shared/constants";
+import { GraphExecutionEngine } from "../../../src/graph/engine/execution/GraphExecutionEngine";
+import type { GraphNodeExecutor } from "../../../src/graph/engine/execution/GraphNodeExecutor";
+import { GraphNodeExecutorRegistry } from "../../../src/graph/engine/registry/GraphNodeExecutorRegistry";
+import type { GraphExecutionEvent } from "../../../src/graph/engine/types";
 
 import { linearWorkflow } from "./fixtures";
 

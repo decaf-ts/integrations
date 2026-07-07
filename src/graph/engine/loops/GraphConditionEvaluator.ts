@@ -5,7 +5,8 @@
  * When the condition object carries an `op` field (ALFRED-5 §8 / DECAF-32 §22.3), dispatches to the
  * {@link ConditionExpressionEvaluator} instead of the built-in `type`-based switch.
  */
-import type { ConditionExpression, GraphConditionDefinition } from "../types";
+import type { GraphConditionDefinition } from "../types";
+import type { ConditionExpression } from "../../shared/types";
 import { GraphConditionType } from "../constants";
 import { GraphExecutionError } from "../errors/GraphExecutionError";
 import { ConditionExpressionEvaluator } from "./ConditionExpressionEvaluator";

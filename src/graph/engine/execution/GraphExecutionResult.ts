@@ -5,7 +5,7 @@
  */
 import type { GraphExecutionFrame } from "./GraphExecutionFrame";
 import type { GraphExecutionEvent, GraphExecutionResult, GraphExecutionValues, GraphNodeExecutionResult, GraphRunId } from "../types";
-import type { GraphExecutionStatus } from "../constants";
+import type { GraphExecutionStatus } from "../../shared/constants";
 import type { GraphWorkflowDefinition } from "@decaf-ts/ui-decorators/graph";
 
 /**

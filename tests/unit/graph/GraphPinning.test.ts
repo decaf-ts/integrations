@@ -2,14 +2,14 @@
  * @module integrations/tests/unit/graph/GraphPinning.test
  * @summary Unit tests for the pinning policy, dependency resolver, and service.
  */
-import { GraphExecutionPlanner } from "../../../src/graph/planning/GraphExecutionPlanner";
-import { GraphPinningDependencyResolver } from "../../../src/graph/pinning/GraphPinningDependencyResolver";
-import { GraphPinningPolicy } from "../../../src/graph/pinning/GraphPinningPolicy";
-import { GraphPinningService } from "../../../src/graph/pinning/GraphPinningService";
-import { InMemoryGraphValueStoreAdapter } from "../../../src/graph/store/InMemoryGraphValueStoreAdapter";
-import { GraphValueStore } from "../../../src/graph/store/GraphValueStore";
-import type { GraphExecutionPlanNode } from "../../../src/graph/planning/GraphExecutionPlanNode";
-import type { GraphExecutionResult } from "../../../src/graph/types";
+import { GraphExecutionPlanner } from "../../../src/graph/engine/planning/GraphExecutionPlanner";
+import { GraphPinningDependencyResolver } from "../../../src/graph/engine/pinning/GraphPinningDependencyResolver";
+import { GraphPinningPolicy } from "../../../src/graph/engine/pinning/GraphPinningPolicy";
+import { GraphPinningService } from "../../../src/graph/engine/pinning/GraphPinningService";
+import { InMemoryGraphValueStoreAdapter } from "../../../src/graph/engine/store/InMemoryGraphValueStoreAdapter";
+import { GraphValueStore } from "../../../src/graph/engine/store/GraphValueStore";
+import type { GraphExecutionPlanNode } from "../../../src/graph/engine/planning/GraphExecutionPlanNode";
+import type { GraphExecutionResult } from "../../../src/graph/engine/types";
 
 import { linearWorkflow } from "./fixtures";
 

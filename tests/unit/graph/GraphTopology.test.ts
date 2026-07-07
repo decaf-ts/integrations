@@ -2,9 +2,9 @@
  * @module integrations/tests/unit/graph/GraphTopology.test
  * @summary Unit tests for the graph topology helpers.
  */
-import { GRAPH_WORKFLOW_BOUNDARY } from "../../../src/graph/constants";
-import { GraphExecutionPlanner } from "../../../src/graph/planning/GraphExecutionPlanner";
-import { GraphTopology } from "../../../src/graph/planning/GraphTopology";
+import { GRAPH_WORKFLOW_BOUNDARY } from "../../../src/graph/engine/constants";
+import { GraphExecutionPlanner } from "../../../src/graph/engine/planning/GraphExecutionPlanner";
+import { GraphTopology } from "../../../src/graph/engine/planning/GraphTopology";
 
 import { linearWorkflow } from "./fixtures";
 

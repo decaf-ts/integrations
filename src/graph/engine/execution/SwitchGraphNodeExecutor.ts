@@ -9,13 +9,13 @@
  */
 import type { GraphNodeExecutor } from "./GraphNodeExecutor";
 import type { GraphExecutionContext } from "./GraphExecutionContext";
+import type { GraphExecutionValues } from "../types";
 import type {
-  GraphExecutionValues,
   SwitchCaseCondition,
   SwitchNodeMetadata,
   ConditionExpression,
   CodeCondition,
-} from "../types";
+} from "../../shared/types";
 import { GraphExecutionError } from "../errors/GraphExecutionError";
 import { ConditionExpressionEvaluator } from "../loops/ConditionExpressionEvaluator";
 import type { CodeSandboxEvaluator } from "./CodeSandboxEvaluator";

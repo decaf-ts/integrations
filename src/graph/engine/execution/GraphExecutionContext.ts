@@ -9,7 +9,7 @@ import type {
   GraphWorkflowDefinition,
 } from "@decaf-ts/ui-decorators/graph";
 
-import { GraphExecutionEventType } from "../constants";
+import { GraphExecutionEventType } from "../../shared/constants";
 import type {
   GraphExecutionEvent,
   GraphRunId,

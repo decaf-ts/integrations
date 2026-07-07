@@ -2,10 +2,10 @@
  * @module integrations/tests/unit/graph/GraphValueStore.test
  * @summary Unit tests for the graph value store and in-memory adapter.
  */
-import { GRAPH_WORKFLOW_BOUNDARY } from "../../../src/graph/constants";
-import { InMemoryGraphValueStoreAdapter } from "../../../src/graph/store/InMemoryGraphValueStoreAdapter";
-import { GraphValueStore } from "../../../src/graph/store/GraphValueStore";
-import type { GraphValueKey } from "../../../src/graph/store/GraphValueKey";
+import { GRAPH_WORKFLOW_BOUNDARY } from "../../../src/graph/engine/constants";
+import { InMemoryGraphValueStoreAdapter } from "../../../src/graph/engine/store/InMemoryGraphValueStoreAdapter";
+import { GraphValueStore } from "../../../src/graph/engine/store/GraphValueStore";
+import type { GraphValueKey } from "../../../src/graph/engine/store/GraphValueKey";
 
 describe("InMemoryGraphValueStoreAdapter", () => {
   function key(nodeId: string, fingerprint = "fp"): GraphValueKey {

@@ -13,7 +13,7 @@ import {
   GraphPortError,
   GraphStoreError,
   GraphTopologyError,
-} from "../../../src/graph/errors";
+} from "../../../src/graph/engine/errors";
 
 describe("graph errors", () => {
   it("GraphExecutionError extends InternalError with graphCode", () => {

@@ -2,8 +2,8 @@
  * @module integrations/tests/unit/graph/GraphExecutionEventFactory.test
  * @summary Unit tests for the graph execution event factory.
  */
-import { GraphExecutionEventFactory } from "../../../src/graph/events";
-import { GraphExecutionEventType } from "../../../src/graph/constants";
+import { GraphExecutionEventFactory } from "../../../src/graph/engine/events";
+import { GraphExecutionEventType } from "../../../src/graph/shared/constants";
 
 describe("GraphExecutionEventFactory", () => {
   it("creates events with unique ids, incrementing sequence, and timestamp", () => {

@@ -9,7 +9,8 @@ import type { GraphExecutionEngine } from "../execution/GraphExecutionEngine";
 import type { GraphExecutionValues, GraphLoopMetadata } from "../types";
 import type { GraphWorkflowDefinition } from "@decaf-ts/ui-decorators/graph";
 
-import { GRAPH_DEFAULT_MAX_LOOP_ITERATIONS, GraphExecutionEventType } from "../constants";
+import { GRAPH_DEFAULT_MAX_LOOP_ITERATIONS } from "../constants";
+import { GraphExecutionEventType } from "../../shared/constants";
 import { GraphInputError } from "../errors/GraphInputError";
 import { GraphLoopLimitError } from "../errors/GraphLoopLimitError";
 import { GraphConditionEvaluator } from "./GraphConditionEvaluator";

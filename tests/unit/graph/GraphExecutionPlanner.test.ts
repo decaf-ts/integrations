@@ -2,9 +2,9 @@
  * @module integrations/tests/unit/graph/GraphExecutionPlanner.test
  * @summary Unit tests for the graph execution planner (Kahn's algorithm).
  */
-import { GraphCycleError } from "../../../src/graph/errors/GraphCycleError";
-import { GraphTopologyError } from "../../../src/graph/errors/GraphTopologyError";
-import { GraphExecutionPlanner } from "../../../src/graph/planning/GraphExecutionPlanner";
+import { GraphCycleError } from "../../../src/graph/engine/errors/GraphCycleError";
+import { GraphTopologyError } from "../../../src/graph/engine/errors/GraphTopologyError";
+import { GraphExecutionPlanner } from "../../../src/graph/engine/planning/GraphExecutionPlanner";
 
 import { cyclicWorkflow, linearWorkflow, workflowNode } from "./fixtures";
 

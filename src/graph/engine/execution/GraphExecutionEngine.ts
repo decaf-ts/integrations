@@ -9,9 +9,11 @@ import type { GraphWorkflowDefinition } from "@decaf-ts/ui-decorators/graph";
 import {
   GRAPH_DEFAULT_CONCURRENCY,
   GRAPH_WORKFLOW_BOUNDARY,
+} from "../constants";
+import {
   GraphExecutionEventType,
   GraphExecutionStatus,
-} from "../constants";
+} from "../../shared/constants";
 import type {
   GraphExecutionErrorPayload,
   GraphExecutionEvent,

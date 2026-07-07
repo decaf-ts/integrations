@@ -7,9 +7,9 @@ import { jest } from "@jest/globals";
 import {
   GraphExecutionEventEmitter,
   type GraphExecutionObserver,
-} from "../../../src/graph/events";
-import type { GraphExecutionEvent } from "../../../src/graph/types";
-import { GraphExecutionEventType } from "../../../src/graph/constants";
+} from "../../../src/graph/engine/events";
+import type { GraphExecutionEvent } from "../../../src/graph/engine/types";
+import { GraphExecutionEventType } from "../../../src/graph/shared/constants";
 
 describe("GraphExecutionEventEmitter", () => {
   it("observe registers an observer and returns an unsubscribe function", () => {
