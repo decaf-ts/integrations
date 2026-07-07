@@ -277,11 +277,11 @@
     "uuid": "^11.1.1"
   },
   "devDependencies": {
+    "@decaf-ts/as-zod": "latest",
     "@decaf-ts/cli": "latest",
     "@decaf-ts/for-http": "latest",
     "@decaf-ts/for-nano": "latest",
-    "@decaf-ts/as-zod": "latest",
-    "@decaf-ts/for-nest": "0.11.2-refactor.7",
+    "@decaf-ts/for-nest": "^0.11.2-refactor.8",
     "@decaf-ts/utils": "latest",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
@@ -295,9 +295,9 @@
     "supertest": "^7.0.0"
   },
   "peerDependencies": {
-    "@decaf-ts/for-http": "latest",
     "@decaf-ts/as-zod": "latest",
-    "@decaf-ts/for-nest": "0.11.2-refactor.7",
+    "@decaf-ts/for-http": "latest",
+    "@decaf-ts/for-nest": "^0.11.2-refactor.8",
     "jose": ">=5.0.0"
   },
   "peerDependenciesMeta": {
