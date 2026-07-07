@@ -1,8 +1,5 @@
 import { transactional } from "../utils";
-import type {
-  BootstrapOrgUnit,
-  BootstrapTemplate,
-} from "../types";
+import type { BootstrapOrgUnit, BootstrapTemplate } from "../types";
 import { MembershipStatus, ScopeKind } from "../types";
 import { TenantService } from "./tenant.service";
 import { TenantProfileService } from "./tenant-profile.service";
@@ -16,7 +13,6 @@ import { RoleService } from "./role.service";
 import { RolePermissionService } from "./role-permission.service";
 import { RoleAssignmentService } from "./role-assignment.service";
 import { EffectivePermissionService } from "./effective-permission.service";
-import { relationId } from "../utils";
 
 export class BootstrapService {
   private tenantService = new TenantService();
@@ -36,16 +32,39 @@ export class BootstrapService {
   async bootstrapTenantFromTemplate(
     template: BootstrapTemplate,
     ...args: any[]
-  ): Promise<{ tenantId: string; rootOrgUnitId: string; ownerUserId: string; ownerPrincipalId: string }> {
-    const tenant = await this.tenantService.createTenant(template.tenant, ...args);
+  ): Promise<{
+    tenantId: string;
+    rootOrgUnitId: string;
+    ownerUserId: string;
+    ownerPrincipalId: string;
+  }> {
+    const tenant = await this.tenantService.createTenant(
+      template.tenant,
+      ...args
+    );
     if (template.tenant.profileKey) {
-      await this.tenantProfileService.createProfile(tenant.id, template.tenant.profileKey, template.tenant.profileMetadata, ...args);
+      await this.tenantProfileService.createProfile(
+        tenant.id,
+        template.tenant.profileKey,
+        template.tenant.profileMetadata,
+        ...args
+      );
     }
 
-    const createOrgTree = async (parentId: string | undefined, orgUnit: BootstrapOrgUnit) => {
+    const createOrgTree = async (
+      parentId: string | undefined,
+      orgUnit: BootstrapOrgUnit
+    ) => {
       const created =
         parentId === undefined
-          ? await this.orgUnitService.createRoot(tenant.id, orgUnit.name, orgUnit.metadata, orgUnit.profileKey, orgUnit.metadata, ...args)
+          ? await this.orgUnitService.createRoot(
+              tenant.id,
+              orgUnit.name,
+              orgUnit.metadata,
+              orgUnit.profileKey,
+              orgUnit.metadata,
+              ...args
+            )
           : await this.orgUnitService.createChild(
               {
                 tenantId: tenant.id,
@@ -64,9 +83,21 @@ export class BootstrapService {
     };
 
     const rootOrgUnit = await createOrgTree(undefined, template.rootOrgUnit);
-    const owner = await this.userService.createUser(template.ownerUser, ...args);
-    await this.membershipService.addUserToTenant(tenant.id, owner.id, MembershipStatus.Active, ...args);
-    const ownerPrincipal = await this.principalService.getUserPrincipal(tenant.id, owner.id, ...args);
+    const owner = await this.userService.createUser(
+      template.ownerUser,
+      ...args
+    );
+    await this.membershipService.addUserToTenant(
+      tenant.id,
+      owner.id,
+      MembershipStatus.Active,
+      ...args
+    );
+    const ownerPrincipal = await this.principalService.getUserPrincipal(
+      tenant.id,
+      owner.id,
+      ...args
+    );
 
     for (const permission of template.permissions) {
       await this.permissionService.createPermission(permission, ...args);
@@ -82,11 +113,19 @@ export class BootstrapService {
         ...args
       );
       for (const permissionKey of role.permissionKeys) {
-        await this.rolePermissionService.addPermissionKeyToRole(createdRole.id, permissionKey, ...args);
+        await this.rolePermissionService.addPermissionKeyToRole(
+          createdRole.id,
+          permissionKey,
+          ...args
+        );
       }
     }
 
-    const ownerRole = await this.roleService.getTenantRoleByKey(tenant.id, template.ownerRoleKey, ...args);
+    const ownerRole = await this.roleService.getTenantRoleByKey(
+      tenant.id,
+      template.ownerRoleKey,
+      ...args
+    );
     await this.roleAssignmentService.assignRole(
       {
         tenantId: tenant.id,
@@ -98,7 +137,11 @@ export class BootstrapService {
       },
       ...args
     );
-    await this.effectivePermissionService.rebuildForPrincipal(tenant.id, ownerPrincipal.id, ...args);
+    await this.effectivePermissionService.rebuildForPrincipal(
+      tenant.id,
+      ownerPrincipal.id,
+      ...args
+    );
 
     return {
       tenantId: tenant.id,

@@ -1,4 +1,4 @@
-import { BaseModelService, id, relationMatch, sameTenant } from "../utils";
+import { BaseModelService, relationMatch, sameTenant } from "../utils";
 import { PermissionCategory } from "../types";
 import { InheritanceBlock } from "../models/inheritance-block.model";
 
@@ -31,9 +31,15 @@ export class InheritanceBlockService extends BaseModelService<InheritanceBlock> 
     await this.deleteById(blockId, ...args);
   }
 
-  async listForOrgUnit(tenantId: string, orgUnitId: string, ...args: any[]): Promise<InheritanceBlock[]> {
+  async listForOrgUnit(
+    tenantId: string,
+    orgUnitId: string,
+    ...args: any[]
+  ): Promise<InheritanceBlock[]> {
     return (await this.listAll(...args)).filter(
-      (block) => sameTenant(block.tenant, tenantId) && relationMatch(block.orgUnit, orgUnitId)
+      (block) =>
+        sameTenant(block.tenant, tenantId) &&
+        relationMatch(block.orgUnit, orgUnitId)
     );
   }
 
@@ -47,7 +53,8 @@ export class InheritanceBlockService extends BaseModelService<InheritanceBlock> 
     return (await this.listForOrgUnit(tenantId, orgUnitId, ...args)).some(
       (block) =>
         block.permissionCategory === category &&
-        (!block.blockedFromAncestor || relationMatch(block.blockedFromAncestor, ancestorOrgUnitId))
+        (!block.blockedFromAncestor ||
+          relationMatch(block.blockedFromAncestor, ancestorOrgUnitId))
     );
   }
 }

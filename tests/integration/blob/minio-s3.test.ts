@@ -1,10 +1,12 @@
 import path from "path";
+import { fileURLToPath } from "url";
 import { MinioBlobStoreService } from "../../../src/blob/s3/MinioBlobStoreService";
 import { S3BlobStoreService } from "../../../src/blob/s3/S3BlobStoreService";
 import { collectToBuffer } from "../../../src/blob/core/BlobValue";
 import { DockerComposeService } from "../../../src/docker";
 
-const composeFile = path.resolve(import.meta.dirname, "../../../docker/minio-compose.yml");
+const testDirname = path.dirname(fileURLToPath(import.meta.url));
+const composeFile = path.resolve(testDirname, "../../../docker/minio-compose.yml");
 const workingDir = path.dirname(composeFile);
 
 let dockerService: DockerComposeService;

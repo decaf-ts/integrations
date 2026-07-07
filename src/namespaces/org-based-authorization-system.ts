@@ -1,4 +1,10 @@
-import { AuthorizationError, Cascade, ModelService, Repository, transactional } from "@decaf-ts/core";
+import {
+  AuthorizationError,
+  Cascade,
+  ModelService,
+  Repository,
+  transactional,
+} from "@decaf-ts/core";
 import { Model } from "@decaf-ts/decorator-validation";
 
 export enum IsolationTier {
@@ -276,9 +282,18 @@ export interface EffectivePermissionSnapshot {
 }
 
 export interface AuthzDataSources {
-  loadResource?: (tenantId: string, protectedResourceId: string) => Promise<ResourceSnapshot | undefined>;
-  listResourceGrants?: (tenantId: string, protectedResourceId: string) => Promise<GrantSnapshot[]>;
-  listPrincipalGrants?: (tenantId: string, principalId: string) => Promise<GrantSnapshot[]>;
+  loadResource?: (
+    tenantId: string,
+    protectedResourceId: string
+  ) => Promise<ResourceSnapshot | undefined>;
+  listResourceGrants?: (
+    tenantId: string,
+    protectedResourceId: string
+  ) => Promise<GrantSnapshot[]>;
+  listPrincipalGrants?: (
+    tenantId: string,
+    principalId: string
+  ) => Promise<GrantSnapshot[]>;
   listEffectivePermissions?: (
     tenantId: string,
     principalId: string
@@ -386,10 +401,9 @@ export function buildAccessContext(options: {
   };
 }
 
-export abstract class BaseModelService<M extends Model<boolean> & { id: string }> extends ModelService<
-  M,
-  Repository<M, any>
-> {
+export abstract class BaseModelService<
+  M extends Model<boolean> & { id: string },
+> extends ModelService<M, Repository<M, any>> {
   protected constructor(clazz: new () => M) {
     super(clazz);
   }
@@ -428,7 +442,10 @@ export abstract class BaseModelService<M extends Model<boolean> & { id: string }
     value: M[K],
     ...args: any[]
   ): Promise<M[]> {
-    return this.repo.select().where({ [key]: value } as any).execute(...args);
+    return this.repo
+      .select()
+      .where({ [key]: value } as any)
+      .execute(...args);
   }
 
   async listAll(...args: any[]): Promise<M[]> {
@@ -451,15 +468,17 @@ export class AuthzService {
     this.dataSources = dataSources;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async canAccess(input: CanAccessInput, ...args: any[]): Promise<boolean> {
     const at = input.at ?? new Date();
 
     if (input.scopeKind && input.scopeId) {
-      const permissions = await this.dataSources.listEffectivePermissionsForScope?.(
-        input.tenantId,
-        input.scopeKind,
-        input.scopeId
-      );
+      const permissions =
+        await this.dataSources.listEffectivePermissionsForScope?.(
+          input.tenantId,
+          input.scopeKind,
+          input.scopeId
+        );
       return toArray(permissions).some(
         (permission) =>
           permission.permissionKey === input.permissionKey &&
@@ -546,6 +565,7 @@ export class AuthzService {
   async buildAccessContext(
     tenantId: string,
     principalId: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<AccessContext> {
     const permissions = toArray(
@@ -568,8 +588,13 @@ export class AuthzService {
     permissionKey: string,
     ...args: any[]
   ): Promise<ArangoAuthContext> {
-    const access = await this.buildAccessContext(tenantId, principalId, ...args);
-    const allowedOrgUnitIds = access.allowedOrgUnitIdsByPermission[permissionKey] ?? [];
+    const access = await this.buildAccessContext(
+      tenantId,
+      principalId,
+      ...args
+    );
+    const allowedOrgUnitIds =
+      access.allowedOrgUnitIdsByPermission[permissionKey] ?? [];
     const allowedResourceIds = access.resourceGrants
       .filter((grant) => grant.permissionKey === permissionKey)
       .map((grant) => grant.resourceId);
@@ -588,8 +613,13 @@ export class AuthzService {
     permissionKey: string,
     ...args: any[]
   ): Promise<QdrantAuthFilter> {
-    const access = await this.buildAccessContext(tenantId, principalId, ...args);
-    const allowedOrgUnitIds = access.allowedOrgUnitIdsByPermission[permissionKey] ?? [];
+    const access = await this.buildAccessContext(
+      tenantId,
+      principalId,
+      ...args
+    );
+    const allowedOrgUnitIds =
+      access.allowedOrgUnitIdsByPermission[permissionKey] ?? [];
     const allowedResourceIds = access.resourceGrants
       .filter((grant) => grant.permissionKey === permissionKey)
       .map((grant) => grant.resourceId);

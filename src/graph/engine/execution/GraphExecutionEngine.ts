@@ -14,6 +14,7 @@ import {
   GraphExecutionEventType,
   GraphExecutionStatus,
 } from "../../shared/constants";
+import { GraphExecutionError } from "../errors";
 import type {
   GraphExecutionErrorPayload,
   GraphExecutionEvent,
@@ -172,6 +173,17 @@ export class GraphExecutionEngine
     try {
       for (const layer of plan.layers) {
         await this.executeLayer(frame, plan, layer.nodes, opts, emitFn);
+      }
+
+      const firstFailure = [...frame.nodeResults.values()].find(
+        (result) => result.status === GraphExecutionStatus.FAILED
+      );
+      if (firstFailure?.error) {
+        throw new GraphExecutionError(
+          firstFailure.error.message,
+          firstFailure.error.code ?? "GRAPH_EXECUTION_ERROR",
+          firstFailure.error.details
+        );
       }
 
       frame.finish();

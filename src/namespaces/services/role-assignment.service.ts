@@ -1,5 +1,5 @@
 import { BaseModelService, relationMatch, sameTenant } from "../utils";
-import { AssignRoleInput, ScopeKind } from "../types";
+import { AssignRoleInput } from "../types";
 import { RoleAssignment } from "../models/role-assignment.model";
 
 export class RoleAssignmentService extends BaseModelService<RoleAssignment> {
@@ -7,7 +7,10 @@ export class RoleAssignmentService extends BaseModelService<RoleAssignment> {
     super(RoleAssignment);
   }
 
-  async assignRole(input: AssignRoleInput, ...args: any[]): Promise<RoleAssignment> {
+  async assignRole(
+    input: AssignRoleInput,
+    ...args: any[]
+  ): Promise<RoleAssignment> {
     return this.create(
       {
         tenant: input.tenantId,
@@ -28,18 +31,34 @@ export class RoleAssignmentService extends BaseModelService<RoleAssignment> {
     await this.deleteById(assignmentId, ...args);
   }
 
-  async listPrincipalAssignments(tenantId: string, principalId: string, ...args: any[]): Promise<RoleAssignment[]> {
+  async listPrincipalAssignments(
+    tenantId: string,
+    principalId: string,
+    ...args: any[]
+  ): Promise<RoleAssignment[]> {
     return (await this.listAll(...args)).filter(
-      (assignment) => sameTenant(assignment.tenant, tenantId) && relationMatch(assignment.principal, principalId)
+      (assignment) =>
+        sameTenant(assignment.tenant, tenantId) &&
+        relationMatch(assignment.principal, principalId)
     );
   }
 
-  async listRoleAssignments(roleId: string, ...args: any[]): Promise<RoleAssignment[]> {
-    return (await this.listAll(...args)).filter((assignment) => relationMatch(assignment.role, roleId));
+  async listRoleAssignments(
+    roleId: string,
+    ...args: any[]
+  ): Promise<RoleAssignment[]> {
+    return (await this.listAll(...args)).filter((assignment) =>
+      relationMatch(assignment.role, roleId)
+    );
   }
 
-  async listTenantAssignments(tenantId: string, ...args: any[]): Promise<RoleAssignment[]> {
-    return (await this.listAll(...args)).filter((assignment) => sameTenant(assignment.tenant, tenantId));
+  async listTenantAssignments(
+    tenantId: string,
+    ...args: any[]
+  ): Promise<RoleAssignment[]> {
+    return (await this.listAll(...args)).filter((assignment) =>
+      sameTenant(assignment.tenant, tenantId)
+    );
   }
 
   async updateAssignmentWindow(

@@ -1,6 +1,6 @@
+import { jest } from "@jest/globals";
 import {
   IsolationTier,
-  MembershipStatus,
   PrincipalKind,
   StorageBindingKind,
   StorageKind,

@@ -1,10 +1,12 @@
 import path from "path";
+import { fileURLToPath } from "url";
 import { GcsBlobStoreService } from "../../../src/blob/gcp/GcsBlobStoreService";
 import { collectToBuffer } from "../../../src/blob/core/BlobValue";
 import { DockerComposeService } from "../../../src/docker";
 
+const testDirname = path.dirname(fileURLToPath(import.meta.url));
 const composeFile = path.resolve(
-  import.meta.dirname,
+  testDirname,
   "../../../docker/gcs-blob-compose.yml"
 );
 const workingDir = path.dirname(composeFile);

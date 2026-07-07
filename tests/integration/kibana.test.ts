@@ -1,4 +1,5 @@
 import path from "path";
+import { fileURLToPath } from "url";
 import axios from "axios";
 import {
   KibanaService,
@@ -7,7 +8,8 @@ import {
 } from "../../src/kibana";
 import { DockerComposeService } from "../../src/docker";
 
-const composeFile = path.resolve(import.meta.dirname, "../../docker/kibana-compose.yml");
+const testDirname = path.dirname(fileURLToPath(import.meta.url));
+const composeFile = path.resolve(testDirname, "../../docker/kibana-compose.yml");
 const workingDir = path.dirname(composeFile);
 
 const KIBANA_HOST = "localhost:5601";

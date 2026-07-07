@@ -16,7 +16,6 @@ import type {
   AssignRoleInput,
   BootstrapOrgUnit,
   BootstrapTemplate,
-  CanAccessInput,
   CreateOrgUnitInput,
   CreatePermissionInput,
   CreateRoleInput,
@@ -49,15 +48,13 @@ import {
   TenantProfile,
   User,
 } from "./org-based-authorization-system.models";
-
-const nowIso = () => new Date();
-const asArray = <T>(value: T[] | undefined): T[] => value ?? [];
+//
+// const nowIso = () => new Date();
+// const asArray = <T>(value: T[] | undefined): T[] => value ?? [];
 const sameTenant = (rowTenant: unknown, tenantId: string): boolean =>
   relationId(rowTenant as { id: string } | string) === tenantId;
-const relationMatch = (
-  value: unknown,
-  target: string | undefined
-): boolean => (target ? relationId(value as { id: string } | string) === target : false);
+const relationMatch = (value: unknown, target: string | undefined): boolean =>
+  target ? relationId(value as { id: string } | string) === target : false;
 const lowerSlug = (value: string): string =>
   value
     .trim()
@@ -97,14 +94,21 @@ export class TenantProfileService extends BaseModelService<TenantProfile> {
     );
   }
 
-  async listForTenant(tenantId: string, ...args: any[]): Promise<TenantProfile[]> {
+  async listForTenant(
+    tenantId: string,
+    ...args: any[]
+  ): Promise<TenantProfile[]> {
     return (await this.listAll(...args)).filter((profile) =>
       relationMatch(profile.tenant, tenantId)
     );
   }
 
   async deleteForTenant(tenantId: string, ...args: any[]): Promise<void> {
-    await deleteManyById(this, await this.listForTenant(tenantId, ...args), ...args);
+    await deleteManyById(
+      this,
+      await this.listForTenant(tenantId, ...args),
+      ...args
+    );
   }
 }
 
@@ -130,7 +134,10 @@ export class OrgUnitProfileService extends BaseModelService<OrgUnitProfile> {
     );
   }
 
-  async listForOrgUnit(orgUnitId: string, ...args: any[]): Promise<OrgUnitProfile[]> {
+  async listForOrgUnit(
+    orgUnitId: string,
+    ...args: any[]
+  ): Promise<OrgUnitProfile[]> {
     return (await this.listAll(...args)).filter((profile) =>
       relationMatch(profile.orgUnit, orgUnitId)
     );
@@ -176,9 +183,9 @@ export class OrgUnitClosureService extends BaseModelService<OrgUnitClosure> {
     descendantOrgUnitId: string,
     ...args: any[]
   ): Promise<boolean> {
-    return (await this.listAncestors(tenantId, descendantOrgUnitId, ...args)).some(
-      (row) => relationMatch(row.ancestor, ancestorOrgUnitId)
-    );
+    return (
+      await this.listAncestors(tenantId, descendantOrgUnitId, ...args)
+    ).some((row) => relationMatch(row.ancestor, ancestorOrgUnitId));
   }
 
   async createSelfLink(
@@ -204,7 +211,11 @@ export class OrgUnitClosureService extends BaseModelService<OrgUnitClosure> {
     childOrgUnitId: string,
     ...args: any[]
   ): Promise<void> {
-    const ancestorLinks = await this.listAncestors(tenantId, parentOrgUnitId, ...args);
+    const ancestorLinks = await this.listAncestors(
+      tenantId,
+      parentOrgUnitId,
+      ...args
+    );
     await Promise.all(
       ancestorLinks.map((link) =>
         this.createOne(
@@ -282,7 +293,8 @@ export class InheritanceBlockService extends BaseModelService<InheritanceBlock> 
   ): Promise<InheritanceBlock[]> {
     return (await this.listAll(...args)).filter(
       (block) =>
-        sameTenant(block.tenant, tenantId) && relationMatch(block.orgUnit, orgUnitId)
+        sameTenant(block.tenant, tenantId) &&
+        relationMatch(block.orgUnit, orgUnitId)
     );
   }
 
@@ -307,7 +319,10 @@ export class TenantService extends BaseModelService<Tenant> {
     super(Tenant);
   }
 
-  async createTenant(input: CreateTenantInput, ...args: any[]): Promise<Tenant> {
+  async createTenant(
+    input: CreateTenantInput,
+    ...args: any[]
+  ): Promise<Tenant> {
     return this.createOne(
       {
         id: id(),
@@ -323,11 +338,19 @@ export class TenantService extends BaseModelService<Tenant> {
     return this.findOneBy("slug", slug as never, ...args);
   }
 
-  async renameTenant(tenantId: string, name: string, ...args: any[]): Promise<Tenant> {
+  async renameTenant(
+    tenantId: string,
+    name: string,
+    ...args: any[]
+  ): Promise<Tenant> {
     return this.updateOne(tenantId, { name }, ...args);
   }
 
-  async changeSlug(tenantId: string, slug: string, ...args: any[]): Promise<Tenant> {
+  async changeSlug(
+    tenantId: string,
+    slug: string,
+    ...args: any[]
+  ): Promise<Tenant> {
     return this.updateOne(tenantId, { slug }, ...args);
   }
 
@@ -339,7 +362,10 @@ export class TenantService extends BaseModelService<Tenant> {
     return this.updateOne(tenantId, { isolationTier }, ...args);
   }
 
-  async deleteTenantControlled(tenantId: string, ...args: any[]): Promise<void> {
+  async deleteTenantControlled(
+    tenantId: string,
+    ...args: any[]
+  ): Promise<void> {
     await this.deleteById(tenantId, ...args);
   }
 }
@@ -351,7 +377,9 @@ export class OrgUnitService extends BaseModelService<OrgUnit> {
 
   private orgUnitPath(parentPath: string | undefined, name: string): string {
     const segment = lowerSlug(name);
-    return parentPath ? `${parentPath.replace(/\/+$/, "")}/${segment}` : `/${segment}`;
+    return parentPath
+      ? `${parentPath.replace(/\/+$/, "")}/${segment}`
+      : `/${segment}`;
   }
 
   private async createProfileIfNeeded(
@@ -362,7 +390,12 @@ export class OrgUnitService extends BaseModelService<OrgUnit> {
   ): Promise<void> {
     if (!profileKey) return;
     const profileService = new OrgUnitProfileService();
-    await profileService.createProfile(orgUnitId, profileKey, profileMetadata, ...args);
+    await profileService.createProfile(
+      orgUnitId,
+      profileKey,
+      profileMetadata,
+      ...args
+    );
   }
 
   @transactional()
@@ -384,14 +417,22 @@ export class OrgUnitService extends BaseModelService<OrgUnit> {
       },
       ...args
     );
-    await this.createProfileIfNeeded(orgUnit.id, profileKey, profileMetadata, ...args);
+    await this.createProfileIfNeeded(
+      orgUnit.id,
+      profileKey,
+      profileMetadata,
+      ...args
+    );
     const closureService = new OrgUnitClosureService();
     await closureService.createSelfLink(tenantId, orgUnit.id, ...args);
     return orgUnit;
   }
 
   @transactional()
-  async createChild(input: CreateOrgUnitInput, ...args: any[]): Promise<OrgUnit> {
+  async createChild(
+    input: CreateOrgUnitInput,
+    ...args: any[]
+  ): Promise<OrgUnit> {
     const parent = input.parentOrgUnitId
       ? await this.getById(input.parentOrgUnitId, ...args)
       : undefined;
@@ -425,13 +466,19 @@ export class OrgUnitService extends BaseModelService<OrgUnit> {
     return orgUnit;
   }
 
-  async listChildren(parentOrgUnitId: string, ...args: any[]): Promise<OrgUnit[]> {
+  async listChildren(
+    parentOrgUnitId: string,
+    ...args: any[]
+  ): Promise<OrgUnit[]> {
     return (await this.listAll(...args)).filter((orgUnit) =>
       relationMatch(orgUnit.parent, parentOrgUnitId)
     );
   }
 
-  async listTenantOrgUnits(tenantId: string, ...args: any[]): Promise<OrgUnit[]> {
+  async listTenantOrgUnits(
+    tenantId: string,
+    ...args: any[]
+  ): Promise<OrgUnit[]> {
     return (await this.listAll(...args)).filter((orgUnit) =>
       sameTenant(orgUnit.tenant, tenantId)
     );
@@ -444,11 +491,15 @@ export class OrgUnitService extends BaseModelService<OrgUnit> {
     ...args: any[]
   ): Promise<OrgUnit[]> {
     const closureService = new OrgUnitClosureService();
-    const descendants = await closureService.listDescendants(tenantId, orgUnitId, ...args);
+    const descendants = await closureService.listDescendants(
+      tenantId,
+      orgUnitId,
+      ...args
+    );
     const ids = new Set(descendants.map((row) => relationId(row.descendant)));
     if (includeSelf) ids.add(orgUnitId);
-    return (await this.listTenantOrgUnits(tenantId, ...args)).filter((orgUnit) =>
-      ids.has(orgUnit.id)
+    return (await this.listTenantOrgUnits(tenantId, ...args)).filter(
+      (orgUnit) => ids.has(orgUnit.id)
     );
   }
 
@@ -459,22 +510,34 @@ export class OrgUnitService extends BaseModelService<OrgUnit> {
     ...args: any[]
   ): Promise<OrgUnit[]> {
     const closureService = new OrgUnitClosureService();
-    const ancestors = await closureService.listAncestors(tenantId, orgUnitId, ...args);
+    const ancestors = await closureService.listAncestors(
+      tenantId,
+      orgUnitId,
+      ...args
+    );
     const ids = new Set(ancestors.map((row) => relationId(row.ancestor)));
     if (includeSelf) ids.add(orgUnitId);
-    return (await this.listTenantOrgUnits(tenantId, ...args)).filter((orgUnit) =>
-      ids.has(orgUnit.id)
+    return (await this.listTenantOrgUnits(tenantId, ...args)).filter(
+      (orgUnit) => ids.has(orgUnit.id)
     );
   }
 
-  async renameOrgUnit(orgUnitId: string, name: string, ...args: any[]): Promise<OrgUnit> {
+  async renameOrgUnit(
+    orgUnitId: string,
+    name: string,
+    ...args: any[]
+  ): Promise<OrgUnit> {
     const existing = await this.getById(orgUnitId, ...args);
-    return this.updateOne(orgUnitId, { name, path: this.orgUnitPath(undefined, name) }, ...args).then(
-      async (updated) => {
-        updated.path = existing.parent ? this.orgUnitPath(undefined, name) : this.orgUnitPath(undefined, name);
-        return updated;
-      }
-    );
+    return this.updateOne(
+      orgUnitId,
+      { name, path: this.orgUnitPath(undefined, name) },
+      ...args
+    ).then(async (updated) => {
+      updated.path = existing.parent
+        ? this.orgUnitPath(undefined, name)
+        : this.orgUnitPath(undefined, name);
+      return updated;
+    });
   }
 
   @transactional()
@@ -508,11 +571,13 @@ export class OrgUnitService extends BaseModelService<OrgUnit> {
       ...args
     );
 
-    const orgUnits = (await this.listTenantOrgUnits(tenantId, ...args)).sort((left, right) => {
-      const leftDepth = left.path.split("/").filter(Boolean).length;
-      const rightDepth = right.path.split("/").filter(Boolean).length;
-      return leftDepth - rightDepth;
-    });
+    const orgUnits = (await this.listTenantOrgUnits(tenantId, ...args)).sort(
+      (left, right) => {
+        const leftDepth = left.path.split("/").filter(Boolean).length;
+        const rightDepth = right.path.split("/").filter(Boolean).length;
+        return leftDepth - rightDepth;
+      }
+    );
 
     for (const orgUnit of orgUnits) {
       await closureService.createSelfLink(tenantId, orgUnit.id, ...args);
@@ -528,12 +593,21 @@ export class OrgUnitService extends BaseModelService<OrgUnit> {
   }
 
   @transactional()
-  async deleteOrgUnitTree(tenantId: string, orgUnitId: string, ...args: any[]): Promise<void> {
+  async deleteOrgUnitTree(
+    tenantId: string,
+    orgUnitId: string,
+    ...args: any[]
+  ): Promise<void> {
     const closureService = new OrgUnitClosureService();
-    const descendants = await this.listDescendantOrgUnits(tenantId, orgUnitId, true, ...args);
+    const descendants = await this.listDescendantOrgUnits(
+      tenantId,
+      orgUnitId,
+      true,
+      ...args
+    );
     const descendantIds = new Set(descendants.map((orgUnit) => orgUnit.id));
-    const orgUnits = (await this.listTenantOrgUnits(tenantId, ...args)).filter((orgUnit) =>
-      descendantIds.has(orgUnit.id)
+    const orgUnits = (await this.listTenantOrgUnits(tenantId, ...args)).filter(
+      (orgUnit) => descendantIds.has(orgUnit.id)
     );
     await deleteManyById(this, orgUnits, ...args);
     await closureService.deleteLinksForSubtree(tenantId, orgUnitId, ...args);
@@ -558,10 +632,16 @@ export class UserService extends BaseModelService<User> {
   }
 
   async getByEmail(email: string, ...args: any[]): Promise<User> {
-    return (await this.listAll(...args)).find((user) => user.email === email) as User;
+    return (await this.listAll(...args)).find(
+      (user) => user.email === email
+    ) as User;
   }
 
-  async updateDisplayName(userId: string, displayName: string, ...args: any[]): Promise<User> {
+  async updateDisplayName(
+    userId: string,
+    displayName: string,
+    ...args: any[]
+  ): Promise<User> {
     return this.updateOne(userId, { displayName }, ...args);
   }
 
@@ -630,12 +710,30 @@ export class PrincipalService extends BaseModelService<Principal> {
     );
   }
 
-  async getUserPrincipal(tenantId: string, userId: string, ...args: any[]): Promise<Principal> {
-    return this.getOrCreateForSubject(tenantId, PrincipalKind.User, userId, ...args);
+  async getUserPrincipal(
+    tenantId: string,
+    userId: string,
+    ...args: any[]
+  ): Promise<Principal> {
+    return this.getOrCreateForSubject(
+      tenantId,
+      PrincipalKind.User,
+      userId,
+      ...args
+    );
   }
 
-  async getGroupPrincipal(tenantId: string, groupId: string, ...args: any[]): Promise<Principal> {
-    return this.getOrCreateForSubject(tenantId, PrincipalKind.Group, groupId, ...args);
+  async getGroupPrincipal(
+    tenantId: string,
+    groupId: string,
+    ...args: any[]
+  ): Promise<Principal> {
+    return this.getOrCreateForSubject(
+      tenantId,
+      PrincipalKind.Group,
+      groupId,
+      ...args
+    );
   }
 }
 
@@ -669,19 +767,28 @@ export class TenantMembershipService extends BaseModelService<TenantMembership> 
     return this.updateOne(membershipId, { status }, ...args);
   }
 
-  async listUserTenants(userId: string, ...args: any[]): Promise<TenantMembership[]> {
+  async listUserTenants(
+    userId: string,
+    ...args: any[]
+  ): Promise<TenantMembership[]> {
     return (await this.listAll(...args)).filter((membership) =>
       relationMatch(membership.user, userId)
     );
   }
 
-  async listTenantUsers(tenantId: string, ...args: any[]): Promise<TenantMembership[]> {
+  async listTenantUsers(
+    tenantId: string,
+    ...args: any[]
+  ): Promise<TenantMembership[]> {
     return (await this.listAll(...args)).filter((membership) =>
       sameTenant(membership.tenant, tenantId)
     );
   }
 
-  async removeUserFromTenant(membershipId: string, ...args: any[]): Promise<void> {
+  async removeUserFromTenant(
+    membershipId: string,
+    ...args: any[]
+  ): Promise<void> {
     await this.deleteById(membershipId, ...args);
   }
 }
@@ -718,19 +825,28 @@ export class OrgUnitMembershipService extends BaseModelService<OrgUnitMembership
     return this.updateOne(membershipId, { status }, ...args);
   }
 
-  async listUserOrgUnits(userId: string, ...args: any[]): Promise<OrgUnitMembership[]> {
+  async listUserOrgUnits(
+    userId: string,
+    ...args: any[]
+  ): Promise<OrgUnitMembership[]> {
     return (await this.listAll(...args)).filter((membership) =>
       relationMatch(membership.user, userId)
     );
   }
 
-  async listOrgUnitUsers(orgUnitId: string, ...args: any[]): Promise<OrgUnitMembership[]> {
+  async listOrgUnitUsers(
+    orgUnitId: string,
+    ...args: any[]
+  ): Promise<OrgUnitMembership[]> {
     return (await this.listAll(...args)).filter((membership) =>
       relationMatch(membership.orgUnit, orgUnitId)
     );
   }
 
-  async removeUserFromOrgUnit(membershipId: string, ...args: any[]): Promise<void> {
+  async removeUserFromOrgUnit(
+    membershipId: string,
+    ...args: any[]
+  ): Promise<void> {
     await this.deleteById(membershipId, ...args);
   }
 }
@@ -759,7 +875,11 @@ export class GroupService extends BaseModelService<Group> {
     );
   }
 
-  async renameGroup(groupId: string, name: string, ...args: any[]): Promise<Group> {
+  async renameGroup(
+    groupId: string,
+    name: string,
+    ...args: any[]
+  ): Promise<Group> {
     return this.updateOne(groupId, { name }, ...args);
   }
 
@@ -772,7 +892,9 @@ export class GroupService extends BaseModelService<Group> {
   }
 
   async listTenantGroups(tenantId: string, ...args: any[]): Promise<Group[]> {
-    return (await this.listAll(...args)).filter((group) => sameTenant(group.tenant, tenantId));
+    return (await this.listAll(...args)).filter((group) =>
+      sameTenant(group.tenant, tenantId)
+    );
   }
 }
 
@@ -800,19 +922,28 @@ export class GroupMembershipService extends BaseModelService<GroupMembership> {
     );
   }
 
-  async listGroupMembers(groupId: string, ...args: any[]): Promise<GroupMembership[]> {
+  async listGroupMembers(
+    groupId: string,
+    ...args: any[]
+  ): Promise<GroupMembership[]> {
     return (await this.listAll(...args)).filter((membership) =>
       relationMatch(membership.group, groupId)
     );
   }
 
-  async listPrincipalGroups(principalId: string, ...args: any[]): Promise<GroupMembership[]> {
+  async listPrincipalGroups(
+    principalId: string,
+    ...args: any[]
+  ): Promise<GroupMembership[]> {
     return (await this.listAll(...args)).filter((membership) =>
       relationMatch(membership.principal, principalId)
     );
   }
 
-  async removePrincipalFromGroup(membershipId: string, ...args: any[]): Promise<void> {
+  async removePrincipalFromGroup(
+    membershipId: string,
+    ...args: any[]
+  ): Promise<void> {
     await this.deleteById(membershipId, ...args);
   }
 
@@ -826,7 +957,11 @@ export class GroupMembershipService extends BaseModelService<GroupMembership> {
       memberships.map(async (membership) => {
         const tenantId = relationId(membership.tenant);
         const groupId = relationId(membership.group);
-        const principal = await principalService.getGroupPrincipal(tenantId, groupId, ...args);
+        const principal = await principalService.getGroupPrincipal(
+          tenantId,
+          groupId,
+          ...args
+        );
         return principal.id;
       })
     );
@@ -855,11 +990,18 @@ export class PermissionService extends BaseModelService<Permission> {
   }
 
   async getByKey(key: string, ...args: any[]): Promise<Permission> {
-    return (await this.listAll(...args)).find((permission) => permission.key === key) as Permission;
+    return (await this.listAll(...args)).find(
+      (permission) => permission.key === key
+    ) as Permission;
   }
 
-  async listByCategory(category: PermissionCategory, ...args: any[]): Promise<Permission[]> {
-    return (await this.listAll(...args)).filter((permission) => permission.category === category);
+  async listByCategory(
+    category: PermissionCategory,
+    ...args: any[]
+  ): Promise<Permission[]> {
+    return (await this.listAll(...args)).filter(
+      (permission) => permission.category === category
+    );
   }
 
   async updateDescription(
@@ -900,9 +1042,14 @@ export class RoleService extends BaseModelService<Role> {
     return role;
   }
 
-  async getTenantRoleByKey(tenantId: string, key: string, ...args: any[]): Promise<Role> {
+  async getTenantRoleByKey(
+    tenantId: string,
+    key: string,
+    ...args: any[]
+  ): Promise<Role> {
     const role = (await this.listAll(...args)).find(
-      (candidate) => sameTenant(candidate.tenant, tenantId) && candidate.key === key
+      (candidate) =>
+        sameTenant(candidate.tenant, tenantId) && candidate.key === key
     );
     if (!role) {
       throw new Error(`Role "${key}" not found for tenant ${tenantId}`);
@@ -910,7 +1057,11 @@ export class RoleService extends BaseModelService<Role> {
     return role;
   }
 
-  async renameRole(roleId: string, name: string, ...args: any[]): Promise<Role> {
+  async renameRole(
+    roleId: string,
+    name: string,
+    ...args: any[]
+  ): Promise<Role> {
     return this.updateOne(roleId, { name }, ...args);
   }
 
@@ -928,7 +1079,9 @@ export class RoleService extends BaseModelService<Role> {
     ...args: any[]
   ): Promise<Role[]> {
     return (await this.listAll(...args)).filter((role) =>
-      includeSystem ? !role.tenant || sameTenant(role.tenant, tenantId) : sameTenant(role.tenant, tenantId)
+      includeSystem
+        ? !role.tenant || sameTenant(role.tenant, tenantId)
+        : sameTenant(role.tenant, tenantId)
     );
   }
 }
@@ -958,21 +1111,33 @@ export class RolePermissionService extends BaseModelService<RolePermission> {
     permissionKey: string,
     ...args: any[]
   ): Promise<RolePermission> {
-    const permission = await new PermissionService().getByKey(permissionKey, ...args);
+    const permission = await new PermissionService().getByKey(
+      permissionKey,
+      ...args
+    );
     return this.addPermissionToRole(roleId, permission.id, ...args);
   }
 
-  async removePermissionFromRole(rolePermissionId: string, ...args: any[]): Promise<void> {
+  async removePermissionFromRole(
+    rolePermissionId: string,
+    ...args: any[]
+  ): Promise<void> {
     await this.deleteById(rolePermissionId, ...args);
   }
 
-  async listRolePermissions(roleId: string, ...args: any[]): Promise<RolePermission[]> {
+  async listRolePermissions(
+    roleId: string,
+    ...args: any[]
+  ): Promise<RolePermission[]> {
     return (await this.listAll(...args)).filter((rolePermission) =>
       relationMatch(rolePermission.role, roleId)
     );
   }
 
-  async listPermissionRoles(permissionId: string, ...args: any[]): Promise<RolePermission[]> {
+  async listPermissionRoles(
+    permissionId: string,
+    ...args: any[]
+  ): Promise<RolePermission[]> {
     return (await this.listAll(...args)).filter((rolePermission) =>
       relationMatch(rolePermission.permission, permissionId)
     );
@@ -1013,7 +1178,10 @@ export class RoleAssignmentService extends BaseModelService<RoleAssignment> {
     super(RoleAssignment);
   }
 
-  async assignRole(input: AssignRoleInput, ...args: any[]): Promise<RoleAssignment> {
+  async assignRole(
+    input: AssignRoleInput,
+    ...args: any[]
+  ): Promise<RoleAssignment> {
     return this.createOne(
       {
         id: id(),
@@ -1047,7 +1215,10 @@ export class RoleAssignmentService extends BaseModelService<RoleAssignment> {
     );
   }
 
-  async listRoleAssignments(roleId: string, ...args: any[]): Promise<RoleAssignment[]> {
+  async listRoleAssignments(
+    roleId: string,
+    ...args: any[]
+  ): Promise<RoleAssignment[]> {
     return (await this.listAll(...args)).filter((assignment) =>
       relationMatch(assignment.role, roleId)
     );
@@ -1122,14 +1293,24 @@ export class EffectivePermissionService extends BaseModelService<EffectivePermis
     );
   }
 
-  async deleteForPrincipal(tenantId: string, principalId: string, ...args: any[]): Promise<void> {
-    await deleteManyById(this, await this.listForPrincipal(tenantId, principalId, ...args), ...args);
+  async deleteForPrincipal(
+    tenantId: string,
+    principalId: string,
+    ...args: any[]
+  ): Promise<void> {
+    await deleteManyById(
+      this,
+      await this.listForPrincipal(tenantId, principalId, ...args),
+      ...args
+    );
   }
 
   async deleteForTenant(tenantId: string, ...args: any[]): Promise<void> {
     await deleteManyById(
       this,
-      (await this.listAll(...args)).filter((permission) => sameTenant(permission.tenant, tenantId)),
+      (await this.listAll(...args)).filter((permission) =>
+        sameTenant(permission.tenant, tenantId)
+      ),
       ...args
     );
   }
@@ -1151,11 +1332,12 @@ export class EffectivePermissionService extends BaseModelService<EffectivePermis
     const inheritanceBlockService = new InheritanceBlockService();
 
     const materialized: EffectivePermissionSnapshot[] = [];
-    const sourceAssignments = await roleAssignmentService.listPrincipalAssignments(
-      tenantId,
-      principalId,
-      ...args
-    );
+    const sourceAssignments =
+      await roleAssignmentService.listPrincipalAssignments(
+        tenantId,
+        principalId,
+        ...args
+      );
     const groupMemberships = await groupMembershipService.listPrincipalGroups(
       principalId,
       ...args
@@ -1210,10 +1392,12 @@ export class EffectivePermissionService extends BaseModelService<EffectivePermis
             scopeId,
             ...args
           );
-          scopes.push(...descendants.map((row) => ({
-            scopeKind,
-            scopeId: relationId(row.descendant),
-          })));
+          scopes.push(
+            ...descendants.map((row) => ({
+              scopeKind,
+              scopeId: relationId(row.descendant),
+            }))
+          );
         }
 
         for (const scoped of scopes) {
@@ -1271,8 +1455,8 @@ export class EffectivePermissionService extends BaseModelService<EffectivePermis
 
   @transactional()
   async rebuildForTenant(tenantId: string, ...args: any[]): Promise<void> {
-    const principals = (await new PrincipalService().listAll(...args)).filter((principal) =>
-      sameTenant(principal.tenant, tenantId)
+    const principals = (await new PrincipalService().listAll(...args)).filter(
+      (principal) => sameTenant(principal.tenant, tenantId)
     );
     for (const principal of principals) {
       await this.rebuildForPrincipal(tenantId, principal.id, ...args);
@@ -1340,17 +1524,29 @@ export class ProtectedResourceService extends BaseModelService<ProtectedResource
     ownerPrincipalId: string | undefined,
     ...args: any[]
   ): Promise<ProtectedResource> {
-    return this.updateOne(protectedResourceId, { owner: ownerPrincipalId }, ...args);
+    return this.updateOne(
+      protectedResourceId,
+      { owner: ownerPrincipalId },
+      ...args
+    );
   }
 
-  async listOrgUnitResources(orgUnitId: string, ...args: any[]): Promise<ProtectedResource[]> {
+  async listOrgUnitResources(
+    orgUnitId: string,
+    ...args: any[]
+  ): Promise<ProtectedResource[]> {
     return (await this.listAll(...args)).filter((resource) =>
       relationMatch(resource.orgUnit, orgUnitId)
     );
   }
 
-  async listTenantResources(tenantId: string, ...args: any[]): Promise<ProtectedResource[]> {
-    return (await this.listAll(...args)).filter((resource) => sameTenant(resource.tenant, tenantId));
+  async listTenantResources(
+    tenantId: string,
+    ...args: any[]
+  ): Promise<ProtectedResource[]> {
+    return (await this.listAll(...args)).filter((resource) =>
+      sameTenant(resource.tenant, tenantId)
+    );
   }
 }
 
@@ -1359,7 +1555,10 @@ export class ResourceGrantService extends BaseModelService<ResourceGrant> {
     super(ResourceGrant);
   }
 
-  async grantResource(input: GrantResourceInput, ...args: any[]): Promise<ResourceGrant> {
+  async grantResource(
+    input: GrantResourceInput,
+    ...args: any[]
+  ): Promise<ResourceGrant> {
     return this.createOne(
       {
         id: id(),
@@ -1380,7 +1579,10 @@ export class ResourceGrantService extends BaseModelService<ResourceGrant> {
     await this.deleteById(grantId, ...args);
   }
 
-  async listResourceGrants(protectedResourceId: string, ...args: any[]): Promise<ResourceGrant[]> {
+  async listResourceGrants(
+    protectedResourceId: string,
+    ...args: any[]
+  ): Promise<ResourceGrant[]> {
     return (await this.listAll(...args)).filter((grant) =>
       relationMatch(grant.resource, protectedResourceId)
     );
@@ -1392,7 +1594,9 @@ export class ResourceGrantService extends BaseModelService<ResourceGrant> {
     ...args: any[]
   ): Promise<ResourceGrant[]> {
     return (await this.listAll(...args)).filter(
-      (grant) => sameTenant(grant.tenant, tenantId) && relationMatch(grant.principal, principalId)
+      (grant) =>
+        sameTenant(grant.tenant, tenantId) &&
+        relationMatch(grant.principal, principalId)
     );
   }
 
@@ -1404,7 +1608,9 @@ export class ResourceGrantService extends BaseModelService<ResourceGrant> {
     at?: Date,
     ...args: any[]
   ): Promise<boolean> {
-    return (await this.listPrincipalGrants(tenantId, principalId, ...args)).some(
+    return (
+      await this.listPrincipalGrants(tenantId, principalId, ...args)
+    ).some(
       (grant) =>
         relationMatch(grant.resource, protectedResourceId) &&
         grant.permissionKey === permissionKey &&
@@ -1426,9 +1632,18 @@ export class ResourceGrantService extends BaseModelService<ResourceGrant> {
 }
 
 export class ResourceLifecycleService {
-  async unregisterResource(protectedResourceId: string, ...args: any[]): Promise<void> {
-    await new ResourceGrantService().deleteAllForResource(protectedResourceId, ...args);
-    await new ProtectedResourceService().deleteById(protectedResourceId, ...args);
+  async unregisterResource(
+    protectedResourceId: string,
+    ...args: any[]
+  ): Promise<void> {
+    await new ResourceGrantService().deleteAllForResource(
+      protectedResourceId,
+      ...args
+    );
+    await new ProtectedResourceService().deleteById(
+      protectedResourceId,
+      ...args
+    );
   }
 
   async resolveResourceScope(
@@ -1440,7 +1655,10 @@ export class ResourceLifecycleService {
     visibility: ResourceVisibility;
     ownerPrincipalId?: string;
   }> {
-    const resource = await new ProtectedResourceService().getById(protectedResourceId, ...args);
+    const resource = await new ProtectedResourceService().getById(
+      protectedResourceId,
+      ...args
+    );
     return {
       tenantId: relationId(resource.tenant),
       orgUnitId: relationId(resource.orgUnit),
@@ -1455,7 +1673,10 @@ export class StorageBindingService extends BaseModelService<StorageBinding> {
     super(StorageBinding);
   }
 
-  async createBinding(input: CreateStorageBindingInput, ...args: any[]): Promise<StorageBinding> {
+  async createBinding(
+    input: CreateStorageBindingInput,
+    ...args: any[]
+  ): Promise<StorageBinding> {
     return this.createOne(
       {
         id: id(),
@@ -1470,8 +1691,13 @@ export class StorageBindingService extends BaseModelService<StorageBinding> {
     );
   }
 
-  async listTenantBindings(tenantId: string, ...args: any[]): Promise<StorageBinding[]> {
-    return (await this.listAll(...args)).filter((binding) => sameTenant(binding.tenant, tenantId));
+  async listTenantBindings(
+    tenantId: string,
+    ...args: any[]
+  ): Promise<StorageBinding[]> {
+    return (await this.listAll(...args)).filter((binding) =>
+      sameTenant(binding.tenant, tenantId)
+    );
   }
 
   async getBinding(
@@ -1545,7 +1771,10 @@ export class BootstrapService {
     ownerUserId: string;
     ownerPrincipalId: string;
   }> {
-    const tenant = await this.tenantService.createTenant(template.tenant, ...args);
+    const tenant = await this.tenantService.createTenant(
+      template.tenant,
+      ...args
+    );
     if (template.tenant.profileKey) {
       await this.tenantProfileService.createProfile(
         tenant.id,
@@ -1587,9 +1816,21 @@ export class BootstrapService {
     };
 
     const rootOrgUnit = await createOrgTree(undefined, template.rootOrgUnit);
-    const owner = await this.userService.createUser(template.ownerUser, ...args);
-    await this.membershipService.addUserToTenant(tenant.id, owner.id, MembershipStatus.Active, ...args);
-    const ownerPrincipal = await this.principalService.getUserPrincipal(tenant.id, owner.id, ...args);
+    const owner = await this.userService.createUser(
+      template.ownerUser,
+      ...args
+    );
+    await this.membershipService.addUserToTenant(
+      tenant.id,
+      owner.id,
+      MembershipStatus.Active,
+      ...args
+    );
+    const ownerPrincipal = await this.principalService.getUserPrincipal(
+      tenant.id,
+      owner.id,
+      ...args
+    );
 
     for (const permission of template.permissions) {
       await this.permissionService.createPermission(permission, ...args);
@@ -1630,7 +1871,11 @@ export class BootstrapService {
       },
       ...args
     );
-    await this.effectivePermissionService.rebuildForPrincipal(tenant.id, ownerPrincipal.id, ...args);
+    await this.effectivePermissionService.rebuildForPrincipal(
+      tenant.id,
+      ownerPrincipal.id,
+      ...args
+    );
 
     return {
       tenantId: tenant.id,
@@ -1657,7 +1902,12 @@ export class SystemManagementService {
     roleKey: string,
     ...args: any[]
   ): Promise<{ principalId: string }> {
-    await this.membershipService.addUserToTenant(tenantId, userId, MembershipStatus.Active, ...args);
+    await this.membershipService.addUserToTenant(
+      tenantId,
+      userId,
+      MembershipStatus.Active,
+      ...args
+    );
     await this.orgMembershipService.addUserToOrgUnit(
       tenantId,
       orgUnitId,
@@ -1665,8 +1915,16 @@ export class SystemManagementService {
       MembershipStatus.Active,
       ...args
     );
-    const principal = await this.principalService.getUserPrincipal(tenantId, userId, ...args);
-    const role = await this.roleService.getTenantRoleByKey(tenantId, roleKey, ...args);
+    const principal = await this.principalService.getUserPrincipal(
+      tenantId,
+      userId,
+      ...args
+    );
+    const role = await this.roleService.getTenantRoleByKey(
+      tenantId,
+      roleKey,
+      ...args
+    );
     await this.roleAssignmentService.assignRole(
       {
         tenantId,
@@ -1678,7 +1936,11 @@ export class SystemManagementService {
       },
       ...args
     );
-    await this.effectivePermissionService.rebuildForPrincipal(tenantId, principal.id, ...args);
+    await this.effectivePermissionService.rebuildForPrincipal(
+      tenantId,
+      principal.id,
+      ...args
+    );
     return { principalId: principal.id };
   }
 
@@ -1691,12 +1953,17 @@ export class SystemManagementService {
     inheritDown: boolean,
     ...args: any[]
   ): Promise<void> {
-    const role = await this.roleService.getTenantRoleByKey(tenantId, roleKey, ...args);
-    const currentAssignments = await this.roleAssignmentService.listPrincipalAssignments(
+    const role = await this.roleService.getTenantRoleByKey(
       tenantId,
-      principalId,
+      roleKey,
       ...args
     );
+    const currentAssignments =
+      await this.roleAssignmentService.listPrincipalAssignments(
+        tenantId,
+        principalId,
+        ...args
+      );
     for (const assignment of currentAssignments.filter(
       (row) => row.scopeKind === ScopeKind.OrgUnit && row.scopeId === orgUnitId
     )) {
@@ -1713,7 +1980,11 @@ export class SystemManagementService {
       },
       ...args
     );
-    await this.effectivePermissionService.rebuildForPrincipal(tenantId, principalId, ...args);
+    await this.effectivePermissionService.rebuildForPrincipal(
+      tenantId,
+      principalId,
+      ...args
+    );
   }
 
   @transactional()
@@ -1728,7 +1999,11 @@ export class SystemManagementService {
       MembershipStatus.Suspended,
       ...args
     );
-    await this.effectivePermissionService.deleteForPrincipal(tenantId, principalId, ...args);
+    await this.effectivePermissionService.deleteForPrincipal(
+      tenantId,
+      principalId,
+      ...args
+    );
   }
 
   @transactional()
@@ -1738,7 +2013,15 @@ export class SystemManagementService {
     principalId: string,
     ...args: any[]
   ): Promise<void> {
-    await this.membershipService.setStatus(tenantMembershipId, MembershipStatus.Active, ...args);
-    await this.effectivePermissionService.rebuildForPrincipal(tenantId, principalId, ...args);
+    await this.membershipService.setStatus(
+      tenantMembershipId,
+      MembershipStatus.Active,
+      ...args
+    );
+    await this.effectivePermissionService.rebuildForPrincipal(
+      tenantId,
+      principalId,
+      ...args
+    );
   }
 }

@@ -1,4 +1,4 @@
-import { BaseModelService, id, relationId, sameTenant } from "../utils";
+import { BaseModelService, sameTenant } from "../utils";
 import { TenantProfile } from "../models/tenant-profile.model";
 
 export class TenantProfileService extends BaseModelService<TenantProfile> {
@@ -22,8 +22,13 @@ export class TenantProfileService extends BaseModelService<TenantProfile> {
     );
   }
 
-  async listForTenant(tenantId: string, ...args: any[]): Promise<TenantProfile[]> {
-    return (await this.listAll(...args)).filter((profile) => sameTenant(profile.tenant, tenantId));
+  async listForTenant(
+    tenantId: string,
+    ...args: any[]
+  ): Promise<TenantProfile[]> {
+    return (await this.listAll(...args)).filter((profile) =>
+      sameTenant(profile.tenant, tenantId)
+    );
   }
 
   async deleteForTenant(tenantId: string, ...args: any[]): Promise<void> {

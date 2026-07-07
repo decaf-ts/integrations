@@ -1,9 +1,11 @@
 import path from "path";
+import { fileURLToPath } from "url";
 import { IpfsBlobStoreService } from "../../../src/blob/ipfs/IpfsBlobStoreService";
 import { collectToBuffer } from "../../../src/blob/core/BlobValue";
 import { DockerComposeService } from "../../../src/docker";
 
-const composeFile = path.resolve(import.meta.dirname, "../../../docker/ipfs-compose.yml");
+const testDirname = path.dirname(fileURLToPath(import.meta.url));
+const composeFile = path.resolve(testDirname, "../../../docker/ipfs-compose.yml");
 const workingDir = path.dirname(composeFile);
 
 let dockerService: DockerComposeService;

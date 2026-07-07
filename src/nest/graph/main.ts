@@ -18,18 +18,18 @@ async function bootstrap(): Promise<void> {
   app.enableCors();
   await app.listen(port);
 
-  // eslint-disable-next-line no-console
+   
   console.log(`[graph-backend] NestJS graph execution server listening on http://localhost:${port}`);
-  // eslint-disable-next-line no-console
+   
   console.log(`[graph-backend]   POST   /graph/execute`);
-  // eslint-disable-next-line no-console
+   
   console.log(`[graph-backend]   GET    /graph/events (SSE)`);
-  // eslint-disable-next-line no-console
+   
   console.log(`[graph-backend]   GET    /graph/results/:runId`);
 }
 
 bootstrap().catch((err) => {
-  // eslint-disable-next-line no-console
+   
   console.error("[graph-backend] Failed to start:", err);
   process.exit(1);
 });

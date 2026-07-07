@@ -13,10 +13,7 @@ import type {
   GraphWorkflowDefinition,
 } from "@decaf-ts/ui-decorators/graph";
 
-import type {
-  GraphExecutionEventType,
-  GraphExecutionStatus,
-} from "../shared/constants";
+import type { GraphExecutionStatus } from "../shared/constants";
 import type {
   GraphExecutionErrorPayload,
   GraphExecutionEvent,

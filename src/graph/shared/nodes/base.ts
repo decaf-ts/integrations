@@ -25,6 +25,7 @@ export class GraphNode extends Model {
    * @returns The computed change, or `null` when the node kind does not
    *   support dynamic metadata.
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   static applyMetadata(_meta: unknown): NodeMetadataChange | null {
     return null;
   }

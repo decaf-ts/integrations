@@ -1,11 +1,13 @@
 import path from "path";
+import { fileURLToPath } from "url";
 import {
   VaultSecretService,
   VaultSecretServiceConfig,
 } from "../../src/secrets/vault";
 import { DockerComposeService } from "../../src/docker";
 
-const composeFile = path.resolve(import.meta.dirname, "../../docker/vault-compose.yml");
+const testDirname = path.dirname(fileURLToPath(import.meta.url));
+const composeFile = path.resolve(testDirname, "../../docker/vault-compose.yml");
 const workingDir = path.dirname(composeFile);
 
 let dockerService: DockerComposeService;

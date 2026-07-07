@@ -13,6 +13,7 @@ import { jest, describe, beforeAll, afterAll, it, expect } from "@jest/globals";
 import "../../src/nest";
 
 import path from "path";
+import { fileURLToPath } from "url";
 import { Test } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
 import { Adapter } from "@decaf-ts/core";
@@ -49,10 +50,8 @@ const KEYCLOAK_PROTOCOL =
 const KEYCLOAK_ADMIN_USER = process.env.KEYCLOAK_ADMIN_USER || "admin";
 const KEYCLOAK_ADMIN_PASSWORD = process.env.KEYCLOAK_ADMIN_PASSWORD || "admin";
 const KEYCLOAK_BASE_URL = `${KEYCLOAK_PROTOCOL}://${KEYCLOAK_HOST}`;
-const composeFile = path.resolve(
-  import.meta.dirname,
-  "../../docker/keycloak-compose.yml"
-);
+const testDirname = path.dirname(fileURLToPath(import.meta.url));
+const composeFile = path.resolve(testDirname, "../../docker/keycloak-compose.yml");
 const workingDir = path.dirname(composeFile);
 
 const REALM = `e2e-role-${Math.random().toString(36).slice(2, 10)}`;

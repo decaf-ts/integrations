@@ -1,4 +1,4 @@
-import { AuthorizationError, Cascade, ModelService, Repository } from "@decaf-ts/core";
+import { Cascade, ModelService, Repository } from "@decaf-ts/core";
 import { Model } from "@decaf-ts/decorator-validation";
 import {
   AccessContext,
@@ -6,7 +6,6 @@ import {
   EffectivePermissionSnapshot,
   GrantSnapshot,
   QdrantAuthFilter,
-  ResourceVisibility,
   ScopeKind,
 } from "./types";
 
@@ -66,7 +65,10 @@ export function buildQdrantFilter(options: {
       {
         should: [
           { key: "org_unit_id", match: { any: options.allowedOrgUnitIds } },
-          { key: "protected_resource_id", match: { any: options.allowedResourceIds } },
+          {
+            key: "protected_resource_id",
+            match: { any: options.allowedResourceIds },
+          },
           { key: "owner_principal_id", match: { value: options.principalId } },
         ],
       },
@@ -90,8 +92,13 @@ export function sameTenant(rowTenant: unknown, tenantId: string): boolean {
   return relationId(rowTenant as { id: string } | string) === tenantId;
 }
 
-export function relationMatch(value: unknown, target: string | undefined): boolean {
-  return target ? relationId(value as { id: string } | string) === target : false;
+export function relationMatch(
+  value: unknown,
+  target: string | undefined
+): boolean {
+  return target
+    ? relationId(value as { id: string } | string) === target
+    : false;
 }
 
 export function lowerSlug(value: string): string {
@@ -104,7 +111,11 @@ export function lowerSlug(value: string): string {
   );
 }
 
-export function isTimeValid(at: Date | undefined, startsAt?: Date, expiresAt?: Date): boolean {
+export function isTimeValid(
+  at: Date | undefined,
+  startsAt?: Date,
+  expiresAt?: Date
+): boolean {
   const instant = at ?? new Date();
   if (startsAt && instant < startsAt) return false;
   if (expiresAt && instant > expiresAt) return false;
@@ -127,7 +138,9 @@ export function buildAccessContext(options: {
     if (permission.scopeKind === ScopeKind.OrgUnit) {
       allowedOrgUnitIdsByPermission[permission.permissionKey] =
         allowedOrgUnitIdsByPermission[permission.permissionKey] ?? [];
-      allowedOrgUnitIdsByPermission[permission.permissionKey].push(permission.scopeId);
+      allowedOrgUnitIdsByPermission[permission.permissionKey].push(
+        permission.scopeId
+      );
     }
   }
 
@@ -136,17 +149,16 @@ export function buildAccessContext(options: {
     principalId: options.principalId,
     permissionsByScope,
     allowedOrgUnitIdsByPermission,
-      resourceGrants: options.grants.map((grant) => ({
-        resourceId: grant.resourceId,
-        permissionKey: grant.permissionKey,
-      })),
+    resourceGrants: options.grants.map((grant) => ({
+      resourceId: grant.resourceId,
+      permissionKey: grant.permissionKey,
+    })),
   };
 }
 
-export abstract class BaseModelService<M extends Model<boolean> & { id: string }> extends ModelService<
-  M,
-  Repository<M, any>
-> {
+export abstract class BaseModelService<
+  M extends Model<boolean> & { id: string },
+> extends ModelService<M, Repository<M, any>> {
   protected constructor(clazz: new () => M) {
     super(clazz);
   }
@@ -176,12 +188,23 @@ export abstract class BaseModelService<M extends Model<boolean> & { id: string }
     await this.repo.delete(id, ...args);
   }
 
-  async findOneBy<K extends keyof M & string>(key: K, value: M[K], ...args: any[]): Promise<M> {
+  async findOneBy<K extends keyof M & string>(
+    key: K,
+    value: M[K],
+    ...args: any[]
+  ): Promise<M> {
     return this.repo.findOneBy(key, value, ...args);
   }
 
-  async findManyBy<K extends keyof M & string>(key: K, value: M[K], ...args: any[]): Promise<M[]> {
-    return this.repo.select().where({ [key]: value } as any).execute(...args);
+  async findManyBy<K extends keyof M & string>(
+    key: K,
+    value: M[K],
+    ...args: any[]
+  ): Promise<M[]> {
+    return this.repo
+      .select()
+      .where({ [key]: value } as any)
+      .execute(...args);
   }
 
   async listAll(...args: any[]): Promise<M[]> {

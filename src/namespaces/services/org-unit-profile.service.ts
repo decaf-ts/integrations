@@ -1,4 +1,4 @@
-import { BaseModelService, id, relationMatch } from "../utils";
+import { BaseModelService, relationMatch } from "../utils";
 import { OrgUnitProfile } from "../models/org-unit-profile.model";
 
 export class OrgUnitProfileService extends BaseModelService<OrgUnitProfile> {
@@ -22,7 +22,12 @@ export class OrgUnitProfileService extends BaseModelService<OrgUnitProfile> {
     );
   }
 
-  async listForOrgUnit(orgUnitId: string, ...args: any[]): Promise<OrgUnitProfile[]> {
-    return (await this.listAll(...args)).filter((profile) => relationMatch(profile.orgUnit, orgUnitId));
+  async listForOrgUnit(
+    orgUnitId: string,
+    ...args: any[]
+  ): Promise<OrgUnitProfile[]> {
+    return (await this.listAll(...args)).filter((profile) =>
+      relationMatch(profile.orgUnit, orgUnitId)
+    );
   }
 }

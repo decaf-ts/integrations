@@ -51,6 +51,8 @@ function ask(){
 
 # Default publish preference is public
 PUBLISH_ACCESS_FLAG="public"
+VERSION_BUMP=""
+TAG=""
 
 
 while [[ $# -gt 0 ]]; do
@@ -79,8 +81,14 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ $# -ne 0 ]];then
-  TAG="$1"
-  if [[ -n "$TAG" ]];then
+  RELEASE_ARG="$1"
+  if [[ "$RELEASE_ARG" == "major" || "$RELEASE_ARG" == "minor" || "$RELEASE_ARG" == "patch" ]]; then
+    VERSION_BUMP="$RELEASE_ARG"
+  else
+    TAG="$RELEASE_ARG"
+  fi
+
+  if [[ -n "$RELEASE_ARG" ]];then
     shift
   fi
 
@@ -90,7 +98,7 @@ fi
 echo "Preparing release prerequisites..."
 npm run prepare-release
 
-if [[ -z "$TAG" ]];then
+if [[ -z "$TAG" && -z "$VERSION_BUMP" ]];then
   echo "Listing existing tags..."
   git tag --sort=-taggerdate | head -n 5
   while [[ "$TAG" == "" || ! "${TAG}" =~ ^v[0-9]+\.[0-9]+.[0-9]+(\-[0-9a-zA-Z\-]+)?$ ]]; do
@@ -102,12 +110,18 @@ if [[ -z "$MESSAGE" ]];then
   MESSAGE=$(ask "Tag Message")
 fi
 
-if [[ $(git status --porcelain) ]]; then
-  git add .
-  git commit -m "$TAG - $MESSAGE - after release preparation"
+if [[ -z "$VERSION_BUMP" ]]; then
+  RELEASE_LABEL="$TAG"
+else
+  RELEASE_LABEL="$VERSION_BUMP"
 fi
 
-npm version "$TAG" -m "$MESSAGE"
+if [[ $(git status --porcelain) ]]; then
+  git add .
+  git commit -m "$RELEASE_LABEL - $MESSAGE - after release preparation"
+fi
+
+npm version "${VERSION_BUMP:-$TAG}" -m "$MESSAGE"
 
 GIT_USER=$(git config user.name)
 

@@ -1,4 +1,5 @@
 import path from "path";
+import { fileURLToPath } from "url";
 import axios from "axios";
 import {
   KeycloakService,
@@ -7,8 +8,9 @@ import {
 } from "../../src/keycloak";
 import { DockerComposeService } from "../../src/docker";
 
+const testDirname = path.dirname(fileURLToPath(import.meta.url));
 const composeFile = path.resolve(
-  import.meta.dirname,
+  testDirname,
   "../../docker/keycloak-compose.yml"
 );
 const workingDir = path.dirname(composeFile);
