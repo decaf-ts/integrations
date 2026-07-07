@@ -4,8 +4,9 @@
  * @description Engine-private type aliases and interfaces. Frontend-safe
  * types (`ExprValue`, `ConditionExpression`, `CodeCondition`,
  * `SwitchCaseCondition`, `SwitchCase`, `SwitchNodeMetadata`,
- * `NodeMetadataChange`) live in `../shared/types`; engine modules import
- * shared symbols from there and engine-private symbols from here.
+ * `NodeMetadataChange`, `GraphExecutionEvent`, `GraphExecutionErrorPayload`)
+ * live in `../shared/types`; engine modules import shared symbols from there
+ * and engine-private symbols from here.
  */
 import type {
   GraphNodeDefinition,
@@ -16,6 +17,16 @@ import type {
   GraphExecutionEventType,
   GraphExecutionStatus,
 } from "../shared/constants";
+import type {
+  GraphExecutionErrorPayload,
+  GraphExecutionEvent,
+} from "../shared/types";
+
+// Re-export frontend-safe types so engine modules have a single import surface.
+export type {
+  GraphExecutionErrorPayload,
+  GraphExecutionEvent,
+} from "../shared/types";
 
 /**
  * Unique identifier for a single graph execution run.
@@ -58,41 +69,6 @@ export interface GraphExecutionOptions {
   maxForeachIterations?: number;
   usePinnedValues?: boolean;
   writeThroughCache?: boolean;
-  metadata?: Record<string, unknown>;
-}
-
-/**
- * Serialized error payload included in execution events and results.
- */
-export interface GraphExecutionErrorPayload {
-  name: string;
-  message: string;
-  stack?: string;
-  code?: string;
-  details?: unknown;
-}
-
-/**
- * A single event emitted during graph execution.
- */
-export interface GraphExecutionEvent {
-  id: string;
-  sequence: number;
-  runId: GraphRunId;
-  parentRunId?: GraphRunId;
-  workflowId: GraphWorkflowId;
-  type: GraphExecutionEventType;
-  timestamp: Date;
-
-  nodeId?: GraphNodeId;
-  edgeId?: string;
-  port?: GraphPortName;
-  iteration?: number;
-  path: string[];
-
-  status?: GraphExecutionStatus;
-  payload?: unknown;
-  error?: GraphExecutionErrorPayload;
   metadata?: Record<string, unknown>;
 }
 

@@ -3,10 +3,13 @@
  * @summary Frontend-safe graph type declarations.
  * @description Type aliases and interfaces that are safe to import from a
  * frontend bundle. These types describe declarative graph metadata (loop
- * condition DSL, switch cases, node metadata patches) consumed by the
- * renderer and the node CRUD screens — no engine runtime dependency.
+ * condition DSL, switch cases, node metadata patches) and the execution-event
+ * data contract consumed by the frontend via SSE — no engine runtime
+ * dependency.
  */
 import type { GraphPortDefinition } from "@decaf-ts/ui-decorators/graph";
+
+import type { GraphExecutionEventType, GraphExecutionStatus } from "./constants";
 
 /**
  * A value reference inside a {@link ConditionExpression}.
@@ -92,4 +95,45 @@ export interface NodeMetadataChange {
   ports: GraphPortDefinition[];
   size: { width: number; height: number };
   dataPatch: Record<string, unknown>;
+}
+
+/**
+ * Serialized error payload included in execution events and results.
+ *
+ * Frontend-safe: the frontend receives this over SSE when a node or workflow
+ * fails and needs to render the error details.
+ */
+export interface GraphExecutionErrorPayload {
+  name: string;
+  message: string;
+  stack?: string;
+  code?: string;
+  details?: unknown;
+}
+
+/**
+ * A single event emitted during graph execution.
+ *
+ * Frontend-safe: the frontend consumes these events over the SSE endpoint
+ * (`GET /graph/events`) and maps them to UI state updates via
+ * `GraphExecutionStateMapper`. The `timestamp` is serialised as an ISO string
+ * over the wire; the frontend deserialises it back to a `Date` when mapping.
+ */
+export interface GraphExecutionEvent {
+  id: string;
+  sequence: number;
+  runId: string;
+  parentRunId?: string;
+  workflowId: string;
+  type: GraphExecutionEventType;
+  timestamp: Date;
+  nodeId?: string;
+  edgeId?: string;
+  port?: string;
+  iteration?: number;
+  path: string[];
+  status?: GraphExecutionStatus;
+  payload?: unknown;
+  error?: GraphExecutionErrorPayload;
+  metadata?: Record<string, unknown>;
 }
