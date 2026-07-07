@@ -8,7 +8,7 @@ import { Adapter, Repository } from "@decaf-ts/core";
 import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
 
 import { GraphExecutionEngine } from "../../graph";
-import { createGraphExecutorRegistry } from "./GraphExecutorRegistryFactory";
+import { createDemoEngineConfig } from "./GraphExecutorRegistryFactory";
 import { GraphExecutionResultModel } from "./GraphExecutionResultModel";
 import {
   GRAPH_RESULT_REPOSITORY,
@@ -62,8 +62,10 @@ export class GraphExecutionModule {
             RamAdapter.decoration();
             Adapter.setCurrent(RamFlavour);
           }
-          const registry = createGraphExecutorRegistry();
-          return new GraphExecutionEngine({ registry });
+          const config = createDemoEngineConfig();
+          const engine = new GraphExecutionEngine(config);
+          config.onEngineCreated(engine);
+          return engine;
         },
       },
       {
