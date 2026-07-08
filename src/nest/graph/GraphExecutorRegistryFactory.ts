@@ -17,6 +17,8 @@ import {
   ForeachGraphNodeExecutor,
   WhileGraphNodeExecutor,
   UntilGraphNodeExecutor,
+  CodeGraphNodeExecutor,
+  IsolatedVmCodeSandboxEvaluator,
 } from "../../graph";
 import type {
   SwitchNodeMetadata,
@@ -78,7 +80,6 @@ const executorMap: Record<string, ExecutorFn> = {
   "core.flow.parallel": (input) => ({ branches: [input["value"] ?? input] }),
   "core.flow.errorBoundary": (input) => ({ result: input["value"] ?? input }),
   "core.flow.humanApproval": (input) => ({ approved: input["value"] ?? input }),
-  "core.flow.code": (input) => ({ result: input["input"] ?? input }),
   "core.agent": (input) => ({
     response: `[Agent response] ${String(input["prompt"] ?? "")}`,
     actions: [],
@@ -98,7 +99,9 @@ const executorMap: Record<string, ExecutorFn> = {
  * - `graph-intake-workflow`, `graph-planning-pipeline`, `graph-draft-node`,
  *   `graph-review-node`, `graph-publish-workflow` — publishing workflow demo.
  * - `core.flow.*` — flow-control kinds (map, delay, return, merge, if, switch,
- *   parallel, errorBoundary, humanApproval, code).
+ *   parallel, errorBoundary, humanApproval). The `core.flow.code` kind is
+ *   registered in `onEngineCreated` via the real {@link CodeGraphNodeExecutor}
+ *   because it needs the engine's `codeSandboxEvaluator`.
  * - `core.agent` — agent node.
  * - `core.loop.foreach`, `core.loop.while`, `core.loop.until` — loop executors
  *   (registered after the engine is created via `onEngineCreated`).
@@ -126,24 +129,32 @@ export function createGraphExecutorRegistry(
 
 /**
  * Builds a {@link GraphExecutionEngineConfig} populated with all demo executors
- * including loop executors that need a back-reference to the engine.
+ * including loop executors that need a back-reference to the engine and the
+ * Code node executor that needs the engine's `codeSandboxEvaluator`.
+ *
+ * The config wires an {@link IsolatedVmCodeSandboxEvaluator} (backed by
+ * `isolated-vm`) so the Code Node runs in a truly isolated V8 sandbox.
  *
  * @returns A config object ready for `new GraphExecutionEngine(config)`.
  */
 export function createDemoEngineConfig(): {
   registry: GraphNodeExecutorRegistry;
   defaultOptions: { failFast: boolean };
+  codeSandboxEvaluator: IsolatedVmCodeSandboxEvaluator;
   onEngineCreated: (engine: GraphExecutionEngine) => void;
 } {
   const registry = createGraphExecutorRegistry();
+  const codeSandboxEvaluator = new IsolatedVmCodeSandboxEvaluator();
 
   return {
     registry,
     defaultOptions: { failFast: false },
+    codeSandboxEvaluator,
     onEngineCreated: (engine: GraphExecutionEngine) => {
       registry.register("core.loop.foreach", new ForeachGraphNodeExecutor(engine));
       registry.register("core.loop.while", new WhileGraphNodeExecutor(engine));
       registry.register("core.loop.until", new UntilGraphNodeExecutor(engine));
+      registry.register("core.flow.code", new CodeGraphNodeExecutor(engine));
     },
   };
 }

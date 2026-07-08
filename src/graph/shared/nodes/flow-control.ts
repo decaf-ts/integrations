@@ -351,13 +351,14 @@ export class ReturnFlowNode extends Model {
 }
 
 /**
- * Code — sandboxed JS/TS code execution (ALFRED-5 §7).
+ * Code — sandboxed JS/TS code execution (ALFRED-5 §7, DECAF-32 §22.4).
  *
- * The engine does not implement the sandbox directly (§22.4). A future
- * executor may wrap the `CodeSandbox` contract (ALFRED-5 §7.17) as a
- * pluggable executor. The placeholder syntax (`{{ $input }}`, `{{ $item }}`,
- * `{{ $index }}`, `{{ $vars }}`, `{{ $node["Name"].output }}`) is Mastra-
- * agnostic and lives in the downstream project's `modules/core` (ALFRED-6).
+ * The engine's {@link CodeGraphNodeExecutor} delegates to the pluggable
+ * {@link CodeSandboxEvaluator}. The default
+ * `IsolatedVmCodeSandboxEvaluator` (backed by `isolated-vm`) enforces the
+ * Code Node restrictions: no imports, no requires, pure functions only. The
+ * sandbox context exposes `$input`, `$vars`, `$item`, `$index`, `$node`, and
+ * `$output` as data variables. TypeScript is supported via transpilation.
  */
 @node("core.flow.code", {
   kind: "core.flow.code",
@@ -372,6 +373,7 @@ export class ReturnFlowNode extends Model {
     description: "Runs user-authored JS/TS in a restricted VM sandbox. Supports placeholder syntax for workflow data references.",
     code: "",
     language: "javascript",
+    timeoutMs: 1000,
   },
 })
 @model()

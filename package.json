@@ -293,9 +293,13 @@
     "@decaf-ts/logging": "latest",
     "@decaf-ts/transactional-decorators": "latest",
     "@decaf-ts/ui-decorators": "latest",
+    "acorn": "^8.17.0",
+    "acorn-walk": "^8.3.5",
     "axios": "^1.7.9",
+    "isolated-vm": "^6.1.2",
     "node-fetch": "^3.3.2",
     "tslib": "^2.8.1",
+    "typescript": "^5.9.3",
     "uuid": "^11.1.1"
   },
   "devDependencies": {

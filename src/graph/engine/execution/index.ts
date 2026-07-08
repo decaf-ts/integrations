@@ -10,3 +10,5 @@ export * from "./GraphExecutionFrame";
 export * from "./GraphExecutionEngine";
 export * from "./CodeSandboxEvaluator";
 export * from "./SwitchGraphNodeExecutor";
+export * from "./CodeGraphNodeExecutor";
+export * from "./IsolatedVmCodeSandboxEvaluator";
