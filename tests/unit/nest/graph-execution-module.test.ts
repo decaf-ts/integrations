@@ -4,7 +4,8 @@
  * @description Bootstraps {@link GraphExecutionModule} via `@nestjs/testing` and validates:
  * - `POST /graph/execute` executes a workflow and returns the correct result.
  * - SSE events are emitted in the correct order through the `events()` Observable.
- * - `GET /graph/results/:runId` retrieves the persisted result from RamAdapter.
+ * - `GET /graph/results/:runId` retrieves the persisted result via the service.
+ * - `PUT /graph/workflow/:id` persists and retrieves a workflow snapshot.
  */
 import { jest, describe, beforeAll, afterAll, it, expect } from "@jest/globals";
 
@@ -25,13 +26,10 @@ import {
 import {
   GraphExecutionController,
   GraphExecutionModule,
-  GRAPH_RESULT_REPOSITORY,
+  GraphResultService,
+  GraphWorkflowService,
 } from "../../../src/nest/graph";
 
-/**
- * Builds the linear workflow used in tests, with inline port definitions so it
- * works without decorated model classes.
- */
 function buildLinearWorkflow(): GraphWorkflowDefinition {
   return {
     name: "linear-wf",
@@ -94,7 +92,8 @@ jest.setTimeout(30000);
 describe("GraphExecutionModule (unit)", () => {
   let app: INestApplication;
   let controller: GraphExecutionController;
-  let repository: any;
+  let resultService: GraphResultService;
+  let workflowService: GraphWorkflowService;
   let sseEvents: GraphExecutionEvent[];
 
   beforeAll(async () => {
@@ -106,7 +105,8 @@ describe("GraphExecutionModule (unit)", () => {
     await app.init();
 
     controller = moduleRef.get(GraphExecutionController);
-    repository = moduleRef.get(GRAPH_RESULT_REPOSITORY);
+    resultService = moduleRef.get(GraphResultService);
+    workflowService = moduleRef.get(GraphWorkflowService);
 
     sseEvents = [];
     const sub = controller["events"]().subscribe((msg: any) => {
@@ -161,20 +161,20 @@ describe("GraphExecutionModule (unit)", () => {
     expect(types).toContain(GraphExecutionEventType.WORKFLOW_COMPLETED);
   });
 
-  it("persists the result and retrieves it via the repository", async () => {
+  it("persists the result and retrieves it via the service", async () => {
     const workflow = buildLinearWorkflow();
     const inputs: GraphExecutionValues = { a: 7, b: 8 };
 
     const response = await controller.execute({ workflow, inputs });
 
-    // Retrieve via the repository directly
-    const persisted = (await repository.read(response.runId)) as any;
+    // Retrieve via the service directly
+    const persisted = await resultService.findByRunId(response.runId);
     expect(persisted).toBeTruthy();
-    expect(persisted.runId).toBe(response.runId);
-    expect(persisted.workflowId).toBe("linear-wf");
-    expect(persisted.status).toBe(GraphExecutionStatus.SUCCEEDED);
-    expect(persisted.outputs.result).toBe(30); // (7 + 8) * 2
-    expect(persisted.inputs).toEqual(inputs);
+    expect(persisted!.runId).toBe(response.runId);
+    expect(persisted!.workflowId).toBe("linear-wf");
+    expect(persisted!.status).toBe(GraphExecutionStatus.SUCCEEDED);
+    expect(persisted!.outputs.result).toBe(30); // (7 + 8) * 2
+    expect(persisted!.inputs).toEqual(inputs);
   });
 
   it("GET /graph/results/:runId returns the persisted result via HTTP", async () => {
@@ -202,5 +202,23 @@ describe("GraphExecutionModule (unit)", () => {
       .get("/graph/results/nonexistent-run-id");
 
     expect(res.status).toBe(404);
+  });
+
+  it("PUT /graph/workflow/:id saves and retrieves a workflow snapshot via the service", async () => {
+    const snapshot = { state: { nodes: [], edges: [] }, metadata: { serializedAt: "2024-01-01" } };
+
+    const res = await request(app.getHttpServer())
+      .put("/graph/workflow/test-wf-1")
+      .send(snapshot);
+
+    expect(res.status).toBe(200);
+    expect(res.body.workflowId).toBe("test-wf-1");
+    expect(res.body.savedAt).toBeTruthy();
+
+    // Verify via the service
+    const persisted = await workflowService.loadSnapshot("test-wf-1");
+    expect(persisted).toBeTruthy();
+    expect(persisted!.workflowId).toBe("test-wf-1");
+    expect(persisted!.snapshot).toEqual(snapshot);
   });
 });
