@@ -38,6 +38,7 @@ export * from "./execution/GraphExecutionEngine";
 export * from "./execution/CodeSandboxEvaluator";
 export * from "./execution/SwitchGraphNodeExecutor";
 export * from "./execution/CodeGraphNodeExecutor";
+export * from "./execution/LogGraphNodeExecutor";
 export * from "./execution/IsolatedVmCodeSandboxEvaluator";
 
 export * from "./registry/GraphNodeExecutorRegistry";

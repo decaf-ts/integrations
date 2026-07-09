@@ -42,6 +42,7 @@ import * as ts from "typescript";
 import type {
   CodeSandboxEvaluator,
   CodeSandboxContext,
+  SandboxLogger,
 } from "./CodeSandboxEvaluator";
 import { GraphExecutionError } from "../errors/GraphExecutionError";
 
@@ -82,6 +83,7 @@ const BLOCKED_IDENTIFIERS: ReadonlySet<string> = new Set([
   "Worker",
   "Deno",
   "Bun",
+  "__dispatch",
 ]);
 
 /**
@@ -332,6 +334,14 @@ export class IsolatedVmCodeSandboxEvaluator implements CodeSandboxEvaluator {
     try {
       const jail = context.global;
 
+      // Inject a `console` object into the isolate whose methods forward to
+      // the Context logger (bound to runId). The logger is called via
+      // `ivm.Reference` so the isolate can invoke host functions without
+      // leaking the host heap.
+      if (ctx.logger) {
+        await this.injectConsole(jail, ctx.logger, context);
+      }
+
       for (const [name, value] of Object.entries(sandboxVars)) {
         await jail.set(
           name,
@@ -410,5 +420,129 @@ export class IsolatedVmCodeSandboxEvaluator implements CodeSandboxEvaluator {
       context.release();
       isolate.dispose();
     }
+  }
+
+  /**
+   * Injects a `console` object into the isolate whose methods forward to the
+   * Context logger (bound to `runId`).
+   *
+   * Every standard `console.*` method is supported:
+   * `log`, `info`, `warn`, `error`, `debug`, `trace`, `dir`, `dirxml`,
+   * `table`, `group`, `groupCollapsed`, `groupEnd`, `time`, `timeEnd`,
+   * `timeLog`, `assert`, `count`, `countReset`, `clear`.
+   *
+   * Arguments are serialised inside the isolate (via `JSON.stringify` with a
+   * safe fallback) before being passed across the isolate boundary, because
+   * `isolated-vm` cannot copy arbitrary host objects.
+   *
+   * @param jail - The isolate's global object.
+   * @param logger - The Context logger that receives the forwarded calls.
+   * @param context - The isolate context (for running the init script).
+   */
+  private async injectConsole(
+    jail: ivm.Context["global"],
+    logger: SandboxLogger,
+    context: ivm.Context
+  ): Promise<void> {
+    const dispatch = new ivm.Reference(function (level: string, argsJson: string) {
+      let parsed: unknown[];
+      try {
+        parsed = JSON.parse(argsJson) as unknown[];
+      } catch {
+        parsed = [argsJson];
+      }
+      const msg = parsed
+        .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+        .join(" ");
+      const meta = parsed.length === 1 ? parsed[0] : parsed;
+      switch (level) {
+        case "log":
+        case "info":
+          logger.info(msg, meta);
+          break;
+        case "warn":
+          logger.warn(msg, meta);
+          break;
+        case "error":
+          logger.error(msg, meta);
+          break;
+        case "debug":
+          logger.debug(msg, meta);
+          break;
+        case "trace":
+          logger.trace(msg, meta);
+          break;
+        case "dir":
+        case "dirxml":
+        case "table":
+          logger.debug(msg, meta);
+          break;
+        case "group":
+        case "groupCollapsed":
+          logger.debug(`[group] ${msg}`, meta);
+          break;
+        case "groupEnd":
+          logger.debug("[groupEnd]", undefined);
+          break;
+        case "time":
+        case "timeEnd":
+        case "timeLog":
+          logger.debug(`[${level}] ${msg}`, meta);
+          break;
+        case "assert":
+          if (!parsed[0]) logger.error(`Assertion failed: ${msg}`, meta);
+          break;
+        case "count":
+        case "countReset":
+          logger.debug(`[${level}] ${msg}`, meta);
+          break;
+        case "clear":
+          break;
+        default:
+          logger.info(msg, meta);
+      }
+    });
+
+    await jail.set("__dispatch", dispatch);
+
+    context.evalSync(`
+      function __ser() {
+        var out = [];
+        for (var i = 0; i < arguments.length; i++) {
+          var a = arguments[i];
+          try { out.push(typeof a === 'object' ? JSON.parse(JSON.stringify(a)) : a); }
+          catch (e) { out.push(String(a)); }
+        }
+        return JSON.stringify(out);
+      }
+      function __call(level) {
+        return function() {
+          __dispatch.applySync(undefined, [level, __ser.apply(null, arguments)]);
+        };
+      }
+      globalThis.console = {
+        log: __call('log'),
+        info: __call('info'),
+        warn: __call('warn'),
+        error: __call('error'),
+        debug: __call('debug'),
+        trace: __call('trace'),
+        dir: __call('dir'),
+        dirxml: __call('dirxml'),
+        table: __call('table'),
+        group: __call('group'),
+        groupCollapsed: __call('groupCollapsed'),
+        groupEnd: __call('groupEnd'),
+        time: __call('time'),
+        timeEnd: __call('timeEnd'),
+        timeLog: __call('timeLog'),
+        assert: __call('assert'),
+        count: __call('count'),
+        countReset: __call('countReset'),
+        clear: __call('clear')
+      };
+    `);
+
+    dispatch.release();
   }
 }

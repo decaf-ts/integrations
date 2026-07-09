@@ -22,6 +22,10 @@ import type { CodeSandboxEvaluator } from "./CodeSandboxEvaluator";
 
 /**
  * Reads the Switch metadata from the node definition's graph metadata.
+ *
+ * The metadata is stored under `graph.metadata.switch` (the location used by
+ * statically-declared `@node` workflows). When absent, falls back to an empty
+ * default with the `default` port enabled.
  */
 function readSwitchMetadata(
   context: GraphExecutionContext
@@ -29,14 +33,15 @@ function readSwitchMetadata(
   const meta = context.node.graph?.metadata as
     | Record<string, unknown>
     | undefined;
-  if (!meta) return { cases: [], defaultPort: "default" };
+  if (!meta) return { cases: [], defaultPort: "default", hasDefault: true };
   const switchMeta = meta["switch"] as SwitchNodeMetadata | undefined;
   if (!switchMeta || !Array.isArray(switchMeta.cases)) {
-    return { cases: [], defaultPort: "default" };
+    return { cases: [], defaultPort: "default", hasDefault: true };
   }
   return {
     cases: switchMeta.cases,
     defaultPort: switchMeta.defaultPort ?? "default",
+    hasDefault: switchMeta.hasDefault !== false,
   };
 }
 
@@ -70,8 +75,9 @@ function isConditionExpression(
  * Executor for `core.flow.switch` nodes.
  *
  * Evaluates each case's condition in order and routes the input to the
- * first matching case's output port. When no case matches, routes to the
- * `default` output port.
+ * first matching case's output port. When no case matches:
+ * - If `hasDefault` is `true` (or omitted), routes to the `default` output port.
+ * - If `hasDefault` is `false`, returns an empty output (the input is dropped).
  *
  * Condition evaluation:
  * - `ConditionExpression` — evaluated via {@link ConditionExpressionEvaluator}.
@@ -105,6 +111,10 @@ export class SwitchGraphNodeExecutor implements GraphNodeExecutor {
       }
     }
 
+    // No case matched — route to the default port when it is enabled.
+    if (meta.hasDefault === false) {
+      return {};
+    }
     const defaultPort = meta.defaultPort ?? "default";
     return { [defaultPort]: inputValue };
   }
@@ -154,10 +164,21 @@ export class SwitchGraphNodeExecutor implements GraphNodeExecutor {
       language: condition.language ?? "javascript",
     });
 
+    const md = context.metadata as Record<string, unknown> | undefined;
+
     const result = await evaluator.evaluate({
       code: condition.code,
       language: condition.language,
       input,
+      vars: (md?.vars as Record<string, unknown> | undefined) ?? undefined,
+      item: md?.item,
+      index: md?.index as number | undefined,
+      nodes:
+        (md?.nodes as Record<string, Record<string, unknown>> | undefined) ??
+        undefined,
+      logger: context.logger as unknown as
+        | import("./CodeSandboxEvaluator").SandboxLogger
+        | undefined,
     });
 
     return !!result;

@@ -33,6 +33,30 @@ export interface CodeSandboxContext {
   index?: number;
   /** Outputs of upstream nodes, accessible as `$node["Name"].output`. */
   nodes?: Record<string, Record<string, unknown>>;
+  /**
+   * Optional logger that receives `console.log/warn/debug/error` calls from
+   * inside the sandbox. When provided, a `console` object is injected into
+   * the isolate whose methods forward to this logger.
+   */
+  logger?: SandboxLogger;
+}
+
+/**
+ * Minimal logger interface the sandbox can call without importing the full
+ * Decaf logging package (keeps the interface frontend-safe). Mirrors the
+ * methods on `@decaf-ts/logging`'s `Logger`.
+ */
+export interface SandboxLogger {
+  benchmark(msg: string, meta?: unknown): void;
+  fatal(msg: string, meta?: unknown): void;
+  critical(msg: string, meta?: unknown): void;
+  silly(msg: string, meta?: unknown): void;
+  verbose(msg: string, meta?: unknown): void;
+  info(msg: string, meta?: unknown): void;
+  debug(msg: string, meta?: unknown): void;
+  error(msg: string, meta?: unknown): void;
+  warn(msg: string, meta?: unknown): void;
+  trace(msg: string, meta?: unknown): void;
 }
 
 /**

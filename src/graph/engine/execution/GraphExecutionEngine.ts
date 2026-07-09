@@ -445,6 +445,12 @@ export class GraphExecutionEngine
 
   /**
    * Resolves a node's input values from incoming edges.
+   *
+   * When multiple edges target the same port, their values are spread into the
+   * top-level inputs keyed by each edge's `sourcePort`. This allows multiple
+   * workflow input badges to connect to a single port (e.g. the Code node's
+   * `data` port) and have all values accessible directly as
+   * `$input.{sourcePort}` (e.g. `$input.count`, `$input.text`).
    */
   private resolveNodeInputs(
     frame: GraphExecutionFrame,
@@ -453,12 +459,30 @@ export class GraphExecutionEngine
   ): GraphExecutionValues {
     const inputs: GraphExecutionValues = {};
     const incoming = plan.incomingByNode.get(planNode.id) ?? [];
+
+    const edgesByTarget = new Map<string, typeof incoming>();
     for (const edge of incoming) {
-      inputs[edge.targetPort] = frame.valueStore.getPort(
-        edge.sourceNodeId,
-        edge.sourcePort
-      );
+      const list = edgesByTarget.get(edge.targetPort) ?? [];
+      list.push(edge);
+      edgesByTarget.set(edge.targetPort, list);
     }
+
+    for (const [targetPort, edges] of edgesByTarget) {
+      if (edges.length === 1) {
+        inputs[targetPort] = frame.valueStore.getPort(
+          edges[0].sourceNodeId,
+          edges[0].sourcePort
+        );
+      } else {
+        for (const edge of edges) {
+          inputs[edge.sourcePort] = frame.valueStore.getPort(
+            edge.sourceNodeId,
+            edge.sourcePort
+          );
+        }
+      }
+    }
+
     return inputs;
   }
 

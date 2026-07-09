@@ -75,6 +75,7 @@ export class ForeachGraphNodeExecutor implements GraphNodeExecutor {
         {
           parentRunId: context.runId,
           path: [...context.path, `iteration:${i}`],
+          metadata: { item: items[i], index: i },
         }
       );
 

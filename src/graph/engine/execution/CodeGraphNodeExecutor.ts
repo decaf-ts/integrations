@@ -4,14 +4,19 @@
  * @description Executes user-authored JS/TS in a restricted sandbox via the
  * pluggable {@link CodeSandboxEvaluator}. The sandbox enforces the Code Node
  * restrictions: no imports, no requires, pure functions only (no system API
- * access). The executor reads the code, language, and timeout from the node's
- * graph metadata, resolves the sandbox context from the node's input values
- * and execution context, invokes the evaluator, and returns the result on the
+ * access). The executor reads the code from the node's `code` input port
+ * (spliced from {@link CodeInputSchema}), the timeout from the node's graph
+ * metadata, resolves the sandbox context from the node's input values and
+ * execution context, invokes the evaluator, and returns the result on the
  * `result` output port.
  */
 import type { GraphNodeExecutor } from "./GraphNodeExecutor";
 import type { GraphExecutionContext } from "./GraphExecutionContext";
-import type { CodeSandboxEvaluator, CodeSandboxContext } from "./CodeSandboxEvaluator";
+import type {
+  CodeSandboxEvaluator,
+  CodeSandboxContext,
+  SandboxLogger,
+} from "./CodeSandboxEvaluator";
 import type { GraphExecutionValues } from "../types";
 import { GraphExecutionError } from "../errors/GraphExecutionError";
 import { GraphInputError } from "../errors/GraphInputError";
@@ -20,10 +25,9 @@ import { GraphInputError } from "../errors/GraphInputError";
  * Metadata stored on a Code node's `graph.metadata` field.
  */
 interface CodeNodeMetadata {
-  code?: string;
-  language?: "javascript" | "typescript";
   timeoutMs?: number;
   outputSchema?: unknown;
+  defaultCode?: string;
 }
 
 /**
@@ -34,9 +38,7 @@ function readCodeMetadata(context: GraphExecutionContext): CodeNodeMetadata {
     | Record<string, unknown>
     | undefined;
   if (!meta) return {};
-  const codeMeta = meta["code"] as CodeNodeMetadata | undefined;
-  if (!codeMeta) return {};
-  return codeMeta;
+  return meta as CodeNodeMetadata;
 }
 
 /**
@@ -48,17 +50,17 @@ function readCodeMetadata(context: GraphExecutionContext): CodeNodeMetadata {
  * no evaluator is registered, the executor throws
  * `GRAPH_CODE_SANDBOX_NOT_CONFIGURED`.
  *
+ * The code is read from the `code` input port (spliced from
+ * {@link CodeInputSchema}). The language is hardcoded to `"javascript"` for
+ * now (the `language` field on `CodeInputSchema` has no `@input` so it is not
+ * a port and not wired). The timeout is read from `graph.metadata.timeoutMs`.
+ *
  * The sandbox context exposes:
- * - `$input` — the value on the node's `input` port (or the full input object
- *   as a fallback when no `input` port is present).
- * - `$vars` — workflow variables (sourced from `context.metadata.vars` when
- *   the engine populates it).
- * - `$item` / `$index` — current loop item and index (sourced from
- *   `context.metadata` when the node executes inside a foreach body).
- * - `$node` — outputs of upstream nodes (sourced from
- *   `context.metadata.nodes` when available).
- * - `$output` — the current draft output (sourced from
- *   `context.metadata.output`).
+ * - `$input` — the full input values object (all resolved port values).
+ * - `$vars` — workflow variables (sourced from `context.metadata.vars`).
+ * - `$item` / `$index` — current loop item and index.
+ * - `$node` — outputs of upstream nodes.
+ * - `$output` — the current draft output.
  *
  * The evaluator's return value is forwarded verbatim on the `result` output
  * port.
@@ -67,7 +69,7 @@ export class CodeGraphNodeExecutor implements GraphNodeExecutor {
   /**
    * @param engine - The graph execution engine (or any object exposing the
    *   optional `codeSandboxEvaluator`). This mirrors the pattern used by
-   *   {@link SwitchGraphNodeExecutor} for code conditions.
+   * {@link SwitchGraphNodeExecutor} for code conditions.
    */
   constructor(
     private readonly engine?: { codeSandboxEvaluator?: CodeSandboxEvaluator }
@@ -78,12 +80,12 @@ export class CodeGraphNodeExecutor implements GraphNodeExecutor {
     context: GraphExecutionContext
   ): Promise<GraphExecutionValues> {
     const meta = readCodeMetadata(context);
-    const code = meta.code;
+    const code = (input["code"] as string | undefined) ?? meta.defaultCode;
 
     if (!code || typeof code !== "string" || code.trim().length === 0) {
       throw new GraphInputError(
-        "Code node has no code to execute (metadata.code is empty)",
-        { metadata: meta }
+        "Code node has no code to execute (input.code is empty)",
+        { input }
       );
     }
 
@@ -96,11 +98,12 @@ export class CodeGraphNodeExecutor implements GraphNodeExecutor {
       );
     }
 
-    const sandboxContext = this.buildSandboxContext(input, context, meta);
+    const sandboxContext = this.buildSandboxContext(input, context);
 
     await context.log("Executing code node", {
-      language: meta.language ?? "javascript",
+      language: "javascript",
       length: code.length,
+      timeoutMs: meta.timeoutMs,
     });
 
     const result = await evaluator.evaluate(sandboxContext);
@@ -114,9 +117,8 @@ export class CodeGraphNodeExecutor implements GraphNodeExecutor {
    * Builds the {@link CodeSandboxContext} from the executor input and the
    * graph execution context.
    *
-   * The `$input` value is resolved from the node's `input` port. When the node
-   * has no explicit `input` port, the full input values object is used as
-   * `$input` so the code can still access every resolved port value.
+   * The `$input` value is the full input values object so the code can access
+   * every resolved port value (including `code` itself via `$input.code`).
    *
    * The `$vars`, `$item`, `$index`, `$node`, and `$output` values are sourced
    * from `context.metadata` — the engine (or a wrapping loop executor) may
@@ -125,25 +127,23 @@ export class CodeGraphNodeExecutor implements GraphNodeExecutor {
    */
   private buildSandboxContext(
     input: GraphExecutionValues,
-    context: GraphExecutionContext,
-    meta: CodeNodeMetadata
+    context: GraphExecutionContext
   ): CodeSandboxContext {
-    const inputPortValue = "input" in input ? input["input"] : input;
     const md = context.metadata as Record<string, unknown> | undefined;
+    const meta = readCodeMetadata(context);
+    const code = (input["code"] as string | undefined) ?? meta.defaultCode ?? "";
 
     return {
-      code: meta.code!,
-      language: meta.language ?? "javascript",
-      input:
-        typeof inputPortValue === "object" && inputPortValue !== null
-          ? (inputPortValue as Record<string, unknown>)
-          : { value: inputPortValue },
+      code,
+      language: "javascript",
+      input: input as Record<string, unknown>,
       vars: (md?.vars as Record<string, unknown> | undefined) ?? undefined,
       item: md?.item,
       index: md?.index as number | undefined,
       nodes:
         (md?.nodes as Record<string, Record<string, unknown>> | undefined) ??
         undefined,
+      logger: context.logger as unknown as SandboxLogger | undefined,
     };
   }
 }

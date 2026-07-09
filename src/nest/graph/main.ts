@@ -15,7 +15,7 @@ async function bootstrap(): Promise<void> {
   const port = Number(process.env["GRAPH_BACKEND_PORT"] ?? process.argv[2] ?? 3000);
 
   const app = await NestFactory.create(GraphExecutionModule.forRoot());
-  app.enableCors();
+  app.enableCors({ origin: true, credentials: true });
   await app.listen(port);
 
    

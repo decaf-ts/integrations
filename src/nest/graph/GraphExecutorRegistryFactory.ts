@@ -3,9 +3,10 @@
  * @summary Factory that builds a populated {@link GraphNodeExecutorRegistry}.
  * @description Creates a registry pre-loaded with the demo executors used by
  * the graph execution backend's sample workflows. The executors cover the
- * publishing-workflow node tags, the flow-control kinds, the agent kind, and
- * the loop kinds. Additional executors can be registered on the returned
- * registry before it is handed to the {@link GraphExecutionEngine}.
+ * flow-control kinds (including Code, Log, and Switch with code conditions),
+ * the agent kind, and the loop kinds. Additional executors can be registered
+ * on the returned registry before it is handed to the
+ * {@link GraphExecutionEngine}.
  */
 import {
   GraphNodeExecutorRegistry,
@@ -13,17 +14,13 @@ import {
   type GraphNodeExecutor,
   type GraphExecutionContext,
   type GraphExecutionValues,
-  ConditionExpressionEvaluator,
   ForeachGraphNodeExecutor,
   WhileGraphNodeExecutor,
   UntilGraphNodeExecutor,
   CodeGraphNodeExecutor,
+  LogGraphNodeExecutor,
+  SwitchGraphNodeExecutor,
   IsolatedVmCodeSandboxEvaluator,
-} from "../../graph";
-import type {
-  SwitchNodeMetadata,
-  SwitchCaseCondition,
-  ConditionExpression,
 } from "../../graph";
 
 type ExecutorFn = (
@@ -34,49 +31,11 @@ type ExecutorFn = (
 const executorMap: Record<string, ExecutorFn> = {
   "math.add": (input) => ({ sum: Number(input.a) + Number(input.b) }),
   "math.multiply": (input) => ({ product: Number(input.x) * 2 }),
-  "graph-intake-workflow": (input) => ({
-    brief: `[Normalized brief] ${String(input["request"] ?? "")}`,
-  }),
-  "graph-planning-pipeline": (input) => ({
-    plan: `[Plan] Steps derived from: ${String(input["brief"] ?? "")}`,
-  }),
-  "graph-draft-node": (input) => ({
-    draft: `[Draft] ${String(input["plan"] ?? "")}`,
-  }),
-  "graph-review-node": (input) => ({
-    approved: `[Approved] ${String(input["draft"] ?? "")}`,
-  }),
-  "graph-publish-workflow": (input) => ({
-    artifact: `[Published] ${String(input["approved"] ?? "")}`,
-  }),
   "core.flow.map": (input) => ({ result: { mapped: input["value"] ?? input } }),
   "core.flow.delay": (input) => ({ valueOut: input["value"] ?? input }),
   "core.flow.return": (input) => ({ result: input["value"] ?? input }),
   "core.flow.merge": (input) => ({ merged: input["values"] ?? input }),
   "core.flow.if": (input) => ({ then: input["value"] ?? input }),
-  "core.flow.switch": (input, context) => {
-    const meta = (context.node.graph?.metadata as Record<string, unknown> | undefined)?.["switch"] as
-      | SwitchNodeMetadata
-      | undefined;
-    const inputValue = input["value"] ?? input;
-    if (!meta || !meta.cases || meta.cases.length === 0) {
-      return { [meta?.defaultPort ?? "default"]: inputValue };
-    }
-    const evaluator = new ConditionExpressionEvaluator();
-    for (const c of meta.cases) {
-      const cond = c.condition as SwitchCaseCondition;
-      if ("op" in cond) {
-        try {
-          if (evaluator.evaluate(cond as ConditionExpression, inputValue)) {
-            return { [c.outputPort]: inputValue };
-          }
-        } catch {
-          // skip unparseable conditions in demo
-        }
-      }
-    }
-    return { [meta.defaultPort ?? "default"]: inputValue };
-  },
   "core.flow.parallel": (input) => ({ branches: [input["value"] ?? input] }),
   "core.flow.errorBoundary": (input) => ({ result: input["value"] ?? input }),
   "core.flow.humanApproval": (input) => ({ approved: input["value"] ?? input }),
@@ -96,12 +55,11 @@ const executorMap: Record<string, ExecutorFn> = {
  *
  * Registered kinds:
  * - `math.add`, `math.multiply` — arithmetic demo executors.
- * - `graph-intake-workflow`, `graph-planning-pipeline`, `graph-draft-node`,
- *   `graph-review-node`, `graph-publish-workflow` — publishing workflow demo.
- * - `core.flow.*` — flow-control kinds (map, delay, return, merge, if, switch,
- *   parallel, errorBoundary, humanApproval). The `core.flow.code` kind is
- *   registered in `onEngineCreated` via the real {@link CodeGraphNodeExecutor}
- *   because it needs the engine's `codeSandboxEvaluator`.
+ * - `core.flow.*` — flow-control kinds (map, delay, return, merge, if,
+ *   parallel, errorBoundary, humanApproval). The `core.flow.code`,
+ *   `core.flow.log`, and `core.flow.switch` kinds are registered in
+ *   `onEngineCreated` via their real executors because Code and Switch
+ *   need the engine's `codeSandboxEvaluator`.
  * - `core.agent` — agent node.
  * - `core.loop.foreach`, `core.loop.while`, `core.loop.until` — loop executors
  *   (registered after the engine is created via `onEngineCreated`).
@@ -155,6 +113,8 @@ export function createDemoEngineConfig(): {
       registry.register("core.loop.while", new WhileGraphNodeExecutor(engine));
       registry.register("core.loop.until", new UntilGraphNodeExecutor(engine));
       registry.register("core.flow.code", new CodeGraphNodeExecutor(engine));
+      registry.register("core.flow.log", new LogGraphNodeExecutor());
+      registry.register("core.flow.switch", new SwitchGraphNodeExecutor(engine));
     },
   };
 }

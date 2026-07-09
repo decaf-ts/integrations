@@ -11,7 +11,7 @@
  * executors (§5.9) and are NOT redeclared here.
  */
 import { Model, model, required } from "@decaf-ts/decorator-validation";
-import { uielement } from "@decaf-ts/ui-decorators";
+import { uielement, hidden } from "@decaf-ts/ui-decorators";
 import {
   graphDefinitionOf,
   input,
@@ -101,13 +101,25 @@ export class SwitchFlowNode extends GraphNode {
   /**
    * Computes the node's ports, size, and data patch from the given switch
    * metadata. Each case gets its own output port on the right side; the
-   * node grows in height as cases are added.
+   * `default` port always renders **last** (DECAF-32 §21 port-ordering rule,
+   * DECAF-34 §6.2). When `hasDefault` is `false`, the `default` output port
+   * is omitted entirely. The node grows in height as cases are added.
    */
   static override applyMetadata(meta: SwitchNodeMetadata): NodeMetadataChange {
     const definition = graphDefinitionOf(this as never);
+    const defaultPortName = meta.defaultPort ?? "default";
+    const hasDefault = meta.hasDefault !== false;
+
+    // Base ports excluding any port that collides with a case output port.
     const basePorts = definition.ports.filter(
       (p) => !meta.cases.some((c) => c.outputPort === p.property)
     );
+    // Separate the default output port so it can be placed last (or omitted).
+    const nonDefaultPorts = basePorts.filter(
+      (p) => p.property !== defaultPortName
+    );
+    const defaultPort = basePorts.find((p) => p.property === defaultPortName);
+
     const casePorts: GraphPortDefinition[] = meta.cases.map((c) => ({
       property: c.outputPort,
       name: c.label,
@@ -117,9 +129,16 @@ export class SwitchFlowNode extends GraphNode {
       hidden: false,
       path: c.outputPort,
     }));
+
+    // Port order: inputs/non-default outputs first, case outputs next, default last.
+    const ports = [...nonDefaultPorts, ...casePorts];
+    if (hasDefault && defaultPort) {
+      ports.push(defaultPort);
+    }
+
     const caseCount = meta.cases.length;
     return {
-      ports: [...basePorts, ...casePorts],
+      ports,
       size: {
         width: definition.width ?? 120,
         height: caseCount > 0 ? 140 + caseCount * 24 : definition.height ?? 140,
@@ -360,6 +379,32 @@ export class ReturnFlowNode extends Model {
  * sandbox context exposes `$input`, `$vars`, `$item`, `$index`, `$node`, and
  * `$output` as data variables. TypeScript is supported via transpilation.
  */
+
+/**
+ * Input schema for the Code node. The `@input` on `CodeFlowNode.input` is a
+ * schema group — the nested model's `@input` ports are spliced into the
+ * parent unprefixed. `code` has `@input` + `@uielement("code-editor")`, so it
+ * appears as a port AND in the CRUD modal (the only visible field). `data`
+ * has `@input` + `@hidden()` but no `@uielement`, so it is a canvas-only port
+ * (for edge connections from workflow input badges) but never appears in the
+ * CRUD modal. `language` has no `@input` and no `@uielement`, so it is
+ * neither a port nor rendered — it defaults to `"javascript"`.
+ */
+@model()
+export class CodeInputSchema extends Model {
+  @required()
+  language: string = "javascript";
+
+  @required()
+  @uielement("code-editor", { label: "Code", placeholder: "// User-authored JS code" })
+  @input({ handle: "code" })
+  code!: string;
+
+  @hidden()
+  @input({ handle: "data" })
+  data?: unknown;
+}
+
 @node("core.flow.code", {
   kind: "core.flow.code",
   category: "Utility",
@@ -371,22 +416,49 @@ export class ReturnFlowNode extends Model {
   metadata: {
     title: "Code",
     description: "Runs user-authored JS/TS in a restricted VM sandbox. Supports placeholder syntax for workflow data references.",
-    code: "",
-    language: "javascript",
     timeoutMs: 1000,
   },
 })
 @model()
 export class CodeFlowNode extends Model {
   @required()
-  @uielement("textarea", { label: "Input", placeholder: "Input object (accessible as $input)" })
-  @input({ handle: "input" })
-  input!: unknown;
+  @input({ handle: "input", model: CodeInputSchema })
+  input!: CodeInputSchema;
 
   @required()
-  @uielement("input", { label: "Result", placeholder: "Code execution result" })
   @output({ handle: "result" })
   result!: unknown;
+}
+
+/**
+ * Log — logs the input value and forwards it unchanged on the `logged`
+ * output port. Useful for debugging, audit trails, and discard/side-effect
+ * branches in a workflow.
+ */
+@node("core.flow.log", {
+  kind: "core.flow.log",
+  category: "Utility",
+  color: "#6366f1",
+  icon: "ti-terminal",
+  width: 96,
+  height: 96,
+  labels: ["flow", "log", "debug", "utility"],
+  metadata: {
+    title: "Log",
+    description: "Logs the input value to the execution logger and forwards it unchanged.",
+  },
+})
+@model()
+export class LogFlowNode extends Model {
+  @required()
+  @uielement("textarea", { label: "Input value", placeholder: "Value to log" })
+  @input({ handle: "value" })
+  value!: unknown;
+
+  @required()
+  @uielement("input", { label: "Logged value", placeholder: "Forwarded value" })
+  @output({ handle: "logged" })
+  logged!: unknown;
 }
 
 /**
@@ -403,4 +475,5 @@ export const GRAPH_FLOW_CONTROL_NODES = [
   HumanApprovalFlowNode,
   ReturnFlowNode,
   CodeFlowNode,
+  LogFlowNode,
 ] as const;
