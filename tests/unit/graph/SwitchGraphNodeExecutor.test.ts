@@ -76,13 +76,14 @@ describe("SwitchGraphNodeExecutor", () => {
           },
         ],
         defaultPort: "default",
+        hasDefault: true,
       };
       const ctx = buildContext(meta);
       const result = await executor.execute({ value: { n: 99 } }, ctx);
       expect(result).toEqual({ default: { n: 99 } });
     });
 
-    it("returns an empty object when no case matches and hasDefault is false", async () => {
+    it("throws GRAPH_SWITCH_NO_MATCH when no case matches and hasDefault is false", async () => {
       const meta: SwitchNodeMetadata = {
         cases: [
           {
@@ -96,8 +97,12 @@ describe("SwitchGraphNodeExecutor", () => {
         hasDefault: false,
       };
       const ctx = buildContext(meta);
-      const result = await executor.execute({ value: { n: 99 } }, ctx);
-      expect(result).toEqual({});
+      await expect(executor.execute({ value: { n: 99 } }, ctx)).rejects.toThrow(
+        GraphExecutionError
+      );
+      await expect(executor.execute({ value: { n: 99 } }, ctx)).rejects.toThrow(
+        /No switch case matched/i
+      );
     });
 
     it("evaluates cases in order — first match wins", async () => {
@@ -135,6 +140,7 @@ describe("SwitchGraphNodeExecutor", () => {
           },
         ],
         defaultPort: "default",
+        hasDefault: true,
       };
       const ctx = buildContext(meta);
       expect(await executor.execute({ value: { name: "foo" } }, ctx)).toEqual({
@@ -162,6 +168,7 @@ describe("SwitchGraphNodeExecutor", () => {
           },
         ],
         defaultPort: "default",
+        hasDefault: true,
       };
       const ctx = buildContext(meta);
       expect(await executor.execute({ value: { n: 15 } }, ctx)).toEqual({
@@ -207,6 +214,7 @@ describe("SwitchGraphNodeExecutor", () => {
           },
         ],
         defaultPort: "default",
+        hasDefault: true,
       };
       const ctx = buildContext(meta, { index: 3 });
       const result = await executor.execute({ value: "item" }, ctx);
@@ -224,6 +232,7 @@ describe("SwitchGraphNodeExecutor", () => {
           },
         ],
         defaultPort: "default",
+        hasDefault: true,
       };
       const ctx = buildContext(meta);
       expect(await executor.execute({ value: "non-empty" }, ctx)).toEqual({
@@ -326,20 +335,21 @@ describe("SwitchGraphNodeExecutor", () => {
   describe("empty / missing metadata", () => {
     it("routes to default when there are no cases", async () => {
       const executor = new SwitchGraphNodeExecutor({});
-      const ctx = buildContext({ cases: [], defaultPort: "default" });
+      const ctx = buildContext({ cases: [], defaultPort: "default", hasDefault: true });
       const result = await executor.execute({ value: 42 }, ctx);
       expect(result).toEqual({ default: 42 });
     });
 
-    it("returns empty when no cases and hasDefault is false", async () => {
+    it("throws GRAPH_SWITCH_NO_MATCH when no cases and hasDefault is false", async () => {
       const executor = new SwitchGraphNodeExecutor({});
       const ctx = buildContext({
         cases: [],
         defaultPort: "default",
         hasDefault: false,
       });
-      const result = await executor.execute({ value: 42 }, ctx);
-      expect(result).toEqual({});
+      await expect(executor.execute({ value: 42 }, ctx)).rejects.toThrow(
+        /No switch case matched/i
+      );
     });
   });
 

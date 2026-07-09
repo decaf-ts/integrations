@@ -307,7 +307,7 @@
     "@decaf-ts/cli": "latest",
     "@decaf-ts/for-http": "latest",
     "@decaf-ts/for-nano": "latest",
-    "@decaf-ts/for-nest": "0.11.2-refactor.9",
+    "@decaf-ts/for-nest": "latest",
     "@decaf-ts/utils": "latest",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
@@ -323,7 +323,7 @@
   "peerDependencies": {
     "@decaf-ts/as-zod": "latest",
     "@decaf-ts/for-http": "latest",
-    "@decaf-ts/for-nest": "0.11.2-refactor.9",
+    "@decaf-ts/for-nest": "latest",
     "jose": ">=5.0.0"
   },
   "peerDependenciesMeta": {

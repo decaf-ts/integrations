@@ -33,15 +33,15 @@ function readSwitchMetadata(
   const meta = context.node.graph?.metadata as
     | Record<string, unknown>
     | undefined;
-  if (!meta) return { cases: [], defaultPort: "default", hasDefault: true };
+  if (!meta) return { cases: [], defaultPort: "default", hasDefault: false };
   const switchMeta = meta["switch"] as SwitchNodeMetadata | undefined;
   if (!switchMeta || !Array.isArray(switchMeta.cases)) {
-    return { cases: [], defaultPort: "default", hasDefault: true };
+    return { cases: [], defaultPort: "default", hasDefault: false };
   }
   return {
     cases: switchMeta.cases,
     defaultPort: switchMeta.defaultPort ?? "default",
-    hasDefault: switchMeta.hasDefault !== false,
+    hasDefault: switchMeta.hasDefault === true,
   };
 }
 
@@ -76,8 +76,8 @@ function isConditionExpression(
  *
  * Evaluates each case's condition in order and routes the input to the
  * first matching case's output port. When no case matches:
- * - If `hasDefault` is `true` (or omitted), routes to the `default` output port.
- * - If `hasDefault` is `false`, returns an empty output (the input is dropped).
+ * - If `hasDefault` is `true`, routes to the `default` output port.
+ * - If `hasDefault` is `false` (the default), throws `GRAPH_SWITCH_NO_MATCH`.
  *
  * Condition evaluation:
  * - `ConditionExpression` — evaluated via {@link ConditionExpressionEvaluator}.
@@ -112,8 +112,12 @@ export class SwitchGraphNodeExecutor implements GraphNodeExecutor {
     }
 
     // No case matched — route to the default port when it is enabled.
-    if (meta.hasDefault === false) {
-      return {};
+    if (meta.hasDefault !== true) {
+      throw new GraphExecutionError(
+        "No switch case matched and default port is not enabled",
+        "GRAPH_SWITCH_NO_MATCH",
+        { cases: meta.cases.map((c) => c.id) }
+      );
     }
     const defaultPort = meta.defaultPort ?? "default";
     return { [defaultPort]: inputValue };

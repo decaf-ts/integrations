@@ -83,6 +83,7 @@ export class IfFlowNode extends Model {
     switch: {
       cases: [],
       defaultPort: "default",
+      hasDefault: false,
     },
   },
 })
@@ -108,7 +109,7 @@ export class SwitchFlowNode extends GraphNode {
   static override applyMetadata(meta: SwitchNodeMetadata): NodeMetadataChange {
     const definition = graphDefinitionOf(this as never);
     const defaultPortName = meta.defaultPort ?? "default";
-    const hasDefault = meta.hasDefault !== false;
+    const hasDefault = meta.hasDefault === true;
 
     // Base ports excluding any port that collides with a case output port.
     const basePorts = definition.ports.filter(

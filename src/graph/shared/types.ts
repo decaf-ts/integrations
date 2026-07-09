@@ -80,9 +80,9 @@ export interface SwitchCase {
 /**
  * Metadata for a Switch node, stored in `metadata.switch`.
  *
- * When `hasDefault` is `false`, the `default` output port is hidden and the
- * executor returns an empty output (no port) when no case matches. When
- * `hasDefault` is `true` (or omitted), the `default` output port is visible
+ * When `hasDefault` is `false` (the default), the `default` output port is
+ * hidden and the executor throws a `GraphExecutionError` when no case
+ * matches. When `hasDefault` is `true`, the `default` output port is visible
  * and receives the input when no case matches (DECAF-34 §6.2).
  */
 export interface SwitchNodeMetadata {
