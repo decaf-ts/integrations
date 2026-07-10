@@ -71,6 +71,17 @@
       },
       "default": "./lib/esm/nest/graph/index.js"
     },
+    "./loader": {
+      "import": {
+        "types": "./lib/types/loader/index.d.mts",
+        "default": "./lib/esm/loader/index.js"
+      },
+      "require": {
+        "types": "./lib/types/loader/index.d.cts",
+        "default": "./lib/cjs/loader/index.cjs"
+      },
+      "default": "./lib/esm/loader/index.js"
+    },
     "./namespaces": {
       "import": {
         "types": "./lib/types/namespaces/index.d.mts",

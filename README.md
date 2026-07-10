@@ -8,12 +8,14 @@
 - `@decaf-ts/integrations/keycloak`
 - `@decaf-ts/integrations/kibana`
 - `@decaf-ts/integrations/nest`
+- `@decaf-ts/integrations/loader`
 
 ## Included Modules
 
 - Keycloak provisioning helpers for realms, users, roles, identity providers, and client-scoped role wiring.
 - Kibana provisioning helpers for spaces, data views, dashboards, and realm-specific access control.
 - Nest-style JWT helpers for extracting Keycloak roles and user context from access tokens.
+- Dynamic object-loading helpers for models, adapters, repositories, services, controllers, environment objects, Angular components, and graph nodes.
 
 ## Notes
 
