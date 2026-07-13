@@ -82,6 +82,9 @@ Extends `AuthData` with:
 
 | Field | Type | Description |
 |---|---|---|
+| `user` | `string` | Normalized principal identifier used by downstream transformers and logging. |
+| `email` | `string` | Raw JWT email claim, preserved for compatibility with transformers that still read `email`. |
+| `preferred_username` | `string` | Raw JWT preferred username claim, preserved for compatibility. |
 | `token` | `string` | The raw JWT extracted from the request. Empty for public routes. |
 | `isPublic` | `boolean` | Whether the request targets a public route (skips validation). |
 | `namespaces` | `string[]` | Namespace scopes extracted from `namespaces`, `namespace`, and `namespace:`-prefixed Keycloak roles. |

@@ -88,6 +88,8 @@ describe("nest auth helpers", () => {
       await handler.authorize(buildContext(request), "Product", undefined, ctx);
 
       expect(ctx.store["user"]).toBe("user@example.com");
+      expect(ctx.store["email"]).toBe("user@example.com");
+      expect(ctx.store["preferred_username"]).toBe("user");
       expect(ctx.store["organization"]).toBe("my-client");
       expect(ctx.store["roles"]).toEqual(["reader", "writer"]);
       expect(ctx.store["namespaces"]).toEqual(["tenant:alpha", "tenant:beta"]);

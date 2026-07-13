@@ -42,7 +42,7 @@ export class KeycloakAuthHandler extends AuthHandler<
     super();
   }
 
-  @service(JwtService)
+  @service("jwt")
   protected readonly jwtService?: JwtService;
 
   protected jwt(): JwtService {
