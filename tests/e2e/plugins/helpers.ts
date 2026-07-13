@@ -9,8 +9,12 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { promisify } from "node:util";
 import http from "node:http";
+import { fileURLToPath } from "node:url";
 
 const execAsync = promisify(execCb);
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const ROOT = path.resolve(__dirname);
 export const SCREENSHOTS_DIR = path.join(ROOT, "screenshots");
