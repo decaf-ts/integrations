@@ -1,13 +1,16 @@
 import {
-  AuthService,
-  getRealmFromIssuer,
-  getTokenPayload,
-  getUser,
+  namespace,
+  extractKeycloakRoles,
+  extractKeycloakNamespaces,
   KeycloakAuthHandler,
+  KeycloakNamespaceAuthHandler,
 } from "../../src/nest";
+import { getRealmFromIssuer } from "../../src/nest/utils";
+import { JwtService } from "@decaf-ts/crypto/integration/services/jwt";
 import type { AuthExecutionContextLike } from "../../src/nest/types";
 import { AuthorizationError, Context } from "@decaf-ts/core";
 import type { AuthRequestLike } from "@decaf-ts/for-http/server";
+import { model, Model } from "@decaf-ts/decorator-validation";
 
 function buildJwt(payload: Record<string, unknown>): string {
   const header = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
@@ -20,8 +23,9 @@ const VALID_PAYLOAD = {
   email: "user@example.com",
   preferred_username: "user",
   aud: "my-client",
+  namespaces: ["tenant:alpha"],
   realm_access: { roles: ["reader"] },
-  resource_access: { app: { roles: ["writer"] } },
+  resource_access: { app: { roles: ["writer", "namespace:tenant:beta"] } },
 };
 
 function buildContext(
@@ -47,20 +51,30 @@ function buildAuthContext(): Context & {
 }
 
 describe("nest auth helpers", () => {
+  const jwtService = new JwtService();
+
   it("extracts payload and roles", () => {
     const jwt = buildJwt(VALID_PAYLOAD);
 
-    expect(getTokenPayload(jwt)?.email).toBe("user@example.com");
-    expect(new AuthService().getRoles(jwt)).toEqual(["reader", "writer"]);
+    expect(jwtService.getTokenPayload(jwt)?.email).toBe("user@example.com");
+    expect(extractKeycloakRoles(jwtService.getTokenPayload(jwt))).toEqual([
+      "reader",
+      "writer",
+    ]);
+    expect(extractKeycloakNamespaces(jwtService.getTokenPayload(jwt))).toEqual([
+      "tenant:alpha",
+      "tenant:beta",
+    ]);
     expect(getRealmFromIssuer(jwt)).toBe("demo");
-    expect(getUser(jwt)?.realm).toBe("demo");
+    expect(jwtService.getUser(jwt)?.email).toBe("user@example.com");
   });
 
   describe("KeycloakAuthHandler", () => {
     let handler: KeycloakAuthHandler;
 
     beforeEach(() => {
-      handler = new KeycloakAuthHandler();
+      handler = new KeycloakNamespaceAuthHandler() as KeycloakAuthHandler;
+      (handler as any).jwtService = new JwtService();
     });
 
     it("authorizes a valid token and accumulates auth data onto context", async () => {
@@ -76,6 +90,7 @@ describe("nest auth helpers", () => {
       expect(ctx.store["user"]).toBe("user@example.com");
       expect(ctx.store["organization"]).toBe("my-client");
       expect(ctx.store["roles"]).toEqual(["reader", "writer"]);
+      expect(ctx.store["namespaces"]).toEqual(["tenant:alpha", "tenant:beta"]);
     });
 
     it("throws AuthorizationError when token is missing", async () => {
@@ -164,6 +179,51 @@ describe("nest auth helpers", () => {
       await expect(
         handler.authorize(buildContext(request), "Product", undefined, new Context())
       ).rejects.toThrow(AuthorizationError);
+    });
+
+    it("enforces namespace metadata from the namespace decorator", async () => {
+      @namespace(["tenant:alpha"])
+      @model()
+      class NamespaceProduct extends Model {}
+
+      const request: Partial<AuthRequestLike> = {
+        path: "/products",
+        method: "GET",
+        headers: { authorization: `Bearer ${buildJwt(VALID_PAYLOAD)}` },
+      };
+
+      await expect(
+        handler.authorize(
+          buildContext(request),
+          NamespaceProduct,
+          undefined,
+          new Context()
+        )
+      ).resolves.toBeUndefined();
+
+      const deniedToken = buildJwt({
+        ...VALID_PAYLOAD,
+        namespaces: ["tenant:alpha"],
+        resource_access: { app: { roles: ["writer"] } },
+      });
+      const deniedRequest: Partial<AuthRequestLike> = {
+        path: "/products",
+        method: "GET",
+        headers: { authorization: `Bearer ${deniedToken}` },
+      };
+
+      @namespace(["tenant:beta"])
+      @model()
+      class NamespaceProductDenied extends Model {}
+
+      await expect(
+        handler.authorize(
+          buildContext(deniedRequest),
+          NamespaceProductDenied,
+          undefined,
+          new Context()
+        )
+      ).rejects.toThrow(/Missing required namespaces: tenant:beta/);
     });
   });
 });

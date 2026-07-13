@@ -1,0 +1,16 @@
+# Ignore everything by default
+*
+
+# Re-include the .gitignore itself
+!.gitignore
+
+# Re-include curated configuration (Dockerfiles, compose, host pages, scripts)
+!Dockerfile
+!docker-compose.yml
+!setup-dashboards.sh
+!dashboards.json
+!host/
+!host/**
+
+# Everything else (generated plugin source org_dashboard_embed/, build artifacts,
+# zips, node_modules) remains ignored

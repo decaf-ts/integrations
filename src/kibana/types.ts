@@ -40,6 +40,18 @@ export interface KibanaDataViewConfig {
   allowNoIndex?: boolean;
 }
 
+/**
+ * Matching strategy for composing Kibana index pattern titles.
+ */
+export enum KibanaIndexMatchMode {
+  /** Single, fully-qualified index name — no wildcards. */
+  EXACT = "exact",
+  /** Wildcard pattern matching all indices with a shared prefix (e.g. "filebeat-*"). */
+  PREFIX = "prefix",
+  /** Index name segments derived from registered LogParameterDescriptor keys. */
+  LOGGER_GENERATED = "logger-generated",
+}
+
 export interface KibanaRoleConfig {
   name: string;
   indices?: Array<{

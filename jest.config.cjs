@@ -19,7 +19,7 @@ const config = {
     ],
   },
   testRegex: "/tests/.*\\.(test|spec)\\.(ts|tsx)$",
-  transformIgnorePatterns: ["node_modules/(uuid)/.*"],
+  transformIgnorePatterns: ["node_modules/(?!(jose|uuid)/)"],
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
   coverageDirectory: "./workdocs/reports/coverage",
   collectCoverage: false,

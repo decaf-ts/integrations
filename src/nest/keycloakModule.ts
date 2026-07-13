@@ -1,21 +1,18 @@
 /**
  * @module integrations/nest/keycloakModule
  * @summary Nest module wiring for Keycloak auth.
- * @description Exposes the Nest module setup for the integration auth service and Keycloak handler.
+ * @description Exposes the Nest module setup for the Keycloak auth handlers.
  */
-import { AuthService, type AuthServiceOptions } from "./authService";
-import { KeycloakAuthHandler } from "./keycloakAuthHandler";
+import { KeycloakAuthHandler, KeycloakNamespaceAuthHandler } from "./keycloakAuthHandler";
 
 export class KeycloakModule {
   constructor(
-    public readonly authService: AuthService,
     public readonly authHandler: KeycloakAuthHandler
   ) {}
 
-  static create(options?: AuthServiceOptions): KeycloakModule {
-    const authService = new AuthService(options);
-    const authHandler = new KeycloakAuthHandler(authService);
-    return new KeycloakModule(authService, authHandler);
+  static create(): KeycloakModule {
+    const authHandler = new KeycloakNamespaceAuthHandler();
+    return new KeycloakModule(authHandler);
   }
 }
 

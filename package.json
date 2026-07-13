@@ -93,6 +93,17 @@
       },
       "default": "./lib/esm/namespaces/index.js"
     },
+    "./feature-flags": {
+      "import": {
+        "types": "./lib/types/feature-flags/index.d.mts",
+        "default": "./lib/esm/feature-flags/index.js"
+      },
+      "require": {
+        "types": "./lib/types/feature-flags/index.d.cts",
+        "default": "./lib/cjs/feature-flags/index.cjs"
+      },
+      "default": "./lib/esm/feature-flags/index.js"
+    },
     "./secrets": {
       "import": {
         "types": "./lib/types/secrets/index.d.mts",
@@ -257,6 +268,39 @@
         "default": "./lib/cjs/graph/shared/index.cjs"
       },
       "default": "./lib/esm/graph/shared/index.js"
+    },
+    "./plugins": {
+      "import": {
+        "types": "./lib/types/plugins/index.d.mts",
+        "default": "./lib/esm/plugins/index.js"
+      },
+      "require": {
+        "types": "./lib/types/plugins/index.d.cts",
+        "default": "./lib/cjs/plugins/index.cjs"
+      },
+      "default": "./lib/esm/plugins/index.js"
+    },
+    "./plugins/kibana": {
+      "import": {
+        "types": "./lib/types/plugins/kibana/index.d.mts",
+        "default": "./lib/esm/plugins/kibana/index.js"
+      },
+      "require": {
+        "types": "./lib/types/plugins/kibana/index.d.cts",
+        "default": "./lib/cjs/plugins/kibana/index.cjs"
+      },
+      "default": "./lib/esm/plugins/kibana/index.js"
+    },
+    "./plugins/superset": {
+      "import": {
+        "types": "./lib/types/plugins/superset/index.d.mts",
+        "default": "./lib/esm/plugins/superset/index.js"
+      },
+      "require": {
+        "types": "./lib/types/plugins/superset/index.d.cts",
+        "default": "./lib/cjs/plugins/superset/index.cjs"
+      },
+      "default": "./lib/esm/plugins/superset/index.js"
     }
   },
   "scripts": {
@@ -273,6 +317,9 @@
     "test:unit": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --watchman=false --testPathPatterns=\"/tests/unit\" --passWithNoTests --detectOpenHandles",
     "test:integration": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --watchman=false --testPathPatterns=\"/tests/(integration)\" --passWithNoTests --detectOpenHandles",
     "test:e2e": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --watchman=false --testPathPatterns=\"/tests/(e2e)\" --passWithNoTests --detectOpenHandles",
+    "test:e2e:plugins": "npx playwright test --config tests/e2e/plugins/playwright.config.ts --project chromium",
+    "test:e2e:plugins:kibana": "npx playwright test --config tests/e2e/plugins/playwright.config.ts tests/e2e/plugins/kibana.e2e.test.ts",
+    "test:e2e:plugins:superset": "npx playwright test --config tests/e2e/plugins/playwright.config.ts tests/e2e/plugins/superset.e2e.test.ts",
     "test:all": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --watchman=false --runInBand --testPathPatterns=\"/tests\" --passWithNoTests",
     "test:circular": "dpdm -T --no-warning --no-tree ./src/index.ts",
     "coverage": "rimraf ./workdocs/reports/data/*.json && npm run test:all -- --coverage --config=./workdocs/reports/jest.coverage.config.cjs",
@@ -318,13 +365,14 @@
     "@decaf-ts/cli": "latest",
     "@decaf-ts/for-http": "latest",
     "@decaf-ts/for-nano": "latest",
-    "@decaf-ts/for-nest": "latest",
+    "@decaf-ts/for-nest": "0.12.2-0",
     "@decaf-ts/utils": "latest",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
     "@nestjs/swagger": "^11.4.4",
     "@nestjs/testing": "^11.0.0",
+    "@playwright/test": "^1.61.1",
     "@types/jest": "^30.0.0",
     "@types/supertest": "^6.0.0",
     "reflect-metadata": "^0.2.0",
@@ -334,7 +382,7 @@
   "peerDependencies": {
     "@decaf-ts/as-zod": "latest",
     "@decaf-ts/for-http": "latest",
-    "@decaf-ts/for-nest": "latest",
+    "@decaf-ts/for-nest": "0.12.2-0",
     "jose": ">=5.0.0"
   },
   "peerDependenciesMeta": {

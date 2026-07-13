@@ -32,6 +32,8 @@ export interface KeycloakAccessTokenPayload {
   iss?: string;
   aud?: string;
   azp?: string;
+  namespace?: string | string[];
+  namespaces?: string[];
   realm_access?: { roles?: string[] };
   resource_access?: Record<string, { roles?: string[] }>;
 }

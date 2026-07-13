@@ -8,6 +8,8 @@ import type {
   KibanaRoleConfig,
   KibanaSpaceConfig,
 } from "./types";
+import { KibanaIndexMatchMode } from "./types";
+import { KibanaIndexBuilder } from "./builders/KibanaIndexBuilder";
 
 export function createDefaultKibanaSpaceConfig(realm: string): KibanaSpaceConfig {
   return {
@@ -22,20 +24,22 @@ export function createDefaultKibanaSpaceConfig(realm: string): KibanaSpaceConfig
 export function createDefaultKibanaDataViewConfigs(realm: string): KibanaDataViewConfig[] {
   const suffix = realm.toLowerCase();
   return [
-    {
-      id: `filebeat_pla_${suffix}`,
-      name: `PLA Filebeat Logs (${realm})`,
-      title: `filebeat-pla-${suffix}-*`,
-      timeFieldName: "@timestamp",
-      allowNoIndex: true,
-    },
-    {
-      id: `logs_pla_${suffix}`,
-      name: `PLA Metricbeat Logs (${realm})`,
-      title: `metricbeat-pla-${suffix}-*`,
-      timeFieldName: "@timestamp",
-      allowNoIndex: true,
-    },
+    new KibanaIndexBuilder()
+      .setMatchMode(KibanaIndexMatchMode.PREFIX)
+      .setPrefix(`filebeat-pla-${suffix}`)
+      .setId(`filebeat_pla_${suffix}`)
+      .setName(`PLA Filebeat Logs (${realm})`)
+      .setTimeFieldName("@timestamp")
+      .setAllowNoIndex(true)
+      .build(),
+    new KibanaIndexBuilder()
+      .setMatchMode(KibanaIndexMatchMode.PREFIX)
+      .setPrefix(`metricbeat-pla-${suffix}`)
+      .setId(`logs_pla_${suffix}`)
+      .setName(`PLA Metricbeat Logs (${realm})`)
+      .setTimeFieldName("@timestamp")
+      .setAllowNoIndex(true)
+      .build(),
   ];
 }
 

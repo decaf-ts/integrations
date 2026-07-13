@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Superset Embed E2E Test Host</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, sans-serif; height: 100vh; display: flex; flex-direction: column; }
+    .toolbar { padding: 12px 20px; background: #f0f0f0; border-bottom: 1px solid #ccc; display: flex; gap: 12px; align-items: center; }
+    .toolbar h1 { font-size: 16px; font-weight: 600; margin-right: auto; }
+    .toolbar button { padding: 8px 16px; border: 1px solid #ccc; border-radius: 4px; background: #fff; cursor: pointer; font-size: 14px; }
+    .toolbar button:hover { background: #e8e8e8; }
+    .toolbar button.active { background: #0066cc; color: #fff; border-color: #0066cc; }
+    #status { font-size: 12px; color: #666; padding: 4px 20px; background: #fafafa; }
+    .embed-container { flex: 1; position: relative; overflow: hidden; }
+    #supersetMount { width: 100%; height: 100%; }
+    #supersetMount iframe { width: 100%; height: 100%; border: 0; display: block; }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <h1>Superset Dashboard Embed E2E</h1>
+    <button id="btn-a" class="active">Dashboard A</button>
+    <button id="btn-b">Dashboard B</button>
+  </div>
+  <div id="status">Initializing...</div>
+  <div class="embed-container">
+    <div id="supersetMount"></div>
+  </div>
+
+  <!-- The patched SDK is loaded from the Superset container -->
+  <script type="module">
+    // These values are injected by the test harness via config.js
+    const config = window.__E2E_CONFIG || {};
+    const supersetHost = config.supersetHost || 'http://localhost:8089';
+    const embeddedA = config.embeddedA || '';
+    const embeddedB = config.embeddedB || '';
+    const dashboardA = config.dashboardA || '';
+    const dashboardB = config.dashboardB || '';
+
+    const status = document.getElementById('status');
+    const mountPoint = document.getElementById('supersetMount');
+
+    // Import the patched SDK from the Superset container
+    // The SDK is built from patched source and served by Superset
+    let embeddedDashboard = null;
+
+    // Guest token fetch — calls Superset guest token API
+    async function fetchGuestToken(dashboardId) {
+      status.textContent = `Fetching guest token for ${dashboardId || 'initial'}...`;
+      const url = dashboardId
+        ? `${supersetHost}/api/v1/security/guest_token/`
+        : `${supersetHost}/api/v1/security/guest_token/`;
+
+      // For e2e, we use the admin access token to create guest tokens
+      const loginResponse = await fetch(`${supersetHost}/api/v1/security/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: 'admin',
+          password: 'admin',
+          provider: 'db',
+          refresh: false,
+        }),
+      });
+      const loginData = await loginResponse.json();
+      const accessToken = loginData.access_token;
+
+      const targetDashboard = dashboardId || dashboardA;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user: { username: 'e2e-user', first_name: 'E2E', last_name: 'Test' },
+          resources: [{ type: 'dashboard', id: targetDashboard }],
+          rls: [],
+        }),
+      });
+      const data = await response.json();
+      status.textContent = `Got guest token for ${targetDashboard}`;
+      return data.token;
+    }
+
+    async function initEmbed() {
+      try {
+        status.textContent = 'Loading Superset embedded SDK...';
+
+        // Dynamically import the SDK from the Superset container
+        // The patched SDK is available at /superset-embedded-sdk/
+        const sdkModule = await import(`${supersetHost}/superset-embedded-sdk/dist/index.mjs`);
+        const { embedDashboard } = sdkModule;
+
+        status.textContent = 'Mounting embedded dashboard...';
+
+        embeddedDashboard = await embedDashboard({
+          id: embeddedA,
+          supersetDomain: supersetHost,
+          mountPoint: mountPoint,
+          fetchGuestToken: fetchGuestToken,
+          dashboardUiConfig: {
+            hideTitle: true,
+            hideTab: true,
+            hideChartControls: true,
+            filters: { visible: true, expanded: false },
+            urlParams: { standalone: '1' },
+          },
+          iframeTitle: 'Superset E2E Dashboard',
+        });
+
+        window.__E2E_READY = true;
+        window.__E2E_EMBEDDED = embeddedDashboard;
+        status.textContent = `READY — embedded: ${embeddedA}`;
+
+        // Capture the original iframe reference
+        const iframe = mountPoint.querySelector('iframe');
+        window.__ORIGINAL_IFRAME = iframe;
+      } catch (err) {
+        status.textContent = `ERROR — ${err.message}`;
+        window.__E2E_ERROR = err.message;
+        console.error(err);
+      }
+    }
+
+    async function switchDashboard(dashboardId) {
+      if (!embeddedDashboard) {
+        status.textContent = 'Embedded dashboard not ready';
+        return;
+      }
+
+      try {
+        status.textContent = `Switching to ${dashboardId}...`;
+        window.__E2E_SWITCH_RESULT = null;
+
+        const result = await embeddedDashboard.switchDashboard(dashboardId);
+        window.__E2E_SWITCH_RESULT = result;
+        status.textContent = `Switched to ${result.dashboardId}`;
+      } catch (err) {
+        status.textContent = `Switch error — ${err.message}`;
+        window.__E2E_ERROR = err.message;
+        console.error(err);
+      }
+    }
+
+    // Button handlers
+    document.getElementById('btn-a').addEventListener('click', () => {
+      switchDashboard(dashboardA);
+      document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
+      document.getElementById('btn-a').classList.add('active');
+    });
+
+    document.getElementById('btn-b').addEventListener('click', () => {
+      switchDashboard(dashboardB);
+      document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
+      document.getElementById('btn-b').classList.add('active');
+    });
+
+    // Expose for Playwright
+    window.__E2E_SWITCH = switchDashboard;
+    window.__E2E_INIT = initEmbed;
+
+    // Start initialization
+    initEmbed();
+  </script>
+</body>
+</html>

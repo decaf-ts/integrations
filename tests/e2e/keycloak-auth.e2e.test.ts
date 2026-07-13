@@ -24,7 +24,6 @@ import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
 import { Adapter } from "@decaf-ts/core";
 
 import { KeycloakAuthHandler } from "../../src/nest";
-import { AuthService } from "../../src/nest";
 import { Product } from "./fakes/models/Product";
 import { FakePartner } from "./fakes/models/FakePartner";
 import { FsProduct } from "./fakes/models/FsProduct";
@@ -33,7 +32,9 @@ import { FsTransformer } from "./fakes/FsTransformer";
 import { AuthHttpModelClient, genStr } from "./fakes/http";
 import {
   ADMIN_TOKEN,
+  ADMIN_USER,
   PARTNER_TOKEN,
+  PARTNER_USER,
   NOROLE_TOKEN,
   buildUserToken,
 } from "./fakes/jwt";
@@ -41,10 +42,7 @@ import {
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
 
-const authService = new AuthService();
-
-function expectedCreator(token: string): string {
-  const user = authService.getUser(token);
+function expectedCreator(user: { email?: string }): string {
   if (!user?.email) {
     throw new Error("Test token is missing an email claim");
   }
@@ -100,7 +98,7 @@ describe("KeycloakAuthHandler (e2e)", () => {
       const productCode = genStr(14);
       const batchNumber = `BATCH${genStr(3)}`;
       const payload = { productCode, batchNumber, name: "Widget" };
-      const creator = expectedCreator(ADMIN_TOKEN);
+      const creator = expectedCreator(ADMIN_USER);
 
       const res = await ProductHttp.post(payload, ADMIN_TOKEN);
 
@@ -123,7 +121,7 @@ describe("KeycloakAuthHandler (e2e)", () => {
     it("allows partner to create a FakePartner (model role: partner)", async () => {
       const id = genStr(6);
       const payload = { id, name: "Acme Corp" };
-      const creator = expectedCreator(PARTNER_TOKEN);
+      const creator = expectedCreator(PARTNER_USER);
 
       const res = await PartnerHttp.post(payload, PARTNER_TOKEN);
 
@@ -196,7 +194,7 @@ describe("KeycloakAuthHandler (e2e)", () => {
       const productCode = genStr(14);
       const batchNumber = `BATCH${genStr(3)}`;
       const payload = { productCode, batchNumber, name: "Original" };
-      const creator = expectedCreator(ADMIN_TOKEN);
+      const creator = expectedCreator(ADMIN_USER);
 
       const created = await ProductHttp.post(payload, ADMIN_TOKEN);
       expect(created.status).toBe(201);

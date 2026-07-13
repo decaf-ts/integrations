@@ -1,6 +1,6 @@
 export * from "./types";
 export * from "./utils";
-export * from "./authService";
+export * from "./decorators";
 export * from "./keycloakAuthHandler";
 export * from "./keycloakModule";
 

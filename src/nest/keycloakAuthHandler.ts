@@ -2,36 +2,29 @@
  * @module integrations/nest/keycloakAuthHandler
  * @summary Keycloak request auth handler.
  * @description Translates Keycloak JWT payloads into Decaf-friendly auth data.
- * Extends the framework-agnostic {@link AuthHandler} from `@decaf-ts/for-http/server`.
- *
- * Only overrides the two extension points:
- * - {@link KeycloakAuthHandler.extractFromAuth} — decodes the JWT and returns auth data (no validation).
- *   Returns empty data for public routes without requiring a token.
- * - {@link KeycloakAuthHandler.validate} — validates the JWT via {@link AuthService.assertValidToken},
- *   then delegates to the base class for route-level and model-level role checks.
- *   Skips entirely for public routes.
- *
- * Does NOT override `bindToContext` — the base class default `ctx.accumulate(data)`
- * is sufficient. Does NOT override `authorize`.
+ * The base implementation handles the request-to-context plumbing, logger binding,
+ * and role checks. Namespace extraction is intentionally split into a dedicated
+ * subclass so provider-specific scope handling can be swapped independently.
  */
-import type { Constructor } from "@decaf-ts/decoration";
-import { AuthorizationError, Context, ContextualArgs } from "@decaf-ts/core";
+import { AuthorizationError, service } from "@decaf-ts/core";
+import { InternalError } from "@decaf-ts/db-decorators";
 import { AuthHandler, AuthData } from "@decaf-ts/for-http/server";
+import type { Context } from "@decaf-ts/core";
+import { JwtService } from "@decaf-ts/crypto/integration/services/jwt";
 
-import { AuthService, type AuthServiceOptions } from "./authService";
-import type { AuthExecutionContextLike, AuthRequestLike } from "./types";
+import type {
+  AuthExecutionContextLike,
+  AuthRequestLike,
+  KeycloakAccessTokenPayload,
+} from "./types";
 import {
-  getRealmFromIssuer,
-  getTokenPayload,
   extractKeycloakRoles,
-  getClientRoles,
+  extractKeycloakNamespaces,
+  getRealmFromIssuer,
 } from "./utils";
 
 /**
- * Auth data returned by {@link KeycloakAuthHandler.extractFromAuth}.
- *
- * Carries the raw JWT `token` so that {@link KeycloakAuthHandler.validate} can
- * validate it against the Keycloak instance (signature, expiry, revocation, etc.).
+ * Auth data returned by {@link KeycloakAuthHandler.extractFromRequest}.
  */
 export interface KeycloakAuthData extends AuthData {
   /** The raw JWT extracted from the request. Empty for public routes. */
@@ -45,27 +38,31 @@ export class KeycloakAuthHandler extends AuthHandler<
   Context,
   KeycloakAuthData
 > {
-  /**
-   * @param authService  An {@link AuthService} configured with JWKS verification
-   *                     options.  When omitted a default decode-only service is
-   *                     used.
-   * @param authServiceOptions  Convenience: if `authService` is omitted, these
-   *                     options are used to construct one.
-   */
-  constructor(
-    authService?: AuthService,
-    authServiceOptions?: AuthServiceOptions
-  ) {
+  constructor() {
     super();
-    this.authService =
-      authService ?? new AuthService(authServiceOptions ?? {});
   }
 
-  protected readonly authService: AuthService;
+  @service(JwtService)
+  protected readonly jwtService?: JwtService;
 
-  protected extractFromAuth(ctx: AuthExecutionContextLike): KeycloakAuthData {
-    const request = ctx.switchToHttp().getRequest<AuthRequestLike>();
+  protected jwt(): JwtService {
+    if (!this.jwtService) {
+      throw new InternalError(
+        "JwtService is not available. Make sure the handler is created through Decaf service injection or assign a test double explicitly."
+      );
+    }
+    return this.jwtService;
+  }
 
+  protected requestFromContext(ctx: AuthExecutionContextLike): AuthRequestLike {
+    return ctx.switchToHttp().getRequest<AuthRequestLike>();
+  }
+
+  protected override isPublicRequest(request: AuthRequestLike): boolean {
+    return isPublicRoute(request);
+  }
+
+  protected parseFromRequest(request: AuthRequestLike): KeycloakAuthData {
     if (isPublicRoute(request)) {
       return { roles: [], token: "", isPublic: true };
     }
@@ -73,29 +70,43 @@ export class KeycloakAuthHandler extends AuthHandler<
     const token = getToken(request);
     if (!token) throw new AuthorizationError("Token not found");
 
-    // Decode only — validation happens in `validate`
-    const payload = getTokenPayload(token);
+    const payload = this.jwt().decodePayload<KeycloakAccessTokenPayload>(token);
+    if (!payload) throw new AuthorizationError("Invalid token");
+
     const roles = extractKeycloakRoles(payload);
-    const organization = resolveOrganization(payload, token);
+    const organization = payload.aud || payload.azp || getRealmFromIssuer(token);
     const user = payload?.email ?? payload?.preferred_username;
 
     return { user, organization, roles, token, isPublic: false };
   }
 
-  /**
-   * Validates the JWT against the Keycloak instance (signature, expiry, etc.)
-   * via {@link AuthService.assertValidToken}, then delegates to the base class
-   * for route-level and model-level role checks. Skips entirely for public routes.
-   */
-  protected override async validate(
+  protected extractFromRequest(request: AuthRequestLike): KeycloakAuthData {
+    return this.parseFromRequest(request);
+  }
+
+  protected override async validateAuth(
     data: KeycloakAuthData,
-    routeRoles: string[] | undefined,
-    model: string | Constructor,
-    ...args: ContextualArgs<Context>
+    _request: AuthRequestLike
   ): Promise<void> {
     if (data.isPublic) return;
-    await this.authService.assertValidToken(data.token);
-    await super.validate(data, routeRoles, model, ...args);
+    if (!data.token) throw new AuthorizationError("Token not found");
+    await this.jwt().decodeAuthToken<KeycloakAccessTokenPayload>(data.token);
+  }
+}
+
+/**
+ * Keycloak handler variant that also extracts namespace scopes from the token.
+ */
+export class KeycloakNamespaceAuthHandler extends KeycloakAuthHandler {
+  protected parseFromRequest(request: AuthRequestLike): KeycloakAuthData {
+    const data = super.parseFromRequest(request);
+    if (data.isPublic) return data;
+
+    const payload = this.jwt().decodePayload<KeycloakAccessTokenPayload>(data.token);
+    return {
+      ...data,
+      namespaces: extractKeycloakNamespaces(payload),
+    };
   }
 }
 
@@ -111,13 +122,4 @@ function getToken(req: AuthRequestLike): string | undefined {
   return token.startsWith("Bearer ") ? token.slice("Bearer ".length) : token;
 }
 
-function resolveOrganization(
-  payload: { aud?: string; azp?: string } | null,
-  token: string
-): string {
-  if (payload?.aud) return payload.aud;
-  if (payload?.azp) return payload.azp;
-  return getRealmFromIssuer(token);
-}
-
-export { getClientRoles };
+export { getClientRoles } from "./utils";

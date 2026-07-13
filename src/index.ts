@@ -5,6 +5,7 @@
  */
 export * from "./utils";
 export * from "./namespaces";
+export * from "./feature-flags";
 
 export const VERSION: string = "##VERSION##";
 

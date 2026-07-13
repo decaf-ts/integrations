@@ -37,22 +37,28 @@ export function buildUserToken(user: TokenUser): string {
 }
 
 /** Admin user with the "admin" role. */
-export const ADMIN_TOKEN = buildUserToken({
+export const ADMIN_USER = {
   email: "admin@example.com",
   preferred_username: "admin",
   roles: ["admin"],
-});
+} satisfies TokenUser;
+
+export const ADMIN_TOKEN = buildUserToken(ADMIN_USER);
 
 /** Partner user with the "partner" role. */
-export const PARTNER_TOKEN = buildUserToken({
+export const PARTNER_USER = {
   email: "partner@example.com",
   preferred_username: "partner",
   roles: ["partner"],
-});
+} satisfies TokenUser;
+
+export const PARTNER_TOKEN = buildUserToken(PARTNER_USER);
 
 /** User with no roles. */
-export const NOROLE_TOKEN = buildUserToken({
+export const NOROLE_USER = {
   email: "nobody@example.com",
   preferred_username: "nobody",
   roles: [],
-});
+} satisfies TokenUser;
+
+export const NOROLE_TOKEN = buildUserToken(NOROLE_USER);

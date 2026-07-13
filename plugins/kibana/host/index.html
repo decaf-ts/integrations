@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Kibana Embed E2E Test Host</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, sans-serif; height: 100vh; display: flex; flex-direction: column; }
+    .toolbar { padding: 12px 20px; background: #f0f0f0; border-bottom: 1px solid #ccc; display: flex; gap: 12px; align-items: center; }
+    .toolbar h1 { font-size: 16px; font-weight: 600; margin-right: auto; }
+    .toolbar button { padding: 8px 16px; border: 1px solid #ccc; border-radius: 4px; background: #fff; cursor: pointer; font-size: 14px; }
+    .toolbar button:hover { background: #e8e8e8; }
+    .toolbar button.active { background: #0066cc; color: #fff; border-color: #0066cc; }
+    #status { font-size: 12px; color: #666; padding: 4px 20px; background: #fafafa; }
+    .iframe-container { flex: 1; position: relative; overflow: hidden; }
+    #kibanaFrame { width: 100%; height: 100%; border: 0; }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <h1>Kibana Dashboard Embed E2E</h1>
+    <button id="btn-a" class="active">Dashboard A</button>
+    <button id="btn-b">Dashboard B</button>
+  </div>
+  <div id="status">Initializing...</div>
+  <div class="iframe-container">
+    <iframe id="kibanaFrame" title="Kibana Dashboard"></iframe>
+  </div>
+
+  <script>
+    // These values are injected by the test harness via URL params or window.__E2E_CONFIG
+    const config = window.__E2E_CONFIG || {};
+    const kibanaHost = config.kibanaHost || 'http://localhost:5602';
+    const dashboardA = config.dashboardA || '';
+    const dashboardB = config.dashboardB || '';
+    const parentOrigin = window.location.origin;
+
+    // Build the embed URL with the initial dashboard
+    const embedUrl = `${kibanaHost}/app/org_dashboard_embed?dashboardId=${encodeURIComponent(dashboardA)}&parentOrigin=${encodeURIComponent(parentOrigin)}`;
+    document.getElementById('kibanaFrame').src = embedUrl;
+
+    const iframe = document.getElementById('kibanaFrame');
+    const status = document.getElementById('status');
+
+    // Track messages from the embedded plugin
+    window.addEventListener('message', (event) => {
+      // Accept messages from the Kibana origin
+      if (event.origin !== new URL(kibanaHost).origin && event.origin !== window.location.origin) {
+        return;
+      }
+
+      const msg = event.data;
+      if (!msg || typeof msg !== 'object') return;
+
+      switch (msg.type) {
+        case 'ORG_DASHBOARD_EMBED_READY':
+          status.textContent = `READY — dashboardId: ${msg.dashboardId}`;
+          window.__E2E_READY = true;
+          break;
+        case 'ORG_DASHBOARD_EMBED_RENDERED':
+          status.textContent = `RENDERED — dashboardId: ${msg.dashboardId}`;
+          window.__E2E_RENDERED = msg.dashboardId;
+          break;
+        case 'ORG_DASHBOARD_EMBED_ERROR':
+          status.textContent = `ERROR — ${msg.message}`;
+          window.__E2E_ERROR = msg.message;
+          break;
+      }
+    });
+
+    // Switch dashboard via postMessage
+    function switchDashboard(dashboardId) {
+      window.__E2E_RENDERED = null;
+      iframe.contentWindow.postMessage({
+        type: 'ORG_DASHBOARD_EMBED_SWITCH_DASHBOARD',
+        dashboardId: dashboardId,
+        timeRange: { from: 'now-30d', to: 'now' },
+        query: { language: 'kuery', query: '' }
+      }, kibanaHost);
+      status.textContent = `Switching to ${dashboardId}...`;
+    }
+
+    document.getElementById('btn-a').addEventListener('click', () => {
+      switchDashboard(dashboardA);
+      document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
+      document.getElementById('btn-a').classList.add('active');
+    });
+
+    document.getElementById('btn-b').addEventListener('click', () => {
+      switchDashboard(dashboardB);
+      document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
+      document.getElementById('btn-b').classList.add('active');
+    });
+
+    // Expose for Playwright
+    window.__E2E_SWITCH = switchDashboard;
+    window.__E2E_IFRAME = iframe;
+    window.__E2E_KIBANA_HOST = kibanaHost;
+  </script>
+</body>
+</html>

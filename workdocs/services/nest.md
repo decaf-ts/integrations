@@ -5,7 +5,8 @@
 ## What It Provides
 
 - [`AuthService`](../../src/nest/authService.ts): JWT verification service with JWKS support.
-- [`KeycloakAuthHandler`](../../src/nest/keycloakAuthHandler.ts): Keycloak token decoding, verification, and request identity extraction. Extends `AuthHandler` from `@decaf-ts/for-http/server`.
+- [`KeycloakAuthHandler`](../../src/nest/keycloakAuthHandler.ts): Keycloak token decoding, verification, namespace extraction, and request identity extraction. Extends `AuthHandler` from `@decaf-ts/for-http/server`.
+- [`namespace`](../../src/nest/decorators.ts): Model decorator that stores namespace scopes for auth handlers.
 - [`keycloakModule`](../../src/nest/keycloakModule.ts): module wiring for Nest consumers.
 - `types.ts` and `utils.ts`: shared request and auth helper types.
 
@@ -16,7 +17,8 @@ Use these helpers when you need:
 - to extract a user identity from a Keycloak token
 - to verify JWT signatures against the Keycloak JWKS endpoint
 - to bridge Decaf request context into a Nest application
-- to reuse the same auth and role handling across HTTP handlers and Nest modules
+- to reuse the same auth, role, and namespace handling across HTTP handlers and Nest modules
+- to attach namespace scopes to models with the integration-exported `namespace(...)` decorator
 
 ## Typical Usage
 
@@ -59,7 +61,7 @@ Extends `AuthHandler<AuthExecutionContextLike, Context, KeycloakAuthData>` from 
 Overrides two extension points:
 
 - `extractFromAuth(ctx)` — decodes the JWT and returns auth data (no validation). Returns empty data for public routes (`/public/*`) without requiring a token.
-- `validate(data, routeRoles, model, ...args)` — validates the JWT via `AuthService.assertValidToken`, then delegates to the base class for route-level and model-level role checks. Skips entirely for public routes.
+- `validate(data, routeRoles, routeNamespaces, skipModelNamespaces, model, ...args)` — validates the JWT via `AuthService.assertValidToken`, then delegates to the base class for route-level and model-level role and namespace checks. Skips entirely for public routes.
 
 Does NOT override `bindToContext` — the base class default `ctx.accumulate(data)` is sufficient.
 
@@ -82,9 +84,10 @@ Extends `AuthData` with:
 |---|---|---|
 | `token` | `string` | The raw JWT extracted from the request. Empty for public routes. |
 | `isPublic` | `boolean` | Whether the request targets a public route (skips validation). |
+| `namespaces` | `string[]` | Namespace scopes extracted from `namespaces`, `namespace`, and `namespace:`-prefixed Keycloak roles. |
 
 ## Notes
 
 - The helpers are intentionally framework-lean; they translate authentication concerns into Decaf-friendly request context objects.
-- `KeycloakAuthHandler` is the main adapter when you need to read roles or identity from a Keycloak JWT.
+- `KeycloakAuthHandler` is the main adapter when you need to read roles, namespaces, or identity from a Keycloak JWT.
 - `getClientRoles` is re-exported for applications that need to inspect Keycloak client roles directly.

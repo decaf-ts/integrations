@@ -75,10 +75,7 @@ const ADMIN = "admin";
 
 class VerifiedKeycloakAuthHandler extends KeycloakAuthHandler {
   constructor() {
-    super(undefined, {
-      verifyToken: true,
-      verifyUrl: `${KEYCLOAK_PROTOCOL}://${KEYCLOAK_HOST}/realms/${REALM}/protocol/openid-connect/certs`,
-    });
+    super();
   }
 }
 

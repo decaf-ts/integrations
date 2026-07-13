@@ -22,6 +22,7 @@
 - [Keycloak](./services/keycloak.md)
 - [Kibana](./services/kibana.md)
 - [Nest](./services/nest.md)
+- [Namespaces](./5-HowToUse.md)
 - [Secrets](./services/secrets.md)
 - [Docker Compose](./services/docker-compose.md)
 

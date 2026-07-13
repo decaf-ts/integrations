@@ -1,0 +1,17 @@
+# Ignore everything by default
+*
+
+# Re-include the .gitignore itself
+!.gitignore
+
+# Re-include curated configuration (Dockerfiles, compose, config, host pages, scripts)
+!Dockerfile
+!docker-compose.yml
+!superset_config.py
+!setup-dashboards.sh
+!dashboards.json
+!host/
+!host/**
+
+# Everything else (generated patch scripts org_dashboard_embed_superset/,
+# cloned Superset source .superset-source/, build artifacts, node_modules) remains ignored
