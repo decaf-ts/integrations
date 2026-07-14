@@ -29,6 +29,7 @@ if (!targetVersion) {
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const modulePath = path.join(packageRoot, "lib", "esm", "plugins", tool, "index.js");
+const dockerConfigDir = path.join(process.env.TMPDIR ?? "/tmp", "decaf-docker-config");
 
 if (!fs.existsSync(modulePath)) {
   console.error(`Build output not found at ${modulePath}. Run npm run build first.`);
@@ -100,14 +101,19 @@ console.log(
 
 function runCommand(cmd, args, cwd) {
   return new Promise((resolve, reject) => {
-    execFile(cmd, args, { cwd, timeout: 1200000 }, (error, stdout, stderr) => {
+    execFile(
+      cmd,
+      args,
+      { cwd, timeout: 1200000, env: { ...process.env, ...buildEnv() } },
+      (error, stdout, stderr) => {
       const output = `${stdout ?? ""}${stderr ?? ""}`.trim();
       if (error) {
         reject(new Error(output || error.message));
         return;
       }
       resolve(output);
-    });
+      }
+    );
   });
 }
 
@@ -126,4 +132,16 @@ async function waitForUrl(url) {
     await new Promise((resolve) => setTimeout(resolve, 2000));
   }
   throw new Error(`Service ${url} did not become ready within ${timeoutMs}ms`);
+}
+
+function buildEnv() {
+  if (process.env.DOCKER_CONFIG || process.env.DOCKER_BUILDKIT || process.env.COMPOSE_DOCKER_CLI_BUILD) {
+    return undefined;
+  }
+  fs.mkdirSync(dockerConfigDir, { recursive: true });
+  return {
+    DOCKER_CONFIG: dockerConfigDir,
+    DOCKER_BUILDKIT: "0",
+    COMPOSE_DOCKER_CLI_BUILD: "0",
+  };
 }

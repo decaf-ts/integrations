@@ -111,25 +111,19 @@ def patch_react_import(content: str) -> str:
 def locate_embedded_component(
     content: str,
 ) -> tuple[re.Match[str], str]:
-    names = [
-        "EmbeddedLazyDashboardPage",
-        "EmbededLazyDashboardPage",
-    ]
+    pattern = re.compile(
+        r"const\\s+([A-Za-z0-9_]+)\\s*=\\s*\\(\\)\\s*=>\\s*\\{.*?\\};\\s*"
+        r"(?=const\\s+EmbeddedRoute)",
+        re.DOTALL,
+    )
 
-    for name in names:
-        pattern = re.compile(
-            rf"const {name} = \\(\\) => \\{{.*?\\n\\}};\\n"
-            rf"(?=const EmbeddedRoute)",
-            re.DOTALL,
-        )
+    match = pattern.search(content)
 
-        match = pattern.search(content)
-
-        if match:
-            return match, name
+    if match:
+        return match, match.group(1)
 
     raise PatchError(
-        "Could not find EmbeddedLazyDashboardPage before EmbeddedRoute"
+        "Could not find an embedded dashboard component before EmbeddedRoute"
     )
 
 
@@ -146,7 +140,7 @@ def patch_frontend(frontend_path: Path) -> None:
         content
     )
 
-    replacement_component = \`// SUPERSET_SWITCHABLE_EMBED_PATCH
+    replacement_component = """// SUPERSET_SWITCHABLE_EMBED_PATCH
 //
 // Allows the existing embedded Superset document to replace DashboardPage
 // without navigating or recreating the iframe.
@@ -173,7 +167,7 @@ type DashboardSwitchHandler = (
 
 let dashboardSwitchHandler: DashboardSwitchHandler | undefined;
 
-const \${component_name} = () => {
+const __COMPONENT_NAME__ = () => {
   const uiConfig = useUiConfig();
 
   const [dashboardId, setDashboardId] = useState<string | null>(
@@ -260,7 +254,7 @@ const \${component_name} = () => {
     />
   );
 };
-\`
+""".replace("__COMPONENT_NAME__", component_name)
 
     content = (
         content[: component_match.start()]
