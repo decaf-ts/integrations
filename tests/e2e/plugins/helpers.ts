@@ -73,7 +73,7 @@ export const compose = {
   },
 
   async build(dir: string, file: string, service?: string) {
-    const svc = service ? ` --build ${service}` : " --build";
+    const svc = service ? ` ${service}` : "";
     const cmd = `docker compose -p ${COMPOSE_PROJECT} -f ${path.join(dir, file)} build${svc}`;
     await runAsync(cmd, { cwd: dir });
   },
