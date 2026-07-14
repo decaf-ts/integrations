@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { execFile } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const tool = process.argv[2];
@@ -53,6 +54,41 @@ const result = await plugin.install({
   overwrite: true,
 });
 
+if (tool === "kibana") {
+  const pluginDir = result.pluginPath;
+  const zipPath = path.join(targetPath, "org_dashboard_embed.zip");
+  await runCommand(
+    "zip",
+    ["-r", zipPath, path.basename(pluginDir)],
+    path.dirname(pluginDir)
+  );
+  await runCommand(
+    "docker",
+    ["compose", "-p", "decaf-e2e", "-f", path.join(targetPath, "docker-compose.yml"), "build", "kibana"],
+    targetPath
+  );
+  await runCommand(
+    "docker",
+    ["compose", "-p", "decaf-e2e", "-f", path.join(targetPath, "docker-compose.yml"), "up", "-d"],
+    targetPath
+  );
+  await waitForUrl("http://localhost:5602/api/status");
+}
+
+if (tool === "superset") {
+  await runCommand(
+    "docker",
+    ["compose", "-p", "decaf-e2e", "-f", path.join(targetPath, "docker-compose.yml"), "build", "superset"],
+    targetPath
+  );
+  await runCommand(
+    "docker",
+    ["compose", "-p", "decaf-e2e", "-f", path.join(targetPath, "docker-compose.yml"), "up", "-d"],
+    targetPath
+  );
+  await waitForUrl("http://localhost:8089/health");
+}
+
 console.log(
   [
     `Booted ${tool} plugin`,
@@ -61,3 +97,33 @@ console.log(
     `files=${result.files.length}`,
   ].join("\n")
 );
+
+function runCommand(cmd, args, cwd) {
+  return new Promise((resolve, reject) => {
+    execFile(cmd, args, { cwd, timeout: 1200000 }, (error, stdout, stderr) => {
+      const output = `${stdout ?? ""}${stderr ?? ""}`.trim();
+      if (error) {
+        reject(new Error(output || error.message));
+        return;
+      }
+      resolve(output);
+    });
+  });
+}
+
+async function waitForUrl(url) {
+  const timeoutMs = 600000;
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const res = await fetch(url);
+      if (res.ok || (res.status >= 300 && res.status < 500)) {
+        return;
+      }
+    } catch {
+      // keep waiting
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+  throw new Error(`Service ${url} did not become ready within ${timeoutMs}ms`);
+}
