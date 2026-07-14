@@ -36,6 +36,7 @@ import {
   PARTNER_TOKEN,
   PARTNER_USER,
   NOROLE_TOKEN,
+  TestJwtService,
   buildUserToken,
 } from "./fakes/jwt";
 
@@ -58,6 +59,8 @@ describe("KeycloakAuthHandler (e2e)", () => {
   let FsProductHttp: AuthHttpModelClient<FsProduct>;
 
   beforeAll(async () => {
+    await new TestJwtService().boot({});
+
     const moduleRef = await Test.createTestingModule({
       imports: [
         DecafAuthModule.forRoot({

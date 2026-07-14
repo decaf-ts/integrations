@@ -1,3 +1,6 @@
+import { service } from "@decaf-ts/core";
+import { JwtService } from "@decaf-ts/crypto/integration/services/jwt";
+
 /**
  * Builds an unsigned JWT with the given payload.
  * Used to simulate Keycloak-issued tokens in e2e tests without a running Keycloak instance.
@@ -62,3 +65,12 @@ export const NOROLE_USER = {
 } satisfies TokenUser;
 
 export const NOROLE_TOKEN = buildUserToken(NOROLE_USER);
+
+@service("jwt")
+export class TestJwtService extends JwtService {
+  override async initialize(...args: Parameters<JwtService["initialize"]>) {
+    return super.initialize((args[0] ?? {}) as Parameters<
+      JwtService["initialize"]
+    >[0]);
+  }
+}

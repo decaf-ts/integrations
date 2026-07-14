@@ -48,6 +48,7 @@ import { DockerComposeService } from "../../src/docker";
 import { RoleArticle } from "./fakes/models/RoleArticle";
 import { AuthHttpModelClient, genStr } from "./fakes/http";
 import request from "supertest";
+import { TestJwtService } from "./fakes/jwt";
 
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
@@ -182,6 +183,8 @@ let dockerService: DockerComposeService | undefined;
   }
 
   beforeAll(async () => {
+    await new TestJwtService().boot({});
+
     if (!EXTERNAL_KEYCLOAK_HOST) {
       dockerService = new DockerComposeService();
       await dockerService.initialize({ composeFile, workingDir });

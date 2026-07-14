@@ -5,7 +5,6 @@
  */
 import type { KeycloakAccessTokenPayload } from "./types";
 import { AuthorizationError } from "@decaf-ts/core";
-import { getTokenPayload } from "@decaf-ts/crypto/integration/services/jwt";
 
 export const DECAF_ADAPTER_OPTIONS = Symbol("DecafAdapterForOptions");
 
@@ -59,7 +58,7 @@ export function extractKeycloakNamespaces(
 }
 
 export function getRealmFromIssuer(jwt: string): string {
-  const payload = getTokenPayload<{ iss?: string }>(jwt);
+  const payload = decodeJwtPayload<{ iss?: string }>(jwt);
   const iss = payload?.iss;
   if (!iss) {
     throw new AuthorizationError("Issuer (iss) is missing");
@@ -76,6 +75,17 @@ export function getRealmFromIssuer(jwt: string): string {
     throw new AuthorizationError(`Cannot extract realm from issuer: ${iss}`);
   }
   return parts[realmsIndex + 1];
+}
+
+function decodeJwtPayload<T>(jwt: string): T | null {
+  const parts = jwt.split(".");
+  if (parts.length < 2) return null;
+  try {
+    const payload = Buffer.from(parts[1], "base64url").toString("utf-8");
+    return JSON.parse(payload) as T;
+  } catch {
+    return null;
+  }
 }
 
 /**

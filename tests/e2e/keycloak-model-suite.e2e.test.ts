@@ -37,6 +37,7 @@ import { DockerComposeService } from "../../src/docker";
 import { Product } from "./fakes/models/Product";
 import { FakePartner } from "./fakes/models/FakePartner";
 import { AuthHttpModelClient, genStr } from "./fakes/http";
+import { TestJwtService } from "./fakes/jwt";
 
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
@@ -133,6 +134,8 @@ describe("Keycloak full E2E with per-route role verification", () => {
   };
 
   beforeAll(async () => {
+    await new TestJwtService().boot({});
+
     if (!EXTERNAL_KEYCLOAK_HOST) {
       dockerService = new DockerComposeService();
       await dockerService.initialize({ composeFile, workingDir });

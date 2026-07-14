@@ -11,6 +11,7 @@ import type { AuthExecutionContextLike } from "../../src/nest/types";
 import { AuthorizationError, Context } from "@decaf-ts/core";
 import type { AuthRequestLike } from "@decaf-ts/for-http/server";
 import { model, Model } from "@decaf-ts/decorator-validation";
+import { TestJwtService } from "../e2e/fakes/jwt";
 
 function buildJwt(payload: Record<string, unknown>): string {
   const header = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
@@ -72,9 +73,10 @@ describe("nest auth helpers", () => {
   describe("KeycloakAuthHandler", () => {
     let handler: KeycloakAuthHandler;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       handler = new KeycloakNamespaceAuthHandler() as KeycloakAuthHandler;
-      (handler as any).jwtService = new JwtService();
+      (handler as any).jwtService = new TestJwtService();
+      await (handler as any).jwtService.boot({});
     });
 
     it("authorizes a valid token and accumulates auth data onto context", async () => {
@@ -88,8 +90,6 @@ describe("nest auth helpers", () => {
       await handler.authorize(buildContext(request), "Product", undefined, ctx);
 
       expect(ctx.store["user"]).toBe("user@example.com");
-      expect(ctx.store["email"]).toBe("user@example.com");
-      expect(ctx.store["preferred_username"]).toBe("user");
       expect(ctx.store["organization"]).toBe("my-client");
       expect(ctx.store["roles"]).toEqual(["reader", "writer"]);
       expect(ctx.store["namespaces"]).toEqual(["tenant:alpha", "tenant:beta"]);

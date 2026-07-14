@@ -29,7 +29,10 @@ import {
   isFeatureFlagEnabledByName,
   normalizeFeatureName,
 } from "../utils";
-import { normalizeFeatureSubjectKey, normalizeFeatureSubjectType } from "../utils";
+import {
+  normalizeFeatureSubjectKey,
+  normalizeFeatureSubjectType,
+} from "../utils";
 
 export interface FeatureFlagServiceConfig extends FeatureFlagReaderConfig {
   reader?: FeatureFlagReaderLike;
@@ -63,7 +66,10 @@ export class FeatureFlagService extends ModelService<FeatureFlag> {
       ...(config.readerConfig ?? {}),
       source: config.readerConfig?.source ?? FeatureFlagEnvironment,
     };
-    this.cachedRegistry = await this.refreshCachedRegistry(readerConfig, ...args);
+    this.cachedRegistry = await this.refreshCachedRegistry(
+      readerConfig,
+      ...args
+    );
     const effectiveConfig: FeatureFlagServiceConfig = {
       ...config,
       reader: this.reader,
@@ -189,10 +195,7 @@ export class FeatureFlagService extends ModelService<FeatureFlag> {
     return this.repo.findOneBy(key, normalizedValue, ...args);
   }
 
-  override async readAll(
-    keys: any[],
-    ...args: any[]
-  ): Promise<FeatureFlag[]> {
+  override async readAll(keys: any[], ...args: any[]): Promise<FeatureFlag[]> {
     const result = await this.repo.readAll(keys, ...args);
     for (const flag of result) this.setCachedFlag(flag);
     return result;
@@ -279,13 +282,18 @@ export class FeatureFlagService extends ModelService<FeatureFlag> {
     const featureKeys = [...new Set(access.map((item) => item.featureKey))];
     if (featureKeys.length === 0) return {};
 
-    const condition = Condition.attr<FeatureFlag>("enabled").eq(true).and(
-      Condition.attr<FeatureFlag>("key").in(
-        featureKeys.map(normalizeFeatureName)
-      )
-    );
+    const condition = Condition.attr<FeatureFlag>("enabled")
+      .eq(true)
+      .and(
+        Condition.attr<FeatureFlag>("key").in(
+          featureKeys.map(normalizeFeatureName)
+        )
+      );
 
-    const enabledFlags = await this.repo.select().where(condition).execute(...args);
+    const enabledFlags = await this.repo
+      .select()
+      .where(condition)
+      .execute(...args);
     return enabledFlags.reduce((registry, flag) => {
       registry[flag.key] = flag.config ?? true;
       return registry;
@@ -327,6 +335,7 @@ export class FeatureFlagService extends ModelService<FeatureFlag> {
         value && typeof value === "object" && !Array.isArray(value)
           ? (value as FeatureFlagConfig)
           : { enabled: Boolean(value) };
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { enabled: _ignoredEnabled, ...restConfig } = config;
       const normalizedKey = normalizeFeatureName(key);
       const existing = await this.findOneBy(
@@ -356,7 +365,11 @@ export class FeatureFlagService extends ModelService<FeatureFlag> {
               enabled: isFeatureFlagEnabled(value),
             },
           });
-      results.push(existing ? await this.update(model, ...args) : await this.create(model, ...args));
+      results.push(
+        existing
+          ? await this.update(model, ...args)
+          : await this.create(model, ...args)
+      );
     }
     this.cachedRegistry = await this.refreshCachedRegistry(
       {

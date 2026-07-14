@@ -74,7 +74,8 @@ export class KeycloakAuthHandler extends AuthHandler<
     if (!payload) throw new AuthorizationError("Invalid token");
 
     const roles = extractKeycloakRoles(payload);
-    const organization = payload.aud || payload.azp || getRealmFromIssuer(token);
+    const organization =
+      payload.aud || payload.azp || getRealmFromIssuer(token);
     const user = payload?.email ?? payload?.preferred_username;
 
     return { user, organization, roles, token, isPublic: false };
@@ -86,6 +87,7 @@ export class KeycloakAuthHandler extends AuthHandler<
 
   protected override async validateAuth(
     data: KeycloakAuthData,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _request: AuthRequestLike
   ): Promise<void> {
     if (data.isPublic) return;
@@ -102,7 +104,9 @@ export class KeycloakNamespaceAuthHandler extends KeycloakAuthHandler {
     const data = super.parseFromRequest(request);
     if (data.isPublic) return data;
 
-    const payload = this.jwt().decodePayload<KeycloakAccessTokenPayload>(data.token);
+    const payload = this.jwt().decodePayload<KeycloakAccessTokenPayload>(
+      data.token
+    );
     return {
       ...data,
       namespaces: extractKeycloakNamespaces(payload),
