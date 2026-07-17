@@ -20,8 +20,10 @@ import {
   CodeGraphNodeExecutor,
   LogGraphNodeExecutor,
   SwitchGraphNodeExecutor,
+  BreakGraphNodeExecutor,
   IsolatedVmCodeSandboxEvaluator,
 } from "../../graph";
+import { GraphBreakSignal } from "../../graph/engine/errors/GraphBreakSignal";
 
 type ExecutorFn = (
   input: GraphExecutionValues,
@@ -39,6 +41,9 @@ const executorMap: Record<string, ExecutorFn> = {
   "core.flow.parallel": (input) => ({ branches: [input["value"] ?? input] }),
   "core.flow.errorBoundary": (input) => ({ result: input["value"] ?? input }),
   "core.flow.humanApproval": (input) => ({ approved: input["value"] ?? input }),
+  "core.flow.break": (input) => {
+    throw new GraphBreakSignal(input["value"]);
+  },
   "core.agent": (input) => ({
     response: `[Agent response] ${String(input["prompt"] ?? "")}`,
     actions: [],
@@ -115,6 +120,7 @@ export function createDemoEngineConfig(): {
       registry.register("core.flow.code", new CodeGraphNodeExecutor(engine));
       registry.register("core.flow.log", new LogGraphNodeExecutor());
       registry.register("core.flow.switch", new SwitchGraphNodeExecutor(engine));
+      registry.register("core.flow.break", new BreakGraphNodeExecutor());
     },
   };
 }

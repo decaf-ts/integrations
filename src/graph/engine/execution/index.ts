@@ -12,4 +12,5 @@ export * from "./CodeSandboxEvaluator";
 export * from "./SwitchGraphNodeExecutor";
 export * from "./CodeGraphNodeExecutor";
 export * from "./LogGraphNodeExecutor";
+export * from "./BreakGraphNodeExecutor";
 export * from "./IsolatedVmCodeSandboxEvaluator";

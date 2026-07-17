@@ -463,6 +463,38 @@ export class LogFlowNode extends Model {
 }
 
 /**
+ * Break — breaks out of the enclosing loop (foreach/while/until). When
+ * executed inside a loop body, the loop terminates early and the loop's
+ * `completed`/`state` output carries the results collected so far. The
+ * Break node executor throws a {@link GraphBreakSignal} that the enclosing
+ * loop executor catches.
+ */
+@node("core.flow.break", {
+  kind: "core.flow.break",
+  category: "Flow Control",
+  color: "#ef4444",
+  icon: "ti-square-arrow-right",
+  width: 96,
+  height: 96,
+  labels: ["flow", "break", "loop", "control"],
+  metadata: {
+    title: "Break",
+    description: "Breaks out of the enclosing loop. The loop terminates early and returns the results collected so far.",
+  },
+})
+@model()
+export class BreakFlowNode extends Model {
+  @required()
+  @uielement("textarea", { label: "Value", placeholder: "Value to forward (collected as the last partial result)" })
+  @input({ handle: "value" })
+  value!: unknown;
+
+  @required()
+  @output({ handle: "broken" })
+  broken!: unknown;
+}
+
+/**
  * All built-in flow-control node constructors.
  */
 export const GRAPH_FLOW_CONTROL_NODES = [
@@ -477,4 +509,5 @@ export const GRAPH_FLOW_CONTROL_NODES = [
   ReturnFlowNode,
   CodeFlowNode,
   LogFlowNode,
+  BreakFlowNode,
 ] as const;

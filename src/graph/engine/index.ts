@@ -24,6 +24,7 @@ export * from "./errors/GraphPinningError";
 export * from "./errors/GraphPortError";
 export * from "./errors/GraphStoreError";
 export * from "./errors/GraphTopologyError";
+export * from "./errors/GraphBreakSignal";
 
 export * from "./events/GraphExecutionEvent";
 export * from "./events/GraphExecutionObserver";
@@ -39,6 +40,7 @@ export * from "./execution/CodeSandboxEvaluator";
 export * from "./execution/SwitchGraphNodeExecutor";
 export * from "./execution/CodeGraphNodeExecutor";
 export * from "./execution/LogGraphNodeExecutor";
+export * from "./execution/BreakGraphNodeExecutor";
 export * from "./execution/IsolatedVmCodeSandboxEvaluator";
 
 export * from "./registry/GraphNodeExecutorRegistry";

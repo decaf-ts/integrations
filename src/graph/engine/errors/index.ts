@@ -11,3 +11,4 @@ export * from "./GraphPinningError";
 export * from "./GraphPortError";
 export * from "./GraphStoreError";
 export * from "./GraphTopologyError";
+export * from "./GraphBreakSignal";

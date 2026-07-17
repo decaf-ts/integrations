@@ -129,6 +129,12 @@ export interface GraphLoopMetadata {
   itemPort?: string;
   resultPort?: string;
   statePort?: string;
+  /**
+   * How many items are taken from the input list per iteration (foreach only).
+   * Default `1`. When greater than `1`, the body receives a slice (array) on
+   * the item port and the collected result is one entry per slice.
+   */
+  slice?: number;
 }
 
 /**
