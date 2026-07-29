@@ -400,8 +400,9 @@
     }
   },
   "overrides": {
-    "js-yaml": "^4.2.0",
-    "multer": "^2.1.2"
+    "multer": "^2.1.2",
+    "test-exclude": "^7.0.2",
+    "brace-expansion": "^5.0.8"
   },
   "optionalDependencies": {
     "@aws-sdk/client-s3": "^3.1075.0",
