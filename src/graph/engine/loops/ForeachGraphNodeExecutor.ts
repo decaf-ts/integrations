@@ -43,7 +43,7 @@ export class ForeachGraphNodeExecutor implements GraphNodeExecutor {
     context: GraphExecutionContext
   ): Promise<GraphExecutionValues> {
     const metadata = this.extractMetadata(context);
-    let items = input.items;
+    const items = input.items;
     const maxIterations =
       metadata.maxIterations ?? GRAPH_DEFAULT_MAX_FOREACH_ITERATIONS;
 

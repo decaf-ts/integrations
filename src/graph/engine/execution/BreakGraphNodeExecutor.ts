@@ -22,6 +22,7 @@ import { GraphBreakSignal } from "../errors/GraphBreakSignal";
 export class BreakGraphNodeExecutor implements GraphNodeExecutor {
   async execute(
     input: GraphExecutionValues,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _context: GraphExecutionContext
   ): Promise<GraphExecutionValues> {
     const value = input["value"];

@@ -15,6 +15,7 @@ export default [
       "!tests/**/*",
       "tests/bundling/**/*",
       "tests/web/**/*",
+      "plugins/**/*",
     ],
   },
   { languageOptions: { globals: globals.browser } },
