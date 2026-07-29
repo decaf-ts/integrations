@@ -98,6 +98,67 @@ export interface KeycloakIdentityProviderConfigOverrides {
   payload?: Partial<Record<string, unknown>>;
 }
 
+export type KeycloakBrokerProtocol = "oidc" | "saml";
+
+export type KeycloakBrokerClientAuthMethod =
+  | "client_secret_post"
+  | "client_secret_basic"
+  | "client_secret_jwt"
+  | "private_key_jwt"
+  | "none";
+
+export interface KeycloakBrokerIdentityProviderConfig {
+  alias: string;
+  displayName: string;
+  protocol: KeycloakBrokerProtocol;
+  upstreamIssuer?: string;
+  discoveryUrl?: string;
+  clientId?: string;
+  clientSecret?: string;
+  clientAuthMethod?: KeycloakBrokerClientAuthMethod;
+  clientAssertionSigningAlg?: string;
+  clientAssertionAudience?: string;
+  defaultScopes?: string;
+  firstBrokerLoginFlowAlias?: string;
+  postBrokerLoginFlowAlias?: string;
+  trustEmail?: boolean;
+  storeToken?: boolean;
+  linkOnly?: boolean;
+  hideOnLogin?: boolean;
+  authenticateByDefault?: boolean;
+  enabled?: boolean;
+  config?: Record<string, string>;
+  saml?: {
+    entityId: string;
+    singleSignOnServiceUrl: string;
+    singleLogoutServiceUrl?: string;
+    signingCertificate?: string;
+    nameIdPolicyFormat?: string;
+    principalAttribute?: string;
+    signatureAlgorithm?: string;
+    postBindingResponse?: boolean;
+    postBindingAuthnRequest?: boolean;
+    wantAuthnRequestsSigned?: boolean;
+  };
+}
+
+/**
+ * Separate setup contract for realms that are configured around an upstream
+ * broker. It intentionally does not widen or alter the legacy setup type.
+ */
+export interface KeycloakBrokerSetupConfig {
+  id: string;
+  host: string;
+  protocol: "http" | "https";
+  rootApiUser?: KeycloakUser;
+  adminApiUser?: KeycloakUser;
+  realmApiUser?: KeycloakUser;
+  client: KeycloakClientConfig;
+  broker: KeycloakBrokerIdentityProviderConfig;
+  realmConfig?: KeycloakRealmConfig;
+  useCompositeRoles?: boolean;
+}
+
 export interface KeycloakSetupConfig {
   id: string;
   host: string;

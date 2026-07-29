@@ -6,7 +6,11 @@ import {
   service,
 } from "@decaf-ts/core";
 import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
-import type { KeycloakSetupConfig, KeycloakUser } from "../types";
+import type {
+  KeycloakBrokerSetupConfig,
+  KeycloakSetupConfig,
+  KeycloakUser,
+} from "../types";
 import Axios, { AxiosInstance } from "axios";
 import * as https from "node:https";
 
@@ -352,6 +356,19 @@ export class KeycloakService extends ClientBasedService<
         ...ctxArgs
       );
     }
+  }
+
+  async setupBrokerIdentityProvider(
+    keycloakSetupConfig: KeycloakBrokerSetupConfig,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "setupBrokerIdentityProvider", true)
+    ).for(this.setupBrokerIdentityProvider);
+    await this.identityProviderService.createBrokerIdentityProvider(
+      keycloakSetupConfig,
+      ...ctxArgs
+    );
   }
 
   async deleteOrganization(

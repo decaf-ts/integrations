@@ -1,0 +1,51 @@
+http:
+  routers:
+    main-keycloak:
+      rule: Host(`auth.localhost`)
+      entryPoints: [web]
+      service: main-keycloak
+    external-keycloak:
+      rule: Host(`external-auth.localhost`)
+      entryPoints: [web]
+      service: external-keycloak
+    oauth2-proxy:
+      rule: Host(`protected.localhost`) && PathPrefix(`/oauth2`)
+      entryPoints: [web]
+      service: oauth2-proxy
+    protected-service:
+      rule: Host(`protected.localhost`)
+      entryPoints: [web]
+      middlewares: [oauth-errors, oauth-auth]
+      service: protected-service
+  middlewares:
+    oauth-auth:
+      forwardAuth:
+        address: http://oauth2-proxy:4180/oauth2/auth
+        trustForwardHeader: true
+        authResponseHeaders:
+          - X-Auth-Request-User
+          - X-Auth-Request-Email
+          - X-Auth-Request-Access-Token
+          - Authorization
+    oauth-errors:
+      errors:
+        status: ["401-403"]
+        service: oauth2-proxy
+        query: /oauth2/sign_in?rd={url}
+  services:
+    main-keycloak:
+      loadBalancer:
+        servers:
+          - url: http://main-keycloak:8080
+    external-keycloak:
+      loadBalancer:
+        servers:
+          - url: http://external-keycloak:8080
+    oauth2-proxy:
+      loadBalancer:
+        servers:
+          - url: http://oauth2-proxy:4180
+    protected-service:
+      loadBalancer:
+        servers:
+          - url: http://protected-service:80

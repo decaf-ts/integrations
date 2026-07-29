@@ -1,0 +1,128 @@
+services:
+  traefik:
+    image: traefik:v3.1
+    command:
+      - --api.dashboard=false
+      - --providers.file.filename=/etc/traefik/traefik-broker.yml
+      - --entrypoints.web.address=:80
+    ports:
+      - "8088:80"
+    volumes:
+      - ./traefik-broker.yml:/etc/traefik/traefik-broker.yml:ro
+    networks:
+      - broker-auth
+
+  main-keycloak:
+    image: quay.io/keycloak/keycloak:24.0.0
+    command: start-dev
+    environment:
+      KC_DB: dev-file
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME: auth.localhost
+      KC_HOSTNAME_PORT: "8088"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HOSTNAME_STRICT: "false"
+      KC_HEALTH_ENABLED: "true"
+      KC_READY_ENABLED: "true"
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.main-keycloak.rule: Host(`auth.localhost`)
+      traefik.http.routers.main-keycloak.entrypoints: web
+      traefik.http.services.main-keycloak.loadbalancer.server.port: "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n' >&3 && cat <&3 | grep -q 'UP'"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 40s
+    extra_hosts:
+      - external-auth.localhost:host-gateway
+    networks:
+      - broker-auth
+
+  external-keycloak:
+    image: quay.io/keycloak/keycloak:24.0.0
+    command: start-dev
+    environment:
+      KC_DB: dev-file
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME: external-auth.localhost
+      KC_HOSTNAME_PORT: "8088"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HOSTNAME_STRICT: "false"
+      KC_HEALTH_ENABLED: "true"
+      KC_READY_ENABLED: "true"
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.external-keycloak.rule: Host(`external-auth.localhost`)
+      traefik.http.routers.external-keycloak.entrypoints: web
+      traefik.http.services.external-keycloak.loadbalancer.server.port: "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n' >&3 && cat <&3 | grep -q 'UP'"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 40s
+    networks:
+      - broker-auth
+
+  protected-service:
+    image: nginx:1.27-alpine
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.protected-service.rule: Host(`protected.localhost`)
+      traefik.http.routers.protected-service.entrypoints: web
+      traefik.http.routers.protected-service.middlewares: oauth-errors@docker,oauth-auth@docker
+      traefik.http.services.protected-service.loadbalancer.server.port: "80"
+    networks:
+      - broker-auth
+
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    depends_on:
+      main-keycloak:
+        condition: service_healthy
+      external-keycloak:
+        condition: service_healthy
+    command:
+      - --http-address=0.0.0.0:4180
+      - --provider=keycloak-oidc
+      - --oidc-issuer-url=http://auth.localhost:8088/realms/broker
+      - --oidc-extra-audience=account
+      - --login-url=http://auth.localhost:8088/realms/broker/protocol/openid-connect/auth?kc_idp_hint=external-oidc
+      - --client-id=protected-service
+      - --client-secret=protected-service-secret
+      - --redirect-url=http://protected.localhost:8088/oauth2/callback
+      - --upstream=static://202
+      - --email-domain=*
+      - --cookie-secret=01234567890123456789012345678901
+      - --cookie-secure=false
+      - --set-xauthrequest=true
+      - --pass-access-token=true
+      - --reverse-proxy=true
+      - --whitelist-domain=protected.localhost:8088
+    extra_hosts:
+      - auth.localhost:host-gateway
+      - external-auth.localhost:host-gateway
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.oauth2-proxy.rule: Host(`protected.localhost`) && PathPrefix(`/oauth2`)
+      traefik.http.routers.oauth2-proxy.entrypoints: web
+      traefik.http.services.oauth2-proxy.loadbalancer.server.port: "4180"
+      traefik.http.middlewares.oauth-auth.forwardauth.address: http://oauth2-proxy:4180/oauth2/auth
+      traefik.http.middlewares.oauth-auth.forwardauth.trustForwardHeader: "true"
+      traefik.http.middlewares.oauth-auth.forwardauth.authResponseHeaders: X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Access-Token,Authorization
+      traefik.http.middlewares.oauth-errors.errors.status: 401-403
+      traefik.http.middlewares.oauth-errors.errors.service: oauth2-proxy
+      traefik.http.middlewares.oauth-errors.errors.query: /oauth2/sign_in?rd={url}
+    networks:
+      - broker-auth
+    restart: on-failure
+
+networks:
+  broker-auth:
+    name: decaf-keycloak-broker

@@ -8,6 +8,8 @@ import { ContextualArgs, MaybeContextualArg } from "@decaf-ts/core";
 import { ClientBasedService } from "@decaf-ts/core";
 import type {
   KeycloakIdentityProviderConfig,
+  KeycloakBrokerIdentityProviderConfig,
+  KeycloakBrokerSetupConfig,
   KeycloakSetupConfig,
   KeycloakUser,
 } from "../types";
@@ -86,6 +88,50 @@ export class KeycloakIdentityProviderService extends ClientBasedService<
     );
   }
 
+  async createBrokerIdentityProvider(
+    keycloakSetupConfig: KeycloakBrokerSetupConfig,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "createBrokerIdentityProvider", true)
+    ).for(this.createBrokerIdentityProvider);
+    const accessToken = await this.getRealmAccessToken(
+      keycloakSetupConfig,
+      ...ctxArgs
+    );
+    await this.request(
+      "POST",
+      `/admin/realms/${keycloakSetupConfig.realmApiUser?.realm}/identity-provider/instances`,
+      accessToken,
+      buildBrokerIdentityProviderPayload(keycloakSetupConfig.broker),
+      201,
+      {},
+      ...ctxArgs
+    );
+  }
+
+  async updateBrokerIdentityProvider(
+    keycloakSetupConfig: KeycloakBrokerSetupConfig,
+    ...args: MaybeContextualArg<any>
+  ): Promise<void> {
+    const { ctxArgs } = (
+      await this.logCtx(args, "updateBrokerIdentityProvider", true)
+    ).for(this.updateBrokerIdentityProvider);
+    const accessToken = await this.getRealmAccessToken(
+      keycloakSetupConfig,
+      ...ctxArgs
+    );
+    await this.request(
+      "PUT",
+      `/admin/realms/${keycloakSetupConfig.realmApiUser?.realm}/identity-provider/instances/${encodeURIComponent(keycloakSetupConfig.broker.alias)}`,
+      accessToken,
+      buildBrokerIdentityProviderPayload(keycloakSetupConfig.broker),
+      204,
+      {},
+      ...ctxArgs
+    );
+  }
+
   async createIdentityProviderMappers(
     keycloakSetupConfig: KeycloakSetupConfig,
     roleConfigs: any[] | undefined,
@@ -135,7 +181,7 @@ export class KeycloakIdentityProviderService extends ClientBasedService<
   }
 
   private async getRealmAccessToken(
-    keycloakSetupConfig: KeycloakSetupConfig,
+    keycloakSetupConfig: KeycloakSetupConfig | KeycloakBrokerSetupConfig,
     ...args: ContextualArgs<any>
   ): Promise<string> {
     const { ctxArgs } = this.logCtx(args, this.getRealmAccessToken);
@@ -312,4 +358,70 @@ export class KeycloakIdentityProviderService extends ClientBasedService<
     }
     return data as T;
   }
+}
+
+export function buildBrokerIdentityProviderPayload(
+  config: KeycloakBrokerIdentityProviderConfig
+): Record<string, unknown> {
+  const providerConfig: Record<string, string> = {
+    ...(config.protocol === "oidc"
+      ? {
+          issuer: config.upstreamIssuer ?? "",
+          metadataDescriptorUrl: config.discoveryUrl ?? "",
+          authorizationUrl: config.upstreamIssuer
+            ? `${config.upstreamIssuer}/protocol/openid-connect/auth`
+            : "",
+          tokenUrl: config.upstreamIssuer
+            ? `${config.upstreamIssuer}/protocol/openid-connect/token`
+            : "",
+          userInfoUrl: config.upstreamIssuer
+            ? `${config.upstreamIssuer}/protocol/openid-connect/userinfo`
+            : "",
+          jwksUrl: config.upstreamIssuer
+            ? `${config.upstreamIssuer}/protocol/openid-connect/certs`
+            : "",
+          logoutUrl: config.upstreamIssuer
+            ? `${config.upstreamIssuer}/protocol/openid-connect/logout`
+            : "",
+          clientId: config.clientId ?? "",
+          clientSecret: config.clientSecret ?? "",
+          clientAuthMethod: config.clientAuthMethod ?? "client_secret_post",
+          clientAssertionSigningAlg: config.clientAssertionSigningAlg ?? "",
+          clientAssertionAudience: config.clientAssertionAudience ?? "",
+          defaultScope: config.defaultScopes ?? "openid profile email",
+          validateSignature: "true",
+          useJwksUrl: "true",
+        }
+      : {
+          entityId: config.saml?.entityId ?? "",
+          singleSignOnServiceUrl: config.saml?.singleSignOnServiceUrl ?? "",
+          singleLogoutServiceUrl: config.saml?.singleLogoutServiceUrl ?? "",
+          signingCertificate: config.saml?.signingCertificate ?? "",
+          nameIdPolicyFormat: config.saml?.nameIdPolicyFormat ?? "",
+          principalAttribute: config.saml?.principalAttribute ?? "",
+          signatureAlgorithm: config.saml?.signatureAlgorithm ?? "",
+          postBindingResponse: String(config.saml?.postBindingResponse ?? true),
+          postBindingAuthnRequest: String(
+            config.saml?.postBindingAuthnRequest ?? true
+          ),
+          wantAuthnRequestsSigned: String(
+            config.saml?.wantAuthnRequestsSigned ?? false
+          ),
+        }),
+    ...config.config,
+  };
+
+  return {
+    alias: config.alias,
+    displayName: config.displayName,
+    providerId: config.protocol,
+    enabled: config.enabled ?? true,
+    trustEmail: config.trustEmail ?? false,
+    storeToken: config.storeToken ?? false,
+    linkOnly: config.linkOnly ?? false,
+    authenticateByDefault: config.authenticateByDefault ?? false,
+    firstBrokerLoginFlowAlias: config.firstBrokerLoginFlowAlias,
+    postBrokerLoginFlowAlias: config.postBrokerLoginFlowAlias,
+    config: providerConfig,
+  };
 }
