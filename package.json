@@ -402,7 +402,10 @@
   "overrides": {
     "multer": "^2.1.2",
     "test-exclude": "^7.0.2",
-    "brace-expansion": "^5.0.8"
+    "brace-expansion": "^5.0.8",
+    "fast-uri": "^3.1.4",
+    "fast-xml-parser": "^5.10.1",
+    "js-yaml": "^5.2.1"
   },
   "optionalDependencies": {
     "@aws-sdk/client-s3": "^3.1075.0",
@@ -413,7 +416,7 @@
     "@azure/storage-blob": "^12.33.0",
     "@google-cloud/secret-manager": "^5.6.0",
     "@google-cloud/storage": "^7.21.0",
-    "aws-sdk": "^2.1691.0",
+    "aws-sdk": "^2.1693.0",
     "hashicorp-vault": "^0.1.0",
     "keycloak-admin": "^24.0.5",
     "kubo-rpc-client": "^7.1.0",
