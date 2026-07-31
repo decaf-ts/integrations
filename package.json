@@ -401,11 +401,10 @@
   },
   "overrides": {
     "multer": "^2.1.2",
-    "test-exclude": "^7.0.2",
-    "brace-expansion": "^5.0.8",
     "fast-uri": "^3.1.4",
     "fast-xml-parser": "^5.10.1",
-    "js-yaml": "^5.2.1"
+    "test-exclude": "^7.0.2",
+    "brace-expansion": "^5.0.8"
   },
   "optionalDependencies": {
     "@aws-sdk/client-s3": "^3.1075.0",
