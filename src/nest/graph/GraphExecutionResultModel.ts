@@ -1,9 +1,9 @@
-import { Model, model, type ModelArg } from "@decaf-ts/decorator-validation";
-import { column, pk, table } from "@decaf-ts/core";
+import { model } from "@decaf-ts/decorator-validation";
+import { BaseModel, column, pk, table } from "@decaf-ts/core";
 
 @table("graph_execution_result")
 @model()
-export class GraphExecutionResultModel extends Model {
+export class GraphExecutionResultModel extends BaseModel {
   @pk({ type: String, generated: false })
   runId!: string;
 
@@ -28,7 +28,7 @@ export class GraphExecutionResultModel extends Model {
   @column()
   finishedAt?: Date;
 
-  constructor(arg?: ModelArg<GraphExecutionResultModel>) {
+  constructor(arg?: Partial<GraphExecutionResultModel>) {
     super(arg);
   }
 }

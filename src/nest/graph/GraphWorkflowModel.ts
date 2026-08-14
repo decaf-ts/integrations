@@ -1,19 +1,16 @@
-import { Model, model, type ModelArg } from "@decaf-ts/decorator-validation";
-import { column, pk, table } from "@decaf-ts/core";
+import { model } from "@decaf-ts/decorator-validation";
+import { BaseModel, column, pk, table } from "@decaf-ts/core";
 
 @table("graph_workflow_snapshot")
 @model()
-export class GraphWorkflowModel extends Model {
+export class GraphWorkflowModel extends BaseModel {
   @pk({ type: String, generated: false })
   workflowId!: string;
 
   @column()
   snapshot!: Record<string, unknown>;
 
-  @column()
-  updatedAt!: Date;
-
-  constructor(arg?: ModelArg<GraphWorkflowModel>) {
+  constructor(arg?: Partial<GraphWorkflowModel>) {
     super(arg);
   }
 }
