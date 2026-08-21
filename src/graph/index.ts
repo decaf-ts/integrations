@@ -8,4 +8,5 @@
  * Frontend bundles MUST import from `@decaf-ts/integrations/graph/shared`
  * instead to avoid pulling in the execution engine.
  */
+import "./log/LogParameters";
 export * from "./engine";

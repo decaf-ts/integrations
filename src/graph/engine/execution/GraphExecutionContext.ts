@@ -1,15 +1,17 @@
 /**
  * @module integrations/graph/execution/GraphExecutionContext
  * @summary Decaf Context for graph node execution.
- * @description Extends Decaf's {@link Context} so node executors receive the same contextual plumbing as task handlers. Executors use the context to emit progress, log messages, and report state through the engine's observer pipeline.
+ * @description Extends Decaf's {@link Context} so node executors receive the same contextual plumbing as task handlers. Executors use the context to emit progress, log messages, and report state through the engine's observer pipeline. Each context also exposes a run-scoped `ctx.logger` (DECAF-48 §4.3) bound to the executing node's `runId` / `workflowId` / `nodeId` / `user`, so every log line streams over `graph.run.log` with the DECAF-9 custom attributes.
  */
 import { Context } from "@decaf-ts/core";
 import type {
   GraphNodeDefinition,
   GraphWorkflowDefinition,
 } from "@decaf-ts/ui-decorators/graph";
+import type { Logger } from "@decaf-ts/logging";
 
 import { GraphExecutionEventType } from "../../shared/constants";
+import { GraphRunLogger } from "../../log/GraphRunLogger";
 import type {
   GraphExecutionEvent,
   GraphRunId,
@@ -21,9 +23,12 @@ import type {
  * Mirrors the `TaskEngine` / `TaskContext` pattern: the engine creates a
  * `GraphExecutionContext` per node execution and passes it to
  * `executor.execute(inputs, context)`. The executor uses `context.progress(...)`
- * and `context.log(...)` to report intermediate state.
+ * and `context.log(...)` to report intermediate state, and `context.logger`
+ * to emit structured run log lines (DECAF-48 §4.3).
  */
 export class GraphExecutionContext extends Context {
+  private readonly runLogger?: GraphRunLogger;
+
   /**
    * @param runId - Unique identifier for the current execution run.
    * @param parentRunId - Run id of the parent execution (for nested loop bodies).
@@ -43,6 +48,26 @@ export class GraphExecutionContext extends Context {
     readonly metadata: Record<string, unknown> = {}
   ) {
     super();
+    const user = typeof metadata?.["user"] === "string" ? metadata["user"] : null;
+    this.runLogger = new GraphRunLogger({
+      runId,
+      workflowId: workflow.name,
+      nodeId: node.name,
+      user,
+      forward: async (event) => {
+        await this.emit(event);
+      },
+    });
+  }
+
+  /**
+   * The decaf-ts {@link Logger} bound to this node's run context. Every log
+   * line carries the DECAF-48 attributes (`nodeId` / `workflowId` / `runId` /
+   * `user`) and is forwarded onto the existing graph execution Observable as
+   * a `GRAPH_RUN_LOG` event (streamed over the `graph.run.log` SSE channel).
+   */
+  get logger(): Logger {
+    return this.runLogger!;
   }
 
   /**

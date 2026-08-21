@@ -4,9 +4,9 @@
  * @description Creates a registry pre-loaded with the demo executors used by
  * the graph execution backend's sample workflows. The executors cover the
  * flow-control kinds (including Code, Log, and Switch with code conditions),
- * the agent kind, and the loop kinds. Additional executors can be registered
- * on the returned registry before it is handed to the
- * {@link GraphExecutionEngine}.
+ * the DECAF-48 `core.utility.log` Log node, the agent kind, and the loop
+ * kinds. Additional executors can be registered on the returned registry
+ * before it is handed to the {@link GraphExecutionEngine}.
  */
 import {
   GraphNodeExecutorRegistry,
@@ -119,6 +119,7 @@ export function createDemoEngineConfig(): {
       registry.register("core.loop.until", new UntilGraphNodeExecutor(engine));
       registry.register("core.flow.code", new CodeGraphNodeExecutor(engine));
       registry.register("core.flow.log", new LogGraphNodeExecutor());
+      registry.register("core.utility.log", new LogGraphNodeExecutor());
       registry.register("core.flow.switch", new SwitchGraphNodeExecutor(engine));
       registry.register("core.flow.break", new BreakGraphNodeExecutor());
     },

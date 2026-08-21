@@ -2,14 +2,20 @@
  * @module integrations/graph/shared/types
  * @summary Frontend-safe graph type declarations.
  * @description Type aliases and interfaces that are safe to import from a
- * frontend bundle. These types describe declarative graph metadata (loop
- * condition DSL, switch cases, node metadata patches) and the execution-event
- * data contract consumed by the frontend via SSE — no engine runtime
- * dependency.
+ * frontend bundle. Alongside the declarative graph metadata types (loop
+ * condition DSL, switch cases, node metadata patches), this module carries the
+ * DECAF-48 execution contract consumed by the frontend via SSE: the node/edge
+ * state-change payloads, the structured run log entry, the node I/O
+ * inspection payload, the run-scoped subscription ownership tuple, and the
+ * Log-node level. All consumed over SSE — no engine runtime dependency.
  */
 import type { GraphPortDefinition } from "@decaf-ts/ui-decorators/graph";
 
-import type { GraphExecutionEventType, GraphExecutionStatus } from "./constants";
+import type {
+  GraphExecutionEventType,
+  GraphExecutionStatus,
+  GraphVisualState,
+} from "./constants";
 
 /**
  * A value reference inside a {@link ConditionExpression}.
@@ -142,4 +148,106 @@ export interface GraphExecutionEvent {
   payload?: unknown;
   error?: GraphExecutionErrorPayload;
   metadata?: Record<string, unknown>;
+}
+
+/**
+ * Payload carried by `NODE_STATE_CHANGED` events (DECAF-48 §4.4).
+ *
+ * The visual state is the engine-agnostic contract a Mastra/NestJS driver
+ * MUST emit; the reference engine derives it from its own execution events.
+ */
+export interface GraphNodeStateChangedPayload {
+  nodeId: string;
+  state: GraphVisualState;
+  runId: string;
+  workflowId: string;
+  /** Engine status that produced the visual state (when available). */
+  status?: GraphExecutionStatus;
+  iteration?: number;
+}
+
+/**
+ * Payload carried by `EDGE_STATE_CHANGED` events (DECAF-48 §4.4).
+ */
+export interface GraphEdgeStateChangedPayload {
+  edgeId: string;
+  state: GraphVisualState;
+  runId: string;
+  workflowId: string;
+  /** Source node of the routed edge (when available). */
+  nodeId?: string;
+  /** Engine status that produced the visual state (when available). */
+  status?: GraphExecutionStatus;
+}
+
+/**
+ * Structured log line streamed over the `graph.run.log` SSE channel
+ * (DECAF-48 §4.3). Serialized from the run's `ctx.logger` output; the level
+ * drives the Chrome-console-style filter while the attributes render as
+ * discrete columns.
+ */
+export interface GraphRunLogEntry {
+  /** Log severity level driving the Chrome-console-style widget filter (all `LogNodeLevel` values plus `benchmark`). */
+  level: "silly" | "trace" | "debug" | "verbose" | "info" | "warn" | "error" | "critical" | "fatal" | "benchmark";
+  message: string;
+  timestamp: string;
+  runId: string;
+  workflowId: string;
+  nodeId?: string;
+  user?: string | null;
+  /** Structured payload associated with the log line, if any. */
+  payload?: unknown;
+}
+
+/**
+ * Structured per-node I/O payload exposed for node inspection (DECAF-48 §4.6).
+ *
+ * Frontend-safe: pure data delivered via `graph/shared` types over the SSE
+ * state channel (or a `GET /graph/results/:runId` lookup); the frontend
+ * renders both panes (inputs right, outputs/error left) from this one shape.
+ */
+export interface GraphNodeInspectionPayload {
+  runId: string;
+  workflowId: string;
+  nodeId: string;
+  state: GraphVisualState;
+  inputs: Record<string, unknown>;
+  /** Present when SUCCEEDED (or from cache). */
+  outputs?: Record<string, unknown>;
+  /** Present when FAILED. */
+  error?: GraphExecutionErrorPayload;
+}
+
+/**
+ * Log levels accepted by the Log node (DECAF-48 §4.3).
+ *
+ * Mirrors the DECAF-9 log level set so the Log node executor (and the
+ * {@link GraphRunLogger} dispatch) can forward onto the run's `ctx.logger`.
+ * Includes every level rendered by the Chrome-console-style widget filter.
+ */
+export type LogNodeLevel =
+  | "silly"
+  | "trace"
+  | "debug"
+  | "verbose"
+  | "info"
+  | "warn"
+  | "error"
+  | "critical"
+  | "fatal";
+
+/**
+ * Run-scoped SSE subscription ownership key (DECAF-48 §4.2).
+ *
+ * Subscription-mode SSE is keyed by run ownership: a consumer is only
+ * delivered graph events/logs for runs it owns. This tuple is the
+ * engine-agnostic contract a Mastra/NestJS driver MUST honour —
+ * `runId` together with the owning `user` (or a `system` runner when the
+ * identity is absent) scope every `graph.run.*` event before `next(...)`.
+ */
+export interface GraphRunSubscription {
+  runId: string;
+  ownerUser: string | null;
+  /** Optional topic filter (e.g. `graph.run.log`, `graph.run.state`). */
+  topics?: string[];
 }

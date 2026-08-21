@@ -104,6 +104,17 @@
       },
       "default": "./lib/esm/feature-flags/index.js"
     },
+    "./user-requests": {
+      "import": {
+        "types": "./lib/types/user-requests/index.d.mts",
+        "default": "./lib/esm/user-requests/index.js"
+      },
+      "require": {
+        "types": "./lib/types/user-requests/index.d.cts",
+        "default": "./lib/cjs/user-requests/index.cjs"
+      },
+      "default": "./lib/esm/user-requests/index.js"
+    },
     "./secrets": {
       "import": {
         "types": "./lib/types/secrets/index.d.mts",

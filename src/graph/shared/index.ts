@@ -16,4 +16,19 @@ import "@decaf-ts/ui-decorators/graph";
 export { Metadata } from "@decaf-ts/decoration";
 export * from "./constants";
 export * from "./types";
+export * from "./GraphExecutionStateMapper";
 export * from "./nodes";
+
+// Re-export the ui-decorators graph metadata the frontend needs so `for-angular`
+// imports only `@decaf-ts/integrations/graph/shared` (DECAF-35 §4.6 ESLint
+// boundary / DECAF-48 §4.1): visual-state overlay styles and node I/O
+// inspection metadata.
+export {
+  GRAPH_VISUAL_STATE_STYLES,
+  graphVisualStyleOf,
+} from "@decaf-ts/ui-decorators/graph";
+export type {
+  GraphNodeIoMetadata,
+  GraphNodeIoViewMode,
+  GraphVisualStyle,
+} from "@decaf-ts/ui-decorators/graph";

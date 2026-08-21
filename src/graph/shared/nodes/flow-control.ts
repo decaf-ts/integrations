@@ -1,11 +1,14 @@
 /**
  * @module integrations/graph/nodes/flow-control
  * @summary Production flow-control node kind declarations (DECAF-32 §22.2.2).
- * @description Canonical `@node`-decorated classes for the ten ALFRED-5
- * flow-control kinds. These are graph-level macros: the engine's planner
- * recognises them as ordinary executable nodes (§5.7) but they have no
- * built-in executors — downstream projects (e.g. ALFRED) register custom
- * executors or compile them into Mastra composition APIs (§22.2.2).
+ * @description Canonical `@node`-decorated classes for the ALFRED-5
+ * flow-control kinds, plus the DECAF-48 `core.utility.log` Log node. These
+ * are graph-level macros: the engine's planner recognises them as ordinary
+ * executable nodes (§5.7) but they have no built-in executors — downstream
+ * projects (e.g. ALFRED) register custom executors or compile them into
+ * Mastra composition APIs (§22.2.2). The `core.utility.log` node is the one
+ * exception: its {@link LogGraphNodeExecutor} is built in and logs the input
+ * through the run's `ctx.logger` (DECAF-48 §4.3).
  *
  * The three loop kinds (`core.loop.foreach/while/until`) already have built-in
  * executors (§5.9) and are NOT redeclared here.
@@ -20,7 +23,7 @@ import {
   PortDirection,
   type GraphPortDefinition,
 } from "@decaf-ts/ui-decorators/graph";
-import type { NodeMetadataChange, SwitchNodeMetadata } from "../types";
+import type { LogNodeLevel, NodeMetadataChange, SwitchNodeMetadata } from "../types";
 import { GraphNode } from "./base";
 
 /**
@@ -463,6 +466,40 @@ export class LogFlowNode extends Model {
 }
 
 /**
+ * Utility Log — logs the input value through the run's `ctx.logger` at a
+ * configurable level and forwards it unchanged on the `logged` output port
+ * (DECAF-48 §4.3).
+ */
+@node("core.utility.log", {
+  kind: "core.utility.log",
+  category: "Utility",
+  color: "#6366f1",
+  icon: "ti-terminal",
+  width: 96,
+  height: 96,
+  labels: ["utility", "log", "debug", "observability"],
+  metadata: {
+    title: "Utility Log",
+    description: "Logs the input value to the run's ctx.logger at a configurable level and forwards it unchanged.",
+  },
+})
+@model()
+export class UtilityLogNode extends Model {
+  @required()
+  @uielement("textarea", { label: "Input value", placeholder: "Value to log" })
+  @input({ handle: "value" })
+  value!: unknown;
+
+  @uielement("input", { label: "Log level", placeholder: "info, warn, error, ..." })
+  level!: LogNodeLevel;
+
+  @required()
+  @uielement("input", { label: "Logged value", placeholder: "Forwarded value" })
+  @output({ handle: "logged" })
+  logged!: unknown;
+}
+
+/**
  * Break — breaks out of the enclosing loop (foreach/while/until). When
  * executed inside a loop body, the loop terminates early and the loop's
  * `completed`/`state` output carries the results collected so far. The
@@ -509,5 +546,6 @@ export const GRAPH_FLOW_CONTROL_NODES = [
   ReturnFlowNode,
   CodeFlowNode,
   LogFlowNode,
+  UtilityLogNode,
   BreakFlowNode,
 ] as const;

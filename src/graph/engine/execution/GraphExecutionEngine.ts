@@ -1,7 +1,7 @@
 /**
  * @module integrations/graph/execution/GraphExecutionEngine
  * @summary Reference graph execution engine.
- * @description Executes graph workflows declared with `@decaf-ts/ui-decorators/graph`, emits events through Decaf's Observable pipeline, supports parallel node execution within topological layers, and returns a complete execution result.
+ * @description Executes graph workflows declared with `@decaf-ts/ui-decorators/graph`, emits events through Decaf's Observable pipeline, supports parallel node execution within topological layers, and returns a complete execution result. Per DECAF-48 §4.4 it also emits `NODE_STATE_CHANGED` / `EDGE_STATE_CHANGED` visual-state events on the same pipeline, and node executors log through the run-scoped `ctx.logger` (streamed over the `graph.run.log` SSE channel).
  */
 import type { Observable } from "@decaf-ts/core";
 import type { GraphWorkflowDefinition } from "@decaf-ts/ui-decorators/graph";
@@ -13,6 +13,7 @@ import {
 import {
   GraphExecutionEventType,
   GraphExecutionStatus,
+  GraphVisualState,
 } from "../../shared/constants";
 import { GraphExecutionError } from "../errors";
 import type {
@@ -33,6 +34,7 @@ import type { GraphNodeExecutorRegistry } from "../registry/GraphNodeExecutorReg
 import { GraphExecutionPlanner } from "../planning/GraphExecutionPlanner";
 import type { GraphExecutionPlan } from "../planning/GraphExecutionPlan";
 import type { GraphExecutionPlanNode } from "../planning/GraphExecutionPlanNode";
+import type { GraphExecutionPlanEdge } from "../planning/GraphExecutionPlanEdge";
 import type { GraphValueStoreAdapter } from "../store/GraphValueStoreAdapter";
 import { InMemoryGraphValueStoreAdapter } from "../store/InMemoryGraphValueStoreAdapter";
 import { GraphValueStore } from "../store/GraphValueStore";
@@ -103,20 +105,42 @@ export class GraphExecutionEngine
 
   private readonly config: GraphExecutionEngineConfig;
 
+  /**
+   * Registers an observer on the engine's event pipeline.
+   *
+   * @param observer - The observer to register.
+   * @returns An unsubscribe function that removes the observer.
+   */
   observe(observer: GraphExecutionObserver): () => void {
     return this.emitter.observe(observer);
   }
 
+  /**
+   * Unregisters an observer from the engine's event pipeline.
+   *
+   * @param observer - The observer to remove.
+   */
   unObserve(observer: GraphExecutionObserver): void {
     this.emitter.unObserve(observer);
   }
 
+  /**
+   * Dispatches an event to all registered observers.
+   *
+   * @param event - The event to distribute.
+   */
   async updateObservers(event: GraphExecutionEvent): Promise<void> {
     await this.emitter.updateObservers(event);
   }
 
   /**
    * Executes a workflow with the given inputs and options.
+   *
+   * @param workflow - The workflow definition to execute.
+   * @param inputs - Workflow input values keyed by input port name.
+   * @param options - Optional execution overrides (merged over the defaults).
+   * @returns The complete execution result, including a `runId`, per-node
+   * results, and workflow outputs (or the failure payload).
    */
   async execute(
     workflow: GraphWorkflowDefinition,
@@ -329,6 +353,14 @@ export class GraphExecutionEngine
       path: nodePath,
       status: GraphExecutionStatus.RUNNING,
     });
+    this.emitNodeStateChanged(
+      frame,
+      plan,
+      planNode,
+      nodePath,
+      GraphVisualState.RUNNING,
+      GraphExecutionStatus.RUNNING
+    );
 
     const inputs = this.resolveNodeInputs(frame, plan, planNode);
 
@@ -372,6 +404,14 @@ export class GraphExecutionEngine
           status: GraphExecutionStatus.SUCCEEDED,
           payload: { outputs: cached.outputs, fromCache: true },
         });
+        this.emitNodeStateChanged(
+          frame,
+          plan,
+          planNode,
+          nodePath,
+          GraphVisualState.SUCCEEDED,
+          GraphExecutionStatus.SUCCEEDED
+        );
         return;
       }
     }
@@ -415,6 +455,14 @@ export class GraphExecutionEngine
         status: GraphExecutionStatus.SUCCEEDED,
         payload: { outputs: resolvedOutputs },
       });
+      this.emitNodeStateChanged(
+        frame,
+        plan,
+        planNode,
+        nodePath,
+        GraphVisualState.SUCCEEDED,
+        GraphExecutionStatus.SUCCEEDED
+      );
     } catch (error) {
       const finishedAt = new Date();
       const errorPayload = this.toErrorPayload(error);
@@ -438,6 +486,14 @@ export class GraphExecutionEngine
         status: GraphExecutionStatus.FAILED,
         error: errorPayload,
       });
+      this.emitNodeStateChanged(
+        frame,
+        plan,
+        planNode,
+        nodePath,
+        GraphVisualState.FAILED,
+        GraphExecutionStatus.FAILED
+      );
 
       if (opts.failFast ?? true) throw error;
     }
@@ -555,6 +611,14 @@ export class GraphExecutionEngine
       if (edge.targetNodeId === GRAPH_WORKFLOW_BOUNDARY) {
         frame.valueStore.setWorkflowOutput(edge.targetPort, value);
       }
+      this.emitEdgeStateChanged(
+        frame,
+        plan,
+        planNode,
+        edge,
+        GraphVisualState.SUCCEEDED,
+        GraphExecutionStatus.SUCCEEDED
+      );
       this.emitEvent(frame, {
         type: GraphExecutionEventType.EDGE_VALUE_ROUTED,
         runId: frame.runId,
@@ -589,6 +653,71 @@ export class GraphExecutionEngine
     } as Omit<GraphExecutionEvent, "id" | "sequence" | "timestamp">);
     frame.appendEvent(event);
     await this.emitter.updateObservers(event);
+  }
+
+  /**
+   * Emits a `NODE_STATE_CHANGED` event (DECAF-48 §4.4) carrying the given
+   * visual state for the node. Rides the existing Observable pipeline; no
+   * second out-of-band channel.
+   */
+  private emitNodeStateChanged(
+    frame: GraphExecutionFrame,
+    plan: GraphExecutionPlan,
+    planNode: GraphExecutionPlanNode,
+    nodePath: string[],
+    state: GraphVisualState,
+    status?: GraphExecutionStatus
+  ): void {
+    this.emitEvent(frame, {
+      type: GraphExecutionEventType.NODE_STATE_CHANGED,
+      runId: frame.runId,
+      workflowId: plan.workflowId,
+      nodeId: planNode.id,
+      path: nodePath,
+      status,
+      payload: {
+        nodeId: planNode.id,
+        state,
+        runId: frame.runId,
+        workflowId: plan.workflowId,
+        status,
+      },
+    }).catch(() => {
+      // observer failures must not crash execution
+    });
+  }
+
+  /**
+   * Emits an `EDGE_STATE_CHANGED` event (DECAF-48 §4.4) carrying the given
+   * visual state for a routed edge.
+   */
+  private emitEdgeStateChanged(
+    frame: GraphExecutionFrame,
+    plan: GraphExecutionPlan,
+    planNode: GraphExecutionPlanNode,
+    edge: GraphExecutionPlanEdge,
+    state: GraphVisualState,
+    status?: GraphExecutionStatus
+  ): void {
+    this.emitEvent(frame, {
+      type: GraphExecutionEventType.EDGE_STATE_CHANGED,
+      runId: frame.runId,
+      workflowId: plan.workflowId,
+      edgeId: edge.id,
+      nodeId: planNode.id,
+      path: [],
+      status,
+      payload: {
+        edgeId: edge.id,
+        state,
+        runId: frame.runId,
+        workflowId: plan.workflowId,
+        nodeId: planNode.id,
+        status,
+      },
+    }).catch(() => {
+      // observer failures must not crash execution
+    });
   }
 
   /**
