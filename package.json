@@ -269,6 +269,17 @@
       },
       "default": "./lib/esm/graph/index.js"
     },
+    "./sftp": {
+      "import": {
+        "types": "./lib/types/sftp/index.d.mts",
+        "default": "./lib/esm/sftp/index.js"
+      },
+      "require": {
+        "types": "./lib/types/sftp/index.d.cts",
+        "default": "./lib/cjs/sftp/index.cjs"
+      },
+      "default": "./lib/esm/sftp/index.js"
+    },
     "./graph/shared": {
       "import": {
         "types": "./lib/types/graph/shared/index.d.mts",
@@ -340,7 +351,7 @@
     "lint": "eslint .",
     "lint-fix": "eslint --fix .",
     "prepare-pr": "npm run lint-fix && npm run build:prod && npm run coverage && npm run docs",
-    "prepare-release": "npm run lint-fix && npm run build:prod && npm run coverage && npm run docs",
+    "prepare-release": "npm run lint-fix && npm run build:prod && npm run docs",
     "release": "./bin/tag-release.sh",
     "clean-publish": "npx clean-publish",
     "drawings": "for FILE in workdocs/drawings/*.drawio; do echo \"converting $FILE to image...\" && docker run --rm -v $(pwd):/data rlespinasse/drawio-export --format png $FILE; done && cp -rf workdocs/drawings/export/* workdocs/resources/",
@@ -430,6 +441,7 @@
     "hashicorp-vault": "^0.1.0",
     "keycloak-admin": "^24.0.5",
     "kubo-rpc-client": "^7.1.0",
-    "onelogin-node": "^0.1.0"
+    "onelogin-node": "^0.1.0",
+    "ssh2": "^1.16.0"
   }
 }
