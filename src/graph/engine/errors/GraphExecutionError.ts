@@ -25,5 +25,6 @@ export class GraphExecutionError extends InternalError {
     super(message, GraphExecutionError.name, 500);
     this.graphCode = graphCode;
     this.details = details;
+    this.name = this.constructor.name;
   }
 }

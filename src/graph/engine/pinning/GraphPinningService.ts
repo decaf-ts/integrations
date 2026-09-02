@@ -1,7 +1,16 @@
 /**
  * @module integrations/graph/pinning/GraphPinningService
- * @summary Service for pinning and unpinning graph node values.
- * @description Computes stable fingerprints, pins/unpins nodes and their upstream dependencies, reads pinned values, and emits pinning events. Pinning is all-or-nothing: if any upstream dependency is not pinnable, the operation fails.
+ * @summary Service for pinning and unpinning graph node values (DECAF-50 §4.9).
+ * @description Computes stable fingerprints, pins/unpins nodes and their
+ * upstream dependencies, reads pinned values, and emits pinning events.
+ * Pinning is all-or-nothing: if any upstream dependency is not pinnable, the
+ * operation fails.
+ *
+ * Fingerprints derive from the node kind, parameters, bindings, effective
+ * inputs, relevant metadata, and configured dependency fingerprints
+ * (DECAF-50 §4.9). Presentation-only UI state (node/canvas positions, colors,
+ * and every `ui` record) is excluded — moving a node on the canvas never
+ * invalidates its pinned value.
  */
 import { GRAPH_PINNING_METADATA_KEY } from "../constants";
 import { GraphPinningError } from "../errors/GraphPinningError";
@@ -17,7 +26,6 @@ import type {
   GraphPinNodeOptions,
   GraphUnpinNodeOptions,
 } from "../types";
-import type { GraphWorkflowDefinition } from "@decaf-ts/ui-decorators/graph";
 
 import type { GraphPinningPolicy } from "./GraphPinningPolicy";
 import type { GraphPinningDependencyResolver } from "./GraphPinningDependencyResolver";
@@ -71,7 +79,7 @@ export class GraphPinningService {
       }
       const inputs = result.inputs ?? {};
       const depFingerprints = this.dependencyFingerprints(plan, nodeId, options.result);
-      const key = this.createValueKey(options.workflow, node, inputs, depFingerprints, options.namespace);
+      const key = this.createValueKey(options.document.id, node, inputs, depFingerprints);
       const now = new Date().toISOString();
       const cached: GraphCachedValue = {
         key,
@@ -90,7 +98,7 @@ export class GraphPinningService {
    */
   async unpinNode(options: GraphUnpinNodeOptions): Promise<void> {
     const key: GraphValueKey = {
-      workflowId: options.workflow.name,
+      workflowId: options.document.id,
       nodeId: options.nodeId,
       fingerprint: options.fingerprint,
       namespace: options.namespace,
@@ -103,13 +111,13 @@ export class GraphPinningService {
    * pinned value exists.
    */
   async readPinnedValue(
-    workflow: GraphWorkflowDefinition,
+    workflowId: string,
     node: GraphExecutionPlanNode,
     inputs: GraphExecutionValues,
     dependencyFingerprints: Record<string, string>,
     namespace?: string
   ): Promise<GraphCachedValue | undefined> {
-    const key = this.createValueKey(workflow, node, inputs, dependencyFingerprints, namespace);
+    const key = this.createValueKey(workflowId, node, inputs, dependencyFingerprints, namespace);
     const cached = await this.store.readCached(key);
     if (cached && cached.pinned) {
       if (cached.expiresAt && new Date(cached.expiresAt) < new Date()) {
@@ -124,34 +132,43 @@ export class GraphPinningService {
    * Creates a stable value key for a node.
    */
   createValueKey(
-    workflow: GraphWorkflowDefinition,
+    workflowId: string,
     node: GraphExecutionPlanNode,
     inputs: GraphExecutionValues,
     dependencyFingerprints: Record<string, string>,
     namespace?: string
   ): GraphValueKey {
     return {
-      workflowId: workflow.name,
+      workflowId,
       nodeId: node.id,
-      fingerprint: this.computeFingerprint(workflow, node, inputs, dependencyFingerprints),
+      fingerprint: this.computeFingerprint(workflowId, node, inputs, dependencyFingerprints),
       namespace,
     };
   }
 
   /**
-   * Computes a stable fingerprint for a node's inputs and dependencies.
+   * Computes a stable fingerprint for a node (DECAF-50 §4.9).
+   *
+   * The fingerprint derives from the node kind, the instance parameters, the
+   * input bindings, the effective input values, relevant instance metadata,
+   * and the configured dependency fingerprints. Presentation-only UI state is
+   * excluded: the instance `ui` record is never read, and a `ui` key inside
+   * metadata is stripped, so canvas positions and visual settings cannot
+   * affect pinning.
    */
   computeFingerprint(
-    workflow: GraphWorkflowDefinition,
+    workflowId: string,
     node: GraphExecutionPlanNode,
     inputs: GraphExecutionValues,
     dependencyFingerprints: Record<string, string>
   ): string {
     const data = {
-      workflowId: workflow.name,
+      workflowId,
       nodeId: node.id,
       nodeKind: node.kind,
-      nodeDefinitionVersion: (node.definition as any)?.graph?.metadata?.version,
+      parameters: this.stableSerialize(node.instance.parameters ?? {}),
+      inputBindings: this.stableSerialize(node.instance.inputBindings ?? {}),
+      metadata: this.stableSerialize(this.relevantMetadata(node)),
       inputs: this.stableSerialize(inputs),
       dependencyFingerprints: this.stableSerialize(dependencyFingerprints),
     };
@@ -159,6 +176,18 @@ export class GraphPinningService {
     // Use a deterministic non-cryptographic hash that works in both browser
     // and Node environments without requiring `node:crypto`.
     return this.simpleHash(json);
+  }
+
+  /**
+   * Strips presentation-only keys (`ui` and UI-state shapes) from the node's
+   * instance metadata, leaving only pinning-relevant metadata.
+   */
+  private relevantMetadata(node: GraphExecutionPlanNode): Record<string, unknown> {
+    const metadata: Record<string, unknown> = { ...(node.metadata ?? {}) };
+    delete metadata["ui"];
+    delete metadata["position"];
+    delete metadata["visual"];
+    return metadata;
   }
 
   /**
@@ -199,7 +228,7 @@ export class GraphPinningService {
         const depResult = result.nodeResults[dep];
         const inputs = depResult?.inputs ?? {};
         const nestedDeps = this.dependencyFingerprints(plan, dep, result);
-        fingerprints[dep] = this.computeFingerprint(plan.workflow, node, inputs, nestedDeps);
+        fingerprints[dep] = this.computeFingerprint(plan.workflowId, node, inputs, nestedDeps);
       }
     }
     return fingerprints;

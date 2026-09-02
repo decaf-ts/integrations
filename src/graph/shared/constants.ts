@@ -8,9 +8,44 @@
  * frontend-safe {@link GraphVisualState} enum, the `graph.run.log` /
  * `graph.run.state` SSE topic constants, the run-log attribute keys
  * ({@link GraphLogAttribute}), and the `NODE_STATE_CHANGED` /
- * `EDGE_STATE_CHANGED` / `GRAPH_RUN_LOG` event types. The frontend must not
- * pull in the execution engine.
+ * `EDGE_STATE_CHANGED` / `GRAPH_RUN_LOG` event types, plus the DECAF-50 run
+ * contract: {@link GraphRunLimits} (with {@link DEFAULT_GRAPH_RUN_LIMITS}) and
+ * the run lifecycle/terminal predicates (`isGraphRunStatus`,
+ * `isGraphRunTerminalStatus`, `isGraphRunTerminalEventType`). The frontend
+ * must not pull in the execution engine.
  */
+
+import type { GraphRunStatus } from "./types";
+
+/**
+ * Disabled-node execution semantics (DECAF-50 §4.9).
+ *
+ * - `skip` — the node does not execute and produces no outputs.
+ * - `passThroughFirstInput` — the first incoming edge value is forwarded on
+ *   the node's first declared output port.
+ * - `emitDefaults` — every declared output port is emitted with its default
+ *   (absent a declared default, `undefined`).
+ */
+export const GRAPH_DISABLED_NODE_BEHAVIORS = [
+  "skip",
+  "passThroughFirstInput",
+  "emitDefaults",
+] as const;
+
+/** How a disabled node behaves during execution (DECAF-50 §4.8): skip it, pass through its first input, or emit default outputs. */
+export type GraphDisabledNodeBehavior = (typeof GRAPH_DISABLED_NODE_BEHAVIORS)[number];
+
+/** The disabled-node behavior applied when a node declares none. */
+export const GRAPH_DEFAULT_DISABLED_NODE_BEHAVIOR: GraphDisabledNodeBehavior = "skip";
+
+/** Type guard for {@link GraphDisabledNodeBehavior}. */
+export function isGraphDisabledNodeBehavior(
+  value: unknown
+): value is GraphDisabledNodeBehavior {
+  return (GRAPH_DISABLED_NODE_BEHAVIORS as readonly string[]).includes(
+    value as string
+  );
+}
 
 /**
  * Execution status for a workflow or individual node.
@@ -42,6 +77,7 @@ export enum GraphVisualState {
   FAILED = "failed",
   SKIPPED = "skipped",
 }
+
 
 /**
  * Namespace root for graph run SSE topics (DECAF-48 §4.2). A subscription
@@ -141,4 +177,70 @@ export enum GraphExecutionEventType {
   STORE_READ = "store.read",
   STORE_WRITE = "store.write",
   STORE_DELETE = "store.delete",
+}
+
+/**
+ * Hard limits for the graph run subsystem (DECAF-50 §4.14/§4.16).
+ *
+ * Enforced by the run executor and the HTTP run controller; every omitted
+ * field falls back to {@link DEFAULT_GRAPH_RUN_LIMITS}.
+ */
+export interface GraphRunLimits {
+  /** Maximum serialised JSON size accepted for a run create request. */
+  maxRequestBytes?: number;
+  /** Maximum number of runs in flight per user (`system` included). */
+  maxConcurrentRuns?: number;
+  /** Maximum events retained per run by the in-memory event store. */
+  maxEventsPerRun?: number;
+  /** Maximum serialised size of a single event envelope `payload`. */
+  maxEventPayloadBytes?: number;
+  /** Hard wall-clock budget for a run's engine execution. */
+  executionTimeoutMs?: number;
+}
+
+/** Default run limits: request size, concurrency, event retention/payload size, and execution timeout. */
+export const DEFAULT_GRAPH_RUN_LIMITS: Required<GraphRunLimits> = {
+  maxRequestBytes: 4_000_000,
+  maxConcurrentRuns: 32,
+  maxEventsPerRun: 10_000,
+  maxEventPayloadBytes: 256_000,
+  executionTimeoutMs: 600_000,
+};
+
+/**
+ * Terminal graph event types closing a run's SSE stream
+ * (DECAF-50 §4.15). The run SSE endpoint never emits anything after these.
+ */
+export const GRAPH_RUN_TERMINAL_EVENT_TYPES: readonly GraphExecutionEventType[] =
+  [
+    GraphExecutionEventType.WORKFLOW_COMPLETED,
+    GraphExecutionEventType.WORKFLOW_FAILED,
+    GraphExecutionEventType.WORKFLOW_CANCELLED,
+  ];
+
+/** Whether the event type is a run-stream terminal type (see {@link GRAPH_RUN_TERMINAL_EVENT_TYPES}). */
+export function isGraphRunTerminalEventType(
+  type: GraphExecutionEventType
+): boolean {
+  return GRAPH_RUN_TERMINAL_EVENT_TYPES.includes(type);
+}
+
+/** Whether the run status is terminal (`succeeded`, `failed`, or `cancelled`). */
+export function isGraphRunTerminalStatus(status: GraphRunStatus): boolean {
+  return status === "succeeded" || status === "failed" || status === "cancelled";
+}
+
+/** Type guard for {@link GraphRunStatus}. */
+export function isGraphRunStatus(value: unknown): value is GraphRunStatus {
+  return (
+    typeof value === "string" &&
+    [
+      "queued",
+      "validating",
+      "running",
+      "succeeded",
+      "failed",
+      "cancelled",
+    ].includes(value)
+  );
 }

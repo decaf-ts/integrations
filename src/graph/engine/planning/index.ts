@@ -7,6 +7,5 @@ export * from "./GraphExecutionPlanNode";
 export * from "./GraphExecutionPlanEdge";
 export * from "./GraphExecutionPlanLayer";
 export * from "./GraphExecutionPlan";
-export * from "./GraphRelationResolver";
 export * from "./GraphExecutionPlanner";
 export * from "./GraphTopology";

@@ -17,7 +17,10 @@ import type {
   CodeSandboxContext,
   SandboxLogger,
 } from "./CodeSandboxEvaluator";
-import type { GraphExecutionValues } from "../types";
+import type {
+  GraphExecutionValues,
+  GraphNodeExecutionRequest,
+} from "../types";
 import { GraphExecutionError } from "../errors/GraphExecutionError";
 import { GraphInputError } from "../errors/GraphInputError";
 
@@ -31,14 +34,16 @@ interface CodeNodeMetadata {
 }
 
 /**
- * Reads the Code node metadata from the node definition's graph metadata.
+ * Reads the Code node metadata from the canonical node instance (DECAF-50):
+ * configuration lives in the instance `parameters` with `metadata` as the
+ * legacy fallback (the §4.18 transition compiler mirrors legacy
+ * `graph.metadata` bags into instance metadata).
  */
 function readCodeMetadata(context: GraphExecutionContext): CodeNodeMetadata {
-  const meta = context.node.graph?.metadata as
-    | Record<string, unknown>
-    | undefined;
-  if (!meta) return {};
-  return meta as CodeNodeMetadata;
+  const parameters = context.node.parameters as Record<string, unknown>;
+  const metadata = context.node.metadata as Record<string, unknown> | undefined;
+  const source = { ...(metadata ?? {}), ...parameters };
+  return source as CodeNodeMetadata;
 }
 
 /**
@@ -76,10 +81,11 @@ export class CodeGraphNodeExecutor implements GraphNodeExecutor {
   ) {}
 
   async execute(
-    input: GraphExecutionValues,
+    request: GraphNodeExecutionRequest,
     context: GraphExecutionContext
   ): Promise<GraphExecutionValues> {
     const meta = readCodeMetadata(context);
+    const input = request.inputs;
     const code = (input["code"] as string | undefined) ?? meta.defaultCode;
 
     if (!code || typeof code !== "string" || code.trim().length === 0) {

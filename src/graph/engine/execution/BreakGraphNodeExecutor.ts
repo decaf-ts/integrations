@@ -7,7 +7,7 @@
  */
 import type { GraphNodeExecutor } from "./GraphNodeExecutor";
 import type { GraphExecutionContext } from "./GraphExecutionContext";
-import type { GraphExecutionValues } from "../types";
+import type { GraphExecutionValues, GraphNodeExecutionRequest } from "../types";
 import { GraphBreakSignal } from "../errors/GraphBreakSignal";
 
 /**
@@ -21,11 +21,11 @@ import { GraphBreakSignal } from "../errors/GraphBreakSignal";
  */
 export class BreakGraphNodeExecutor implements GraphNodeExecutor {
   async execute(
-    input: GraphExecutionValues,
+    request: GraphNodeExecutionRequest,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _context: GraphExecutionContext
   ): Promise<GraphExecutionValues> {
-    const value = input["value"];
+    const value = request.inputs["value"];
     throw new GraphBreakSignal(value);
   }
 }

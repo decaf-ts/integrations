@@ -1,28 +1,26 @@
 /**
  * @module integrations/graph/validation/GraphDefinitionValidator
- * @summary Validates graph workflow definitions before execution.
- * @description Checks workflow structure, node IDs, relation endpoints/ports, required port sources, cycles, and loop metadata.
+ * @summary Legacy structural checks for decorated workflow definitions.
+ * @description Kept for the §4.18 transition. Full workflow validation moved
+ * to the nine-stage document gate ({@link GraphWorkflowDocumentValidator});
+ * this shim only performs the cheap structural checks that do not require
+ * catalogue resolution.
  */
 import type { GraphWorkflowDefinition } from "@decaf-ts/ui-decorators/graph";
 
 import { GraphInputError } from "../errors/GraphInputError";
-import { GraphExecutionPlanner } from "../planning/GraphExecutionPlanner";
 
 /**
- * Validates a {@link GraphWorkflowDefinition} before execution.
+ * Performs cheap structural checks on a legacy {@link GraphWorkflowDefinition}.
+ *
+ * @deprecated Validate canonical documents with
+ *   {@link GraphWorkflowDocumentValidator} instead.
  */
 export class GraphDefinitionValidator {
-  private readonly planner: GraphExecutionPlanner;
-
-  constructor(planner?: GraphExecutionPlanner) {
-    this.planner = planner ?? new GraphExecutionPlanner();
-  }
-
   /**
-   * Validates the workflow definition.
+   * Validates the workflow definition structure.
    *
-   * @throws {GraphInputError} when the workflow has no name or invalid structure.
-   * @throws {GraphCycleError} when the workflow contains an unsupported cycle.
+   * @throws {GraphInputError} when the workflow has no name or duplicate node ids.
    */
   validate(workflow: GraphWorkflowDefinition): void {
     if (!workflow.name) {
@@ -33,8 +31,5 @@ export class GraphDefinitionValidator {
     if (nodeIds.size !== (workflow.nodes ?? []).length) {
       throw new GraphInputError("Workflow node IDs must be unique");
     }
-
-    // The planner performs full topology validation (endpoints, ports, cycles)
-    this.planner.plan(workflow);
   }
 }

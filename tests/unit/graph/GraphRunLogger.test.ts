@@ -1,32 +1,53 @@
 /**
  * @module integrations/tests/unit/graph/GraphRunLogger.test
  * @summary Unit tests for the run logger + Log node executor (DECAF-48).
+ * @description Uses the DECAF-50 §4.9 execution context shape (canonical
+ * document + node instance + effective manifest).
  */
 import { GraphRunLogger } from "../../../src/graph/log/GraphRunLogger";
 import { GraphExecutionContext } from "../../../src/graph/engine/execution/GraphExecutionContext";
 import { LogGraphNodeExecutor } from "../../../src/graph/engine/execution/LogGraphNodeExecutor";
 import { GraphExecutionEventType } from "../../../src/graph/shared/constants";
-import type { GraphNodeDefinition } from "@decaf-ts/ui-decorators/graph";
-import type { GraphWorkflowDefinition } from "@decaf-ts/ui-decorators/graph";
+import type {
+  GraphNodeInstance,
+  GraphWorkflowDocument,
+} from "@decaf-ts/ui-decorators/graph";
+import type { GraphResolvedNodeManifest } from "../../../src/graph/shared/GraphResolution";
+import { nodeExecutionRequest } from "./fixtures";
+
+function buildDocument(): GraphWorkflowDocument {
+  return { id: "wf", name: "wf", inputs: [], outputs: [], nodes: [], edges: [] };
+}
+
+function buildInstance(
+  id: string,
+  kind: string,
+  parameters: Record<string, unknown> = {}
+): GraphNodeInstance {
+  return { id, kind, parameters };
+}
+
+function buildManifest(kind: string): GraphResolvedNodeManifest {
+  return {
+    kind,
+    display: { name: kind },
+    inputs: [],
+    outputs: [],
+    parameters: [],
+  };
+}
 
 describe("GraphRunLogger", () => {
   it("forwards a structured GRAPH_RUN_LOG entry with the run attributes", async () => {
     const entries: unknown[] = [];
     let nodeId: string | undefined;
-    const node: GraphNodeDefinition = {
-      name: "LogNode",
-      tag: "LogNode",
-      kind: "core.utility.log",
-      labels: [],
-      ports: [],
-      graph: {} as never,
-    };
-    const workflow = { name: "wf" } as GraphWorkflowDefinition;
     const ctx = new GraphExecutionContext(
       "run-1",
       undefined,
-      workflow,
-      node,
+      "wf",
+      buildDocument(),
+      buildInstance("LogNode", "core.utility.log"),
+      buildManifest("core.utility.log"),
       ["LogNode"],
       async (event) => {
         nodeId = event.nodeId;
@@ -63,20 +84,13 @@ describe("GraphRunLogger", () => {
 
   it("emits warn/error log levels distinctly", async () => {
     const levels: string[] = [];
-    const node: GraphNodeDefinition = {
-      name: "N",
-      tag: "N",
-      kind: "core.flow.log",
-      labels: [],
-      ports: [],
-      graph: {} as never,
-    };
-    const workflow = { name: "wf" } as GraphWorkflowDefinition;
     const ctx = new GraphExecutionContext(
       "run-2",
       undefined,
-      workflow,
-      node,
+      "wf",
+      buildDocument(),
+      buildInstance("N", "core.flow.log"),
+      buildManifest("core.flow.log"),
       ["N"],
       async (event) => {
         if (event.type === GraphExecutionEventType.GRAPH_RUN_LOG) {
@@ -92,21 +106,14 @@ describe("GraphRunLogger", () => {
   });
 
   it("uses null user when the context carries no identity", async () => {
-    const node: GraphNodeDefinition = {
-      name: "N",
-      tag: "N",
-      kind: "core.utility.log",
-      labels: [],
-      ports: [],
-      graph: {} as never,
-    };
-    const workflow = { name: "wf" } as GraphWorkflowDefinition;
     let captured: unknown;
     const ctx = new GraphExecutionContext(
       "run-3",
       undefined,
-      workflow,
-      node,
+      "wf",
+      buildDocument(),
+      buildInstance("N", "core.utility.log"),
+      buildManifest("core.utility.log"),
       ["N"],
       async (event) => {
         if (event.type === GraphExecutionEventType.GRAPH_RUN_LOG) {
@@ -124,21 +131,13 @@ describe("GraphRunLogger", () => {
 describe("LogGraphNodeExecutor", () => {
   it("logs its input through ctx.logger at the configured level", async () => {
     const captured: unknown[] = [];
-    const node: GraphNodeDefinition = {
-      name: "LogNode",
-      tag: "LogNode",
-      kind: "core.utility.log",
-      labels: [],
-      ports: [],
-      props: { level: "warn" } as never,
-      graph: {} as never,
-    };
-    const workflow = { name: "wf" } as GraphWorkflowDefinition;
     const ctx = new GraphExecutionContext(
       "run-1",
       undefined,
-      workflow,
-      node,
+      "wf",
+      buildDocument(),
+      buildInstance("LogNode", "core.utility.log", { level: "warn" }),
+      buildManifest("core.utility.log"),
       ["LogNode"],
       async (event) => {
         if (event.type === GraphExecutionEventType.GRAPH_RUN_LOG) {
@@ -149,7 +148,10 @@ describe("LogGraphNodeExecutor", () => {
     );
 
     const executor = new LogGraphNodeExecutor();
-    const result = await executor.execute({ value: "my value" }, ctx);
+    const result = await executor.execute(
+      nodeExecutionRequest({ value: "my value" }),
+      ctx
+    );
 
     expect(result).toEqual({ logged: "my value" });
     expect(captured).toHaveLength(1);
@@ -169,20 +171,13 @@ describe("LogGraphNodeExecutor", () => {
 
   it("defaults the log level to info when unset", async () => {
     const captured: unknown[] = [];
-    const node: GraphNodeDefinition = {
-      name: "LogNode",
-      tag: "LogNode",
-      kind: "core.utility.log",
-      labels: [],
-      ports: [],
-      graph: {} as never,
-    };
-    const workflow = { name: "wf" } as GraphWorkflowDefinition;
     const ctx = new GraphExecutionContext(
       "run-2",
       undefined,
-      workflow,
-      node,
+      "wf",
+      buildDocument(),
+      buildInstance("LogNode", "core.utility.log"),
+      buildManifest("core.utility.log"),
       ["LogNode"],
       async (event) => {
         if (event.type === GraphExecutionEventType.GRAPH_RUN_LOG) {
@@ -192,7 +187,7 @@ describe("LogGraphNodeExecutor", () => {
     );
 
     const executor = new LogGraphNodeExecutor();
-    await executor.execute({ value: 42 }, ctx);
+    await executor.execute(nodeExecutionRequest({ value: 42 }), ctx);
 
     expect((captured[0] as { level: string }).level).toBe("info");
   });

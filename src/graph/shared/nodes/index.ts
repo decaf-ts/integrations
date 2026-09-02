@@ -15,3 +15,4 @@ export * from "./category-styles";
 export * from "./triggers";
 export * from "./flow-control";
 export * from "./agent";
+export * from "./manifests";

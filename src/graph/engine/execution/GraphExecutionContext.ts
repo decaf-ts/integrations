@@ -1,16 +1,25 @@
 /**
  * @module integrations/graph/execution/GraphExecutionContext
- * @summary Decaf Context for graph node execution.
- * @description Extends Decaf's {@link Context} so node executors receive the same contextual plumbing as task handlers. Executors use the context to emit progress, log messages, and report state through the engine's observer pipeline. Each context also exposes a run-scoped `ctx.logger` (DECAF-48 §4.3) bound to the executing node's `runId` / `workflowId` / `nodeId` / `user`, so every log line streams over `graph.run.log` with the DECAF-9 custom attributes.
+ * @summary Decaf Context for graph node execution (DECAF-50 §4.9).
+ * @description Extends Decaf's {@link Context} so node executors receive the
+ * same contextual plumbing as task handlers. The context carries the
+ * canonical workflow document, the executing node's canonical instance, and
+ * its effective resolved manifest — never a raw node definition. Executors
+ * use the context to emit progress, log messages, and report state through
+ * the engine's observer pipeline. Each context also exposes a run-scoped
+ * `ctx.logger` (DECAF-48 §4.3) bound to the executing node's `runId` /
+ * `workflowId` / `nodeId` / `user`, so every log line streams over
+ * `graph.run.log` with the DECAF-9 custom attributes.
  */
 import { Context } from "@decaf-ts/core";
 import type {
-  GraphNodeDefinition,
-  GraphWorkflowDefinition,
+  GraphNodeInstance,
+  GraphWorkflowDocument,
 } from "@decaf-ts/ui-decorators/graph";
 import type { Logger } from "@decaf-ts/logging";
 
 import { GraphExecutionEventType } from "../../shared/constants";
+import type { GraphResolvedNodeManifest } from "../../shared/GraphResolution";
 import { GraphRunLogger } from "../../log/GraphRunLogger";
 import type {
   GraphExecutionEvent,
@@ -20,11 +29,11 @@ import type {
 /**
  * Context passed to every graph node executor.
  *
- * Mirrors the `TaskEngine` / `TaskContext` pattern: the engine creates a
- * `GraphExecutionContext` per node execution and passes it to
- * `executor.execute(inputs, context)`. The executor uses `context.progress(...)`
- * and `context.log(...)` to report intermediate state, and `context.logger`
- * to emit structured run log lines (DECAF-48 §4.3).
+ * The engine creates a `GraphExecutionContext` per node execution and passes
+ * it to the executor alongside the node's inputs/parameters. The executor
+ * uses `context.progress(...)` and `context.log(...)` to report intermediate
+ * state, and `context.logger` to emit structured run log lines (DECAF-48
+ * §4.3).
  */
 export class GraphExecutionContext extends Context {
   private readonly runLogger?: GraphRunLogger;
@@ -32,8 +41,10 @@ export class GraphExecutionContext extends Context {
   /**
    * @param runId - Unique identifier for the current execution run.
    * @param parentRunId - Run id of the parent execution (for nested loop bodies).
-   * @param workflow - The workflow definition being executed.
-   * @param node - The node definition being executed.
+   * @param workflowId - The canonical workflow document id.
+   * @param document - The canonical workflow document being executed.
+   * @param node - The canonical node instance being executed.
+   * @param manifest - The effective (dynamics-expanded) manifest for the node.
    * @param path - Dotted path from the workflow root to this node.
    * @param emitFn - Callback invoked when an event is emitted from this context.
    * @param metadata - Free-form metadata attached to this context.
@@ -41,8 +52,10 @@ export class GraphExecutionContext extends Context {
   constructor(
     readonly runId: GraphRunId,
     readonly parentRunId: GraphRunId | undefined,
-    readonly workflow: GraphWorkflowDefinition,
-    readonly node: GraphNodeDefinition,
+    readonly workflowId: string,
+    readonly document: GraphWorkflowDocument,
+    readonly node: GraphNodeInstance,
+    readonly manifest: GraphResolvedNodeManifest,
     readonly path: string[],
     private readonly emitFn: (event: Partial<GraphExecutionEvent>) => Promise<void>,
     readonly metadata: Record<string, unknown> = {}
@@ -51,8 +64,8 @@ export class GraphExecutionContext extends Context {
     const user = typeof metadata?.["user"] === "string" ? metadata["user"] : null;
     this.runLogger = new GraphRunLogger({
       runId,
-      workflowId: workflow.name,
-      nodeId: node.name,
+      workflowId,
+      nodeId: node.id,
       user,
       forward: async (event) => {
         await this.emit(event);
@@ -79,8 +92,8 @@ export class GraphExecutionContext extends Context {
       ...event,
       runId: this.runId,
       parentRunId: this.parentRunId,
-      workflowId: this.workflow.name,
-      nodeId: this.node.name,
+      workflowId: this.workflowId,
+      nodeId: this.node.id,
       path: event.path ?? this.path,
     });
   }

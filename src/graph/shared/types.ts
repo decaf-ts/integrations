@@ -6,10 +6,13 @@
  * condition DSL, switch cases, node metadata patches), this module carries the
  * DECAF-48 execution contract consumed by the frontend via SSE: the node/edge
  * state-change payloads, the structured run log entry, the node I/O
- * inspection payload, the run-scoped subscription ownership tuple, and the
- * Log-node level. All consumed over SSE — no engine runtime dependency.
+ * inspection payload, the run-scoped subscription ownership tuple, the
+ * Log-node level, and the DECAF-50 run wire contract: the run lifecycle
+ * status union and the run SSE event envelope
+ * ({@link GraphRunEventEnvelope}, streamed keyed by a gapless monotonic
+ * `sequence`). All consumed over SSE — no engine runtime dependency.
  */
-import type { GraphPortDefinition } from "@decaf-ts/ui-decorators/graph";
+import type { GraphJsonValue, GraphPortDefinition } from "@decaf-ts/ui-decorators/graph";
 
 import type {
   GraphExecutionEventType,
@@ -251,3 +254,54 @@ export interface GraphRunSubscription {
   /** Optional topic filter (e.g. `graph.run.log`, `graph.run.state`). */
   topics?: string[];
 }
+
+/**
+ * Status of a graph run lifecycle (DECAF-50 §4.14).
+ *
+ * Frontend-safe: rendered as run status badges and mirrored into the
+ * Angular run state store. `queued` — accepted, not yet validated;
+ * `validating` — document validation gate in progress; `running` — the
+ * engine is executing the planned graph.
+ * `succeeded`/`failed`/`cancelled` are terminal (`isGraphRunTerminalStatus`).
+ */
+export type GraphRunStatus =
+  | "queued"
+  | "validating"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "cancelled";
+
+/**
+ * Frontend-safe run event envelope streamed over the run SSE endpoint
+ * (`GET /graph/runs/:runId/events`, DECAF-50 §4.15).
+ *
+ * Envelopes are numbered with a gapless monotonically increasing `sequence`
+ * starting at `1`; `timestamp` is serialised as an ISO string over the wire
+ * (unlike {@link GraphExecutionEvent}, whose `timestamp` stays a `Date`
+ * engine-side). `error?` carries the structured failure payload for
+ * failure-typed events; `path?` scopes nested loop-plan events to their
+ * execution path.
+ */
+export interface GraphRunEventEnvelope {
+  runId: string;
+  workflowId: string;
+  sequence: number;
+  type: GraphExecutionEventType;
+  timestamp: string;
+  nodeId?: string;
+  edgeId?: string;
+  payload?: GraphJsonValue;
+  error?: GraphExecutionErrorPayload;
+  parentRunId?: string;
+  path?: string[];
+}
+
+/**
+ * Input to the run event publisher before sequencing/timestamping
+ * (DECAF-50 §4.14). The publisher fills `sequence` and `timestamp`.
+ */
+export type GraphRunEventEnvelopeInput = Omit<
+  GraphRunEventEnvelope,
+  "sequence" | "timestamp"
+>;

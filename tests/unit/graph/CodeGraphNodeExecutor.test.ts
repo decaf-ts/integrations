@@ -8,32 +8,50 @@ import { GraphExecutionContext } from "../../../src/graph/engine/execution/Graph
 import { GraphExecutionError } from "../../../src/graph/engine/errors/GraphExecutionError";
 import { GraphInputError } from "../../../src/graph/engine/errors/GraphInputError";
 import type { CodeSandboxEvaluator } from "../../../src/graph/engine/execution/CodeSandboxEvaluator";
-import type { GraphNodeDefinition } from "@decaf-ts/ui-decorators/graph";
-import type { GraphWorkflowDefinition } from "@decaf-ts/ui-decorators/graph";
+import type {
+  GraphNodeInstance,
+  GraphWorkflowDocument,
+} from "@decaf-ts/ui-decorators/graph";
+import type { GraphResolvedNodeManifest } from "../../../src/graph/shared/GraphResolution";
+import { nodeExecutionRequest } from "./fixtures";
 
 /**
  * Builds a minimal {@link GraphExecutionContext} for a Code node.
- * The node's graph metadata carries only `timeoutMs` (code now comes from
+ * The node's instance metadata carries only `timeoutMs` (code now comes from
  * the `code` input port, spliced from {@link CodeInputSchema}).
  */
 function buildContext(
   nodeMetadata: Record<string, unknown> = {},
   contextMetadata: Record<string, unknown> = {}
 ): GraphExecutionContext {
-  const node: GraphNodeDefinition = {
-    name: "CodeNode",
-    tag: "CodeNode",
+  const node: GraphNodeInstance = {
+    id: "CodeNode",
     kind: "core.flow.code",
-    labels: [],
-    ports: [],
-    graph: { metadata: nodeMetadata } as never,
+    parameters: {},
+    metadata: nodeMetadata as never,
   };
-  const workflow = { name: "wf" } as GraphWorkflowDefinition;
+  const document: GraphWorkflowDocument = {
+    id: "wf",
+    name: "wf",
+    inputs: [],
+    outputs: [],
+    nodes: [],
+    edges: [],
+  };
+  const manifest: GraphResolvedNodeManifest = {
+    kind: "core.flow.code",
+    display: { name: "Code" },
+    inputs: [],
+    outputs: [],
+    parameters: [],
+  };
   return new GraphExecutionContext(
     "run-1",
     undefined,
-    workflow,
+    "wf",
+    document,
     node,
+    manifest,
     ["CodeNode"],
     async () => {},
     contextMetadata
@@ -47,14 +65,17 @@ describe("CodeGraphNodeExecutor", () => {
 
     it("executes a simple expression and returns the result on the result port", async () => {
       const ctx = buildContext({}, { vars: { a: 2, b: 3 } });
-      const result = await executor.execute({ code: "return $vars.a + $vars.b;" }, ctx);
+      const result = await executor.execute(
+        nodeExecutionRequest({ code: "return $vars.a + $vars.b;" }),
+        ctx
+      );
       expect(result).toEqual({ result: 5 });
     });
 
     it("executes a statement-mode code with return", async () => {
       const ctx = buildContext({}, { vars: { a: 3, b: 4 } });
       const result = await executor.execute(
-        { code: "const sum = $vars.a + $vars.b; return sum * 2;" },
+        nodeExecutionRequest({ code: "const sum = $vars.a + $vars.b; return sum * 2;" }),
         ctx
       );
       expect(result).toEqual({ result: 14 });
@@ -62,14 +83,17 @@ describe("CodeGraphNodeExecutor", () => {
 
     it("passes $vars from context metadata", async () => {
       const ctx = buildContext({}, { vars: { topic: "hello" } });
-      const result = await executor.execute({ code: "return $vars.topic;" }, ctx);
+      const result = await executor.execute(
+        nodeExecutionRequest({ code: "return $vars.topic;" }),
+        ctx
+      );
       expect(result).toEqual({ result: "hello" });
     });
 
     it("passes $item and $index from context metadata (loop body)", async () => {
       const ctx = buildContext({}, { item: "apple", index: 2 });
       const result = await executor.execute(
-        { code: "return { item: $item, index: $index };" },
+        nodeExecutionRequest({ code: "return { item: $item, index: $index };" }),
         ctx
       );
       expect(result).toEqual({
@@ -83,7 +107,7 @@ describe("CodeGraphNodeExecutor", () => {
         { nodes: { Research: { output: { summary: "found" } } } }
       );
       const result = await executor.execute(
-        { code: 'return $node["Research"].output.summary;' },
+        nodeExecutionRequest({ code: 'return $node["Research"].output.summary;' }),
         ctx
       );
       expect(result).toEqual({ result: "found" });
@@ -91,14 +115,14 @@ describe("CodeGraphNodeExecutor", () => {
 
     it("defaults language to javascript when not set in metadata", async () => {
       const ctx = buildContext();
-      const result = await executor.execute({ code: "return 42;" }, ctx);
+      const result = await executor.execute(nodeExecutionRequest({ code: "return 42;" }), ctx);
       expect(result).toEqual({ result: 42 });
     });
 
     it("exposes $input as the full input values object (including code)", async () => {
       const ctx = buildContext();
       const result = await executor.execute(
-        { code: "return $input.code.length;" },
+        nodeExecutionRequest({ code: "return $input.code.length;" }),
         ctx
       );
       expect(result).toEqual({ result: "return $input.code.length;".length });
@@ -110,20 +134,20 @@ describe("CodeGraphNodeExecutor", () => {
 
     it("throws GRAPH_CODE_SANDBOX_NOT_CONFIGURED", async () => {
       const ctx = buildContext();
-      await expect(executor.execute({ code: "return 1;" }, ctx)).rejects.toThrow(
-        GraphExecutionError
-      );
-      await expect(executor.execute({ code: "return 1;" }, ctx)).rejects.toThrow(
-        /CodeSandboxEvaluator.*registered/i
-      );
+      await expect(
+        executor.execute(nodeExecutionRequest({ code: "return 1;" }), ctx)
+      ).rejects.toThrow(GraphExecutionError);
+      await expect(
+        executor.execute(nodeExecutionRequest({ code: "return 1;" }), ctx)
+      ).rejects.toThrow(/CodeSandboxEvaluator.*registered/i);
     });
 
     it("throws when engine is undefined", async () => {
       const exec = new CodeGraphNodeExecutor(undefined);
       const ctx = buildContext();
-      await expect(exec.execute({ code: "return 1;" }, ctx)).rejects.toThrow(
-        /CodeSandboxEvaluator.*registered/i
-      );
+      await expect(
+        exec.execute(nodeExecutionRequest({ code: "return 1;" }), ctx)
+      ).rejects.toThrow(/CodeSandboxEvaluator.*registered/i);
     });
   });
 
@@ -133,46 +157,49 @@ describe("CodeGraphNodeExecutor", () => {
 
     it("throws GraphInputError when input.code is empty", async () => {
       const ctx = buildContext();
-      await expect(executor.execute({ code: "" }, ctx)).rejects.toThrow(
-        GraphInputError
-      );
-      await expect(executor.execute({ code: "" }, ctx)).rejects.toThrow(
-        /no code to execute/i
-      );
+      await expect(
+        executor.execute(nodeExecutionRequest({ code: "" }), ctx)
+      ).rejects.toThrow(GraphInputError);
+      await expect(
+        executor.execute(nodeExecutionRequest({ code: "" }), ctx)
+      ).rejects.toThrow(/no code to execute/i);
     });
 
     it("throws GraphInputError when input.code is whitespace", async () => {
       const ctx = buildContext();
-      await expect(executor.execute({ code: "   " }, ctx)).rejects.toThrow(
-        /no code to execute/i
-      );
+      await expect(
+        executor.execute(nodeExecutionRequest({ code: "   " }), ctx)
+      ).rejects.toThrow(/no code to execute/i);
     });
 
     it("throws GraphInputError when input.code is missing", async () => {
       const ctx = buildContext();
-      await expect(executor.execute({}, ctx)).rejects.toThrow(
-        /no code to execute/i
-      );
+      await expect(
+        executor.execute(nodeExecutionRequest({}), ctx)
+      ).rejects.toThrow(/no code to execute/i);
     });
 
     it("throws GraphInputError when input.code is not a string", async () => {
       const ctx = buildContext();
-      await expect(executor.execute({ code: 123 }, ctx)).rejects.toThrow(
-        /no code to execute/i
-      );
+      await expect(
+        executor.execute(nodeExecutionRequest({ code: 123 }), ctx)
+      ).rejects.toThrow(/no code to execute/i);
     });
 
     it("propagates forbidden-token errors from the sandbox", async () => {
       const ctx = buildContext();
       await expect(
-        executor.execute({ code: "require('fs')" }, ctx)
+        executor.execute(nodeExecutionRequest({ code: "require('fs')" }), ctx)
       ).rejects.toThrow(/Identifier "require".*not allowed/i);
     });
 
     it("propagates runtime errors from the sandbox", async () => {
       const ctx = buildContext();
       await expect(
-        executor.execute({ code: "return undefinedVar.foo;" }, ctx)
+        executor.execute(
+          nodeExecutionRequest({ code: "return undefinedVar.foo;" }),
+          ctx
+        )
       ).rejects.toThrow(/execution failed/i);
     });
   });
@@ -184,7 +211,7 @@ describe("CodeGraphNodeExecutor", () => {
       };
       const executor = new CodeGraphNodeExecutor({ codeSandboxEvaluator: custom });
       const ctx = buildContext();
-      const result = await executor.execute({ code: "return 1;" }, ctx);
+      const result = await executor.execute(nodeExecutionRequest({ code: "return 1;" }), ctx);
       expect(result).toEqual({ result: "custom:return 1;" });
     });
 
@@ -202,7 +229,7 @@ describe("CodeGraphNodeExecutor", () => {
       };
       const executor = new CodeGraphNodeExecutor({ codeSandboxEvaluator: custom });
       const ctx = buildContext();
-      await executor.execute({ code: "return 1;" }, ctx);
+      await executor.execute(nodeExecutionRequest({ code: "return 1;" }), ctx);
       expect(captured).toEqual({
         code: "return 1;",
         language: "javascript",

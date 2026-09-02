@@ -26,6 +26,10 @@ async function bootstrap(): Promise<void> {
   console.log(`[graph-backend]   GET    /graph/events (SSE)`);
    
   console.log(`[graph-backend]   GET    /graph/results/:runId`);
+
+  console.log(`[graph-backend]   PUT    /graph/workflows/:workflowId`);
+  console.log(`[graph-backend]   GET    /graph/workflows/:workflowId`);
+  console.log(`[graph-backend]   POST   /graph/workflows/validate`);
 }
 
 bootstrap().catch((err) => {

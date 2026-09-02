@@ -1,99 +1,107 @@
 /**
  * @module integrations/nest/graph/GraphExecutorRegistryFactory
- * @summary Factory that builds a populated {@link GraphNodeExecutorRegistry}.
- * @description Creates a registry pre-loaded with the demo executors used by
- * the graph execution backend's sample workflows. The executors cover the
- * flow-control kinds (including Code, Log, and Switch with code conditions),
- * the DECAF-48 `core.utility.log` Log node, the agent kind, and the loop
- * kinds. Additional executors can be registered on the returned registry
- * before it is handed to the {@link GraphExecutionEngine}.
+ * @summary Factory that builds a populated {@link GraphNodeCatalogue} and its
+ * {@link GraphNodeExecutorRegistry} compatibility facade.
+ * @description Creates a catalogue pre-loaded with the DECAF-50 built-in
+ * manifest+executor registrations plus the demo executors used by the graph
+ * execution backend's sample workflows. The catalogue is the single
+ * kind→registration map (DECAF-50 §4.7); the returned registry is a facade
+ * over it, so no second executor map exists.
  */
 import {
+  GraphNodeCatalogue,
   GraphNodeExecutorRegistry,
   GraphExecutionEngine,
+  builtInGraphNodeRegistrations,
+  registerBuiltInGraphNodes,
   type GraphNodeExecutor,
-  type GraphExecutionContext,
-  type GraphExecutionValues,
-  ForeachGraphNodeExecutor,
-  WhileGraphNodeExecutor,
-  UntilGraphNodeExecutor,
-  CodeGraphNodeExecutor,
-  LogGraphNodeExecutor,
-  SwitchGraphNodeExecutor,
-  BreakGraphNodeExecutor,
+  type GraphNodeExecutionRequest,
   IsolatedVmCodeSandboxEvaluator,
 } from "../../graph";
-import { GraphBreakSignal } from "../../graph/engine/errors/GraphBreakSignal";
 
 type ExecutorFn = (
-  input: GraphExecutionValues,
-  context: GraphExecutionContext,
-) => GraphExecutionValues | Promise<GraphExecutionValues>;
+  request: GraphNodeExecutionRequest,
+  context: unknown
+) => Record<string, unknown> | Promise<Record<string, unknown>>;
 
-const executorMap: Record<string, ExecutorFn> = {
-  "math.add": (input) => ({ sum: Number(input.a) + Number(input.b) }),
-  "math.multiply": (input) => ({ product: Number(input.x) * 2 }),
-  "core.flow.map": (input) => ({ result: { mapped: input["value"] ?? input } }),
-  "core.flow.delay": (input) => ({ valueOut: input["value"] ?? input }),
-  "core.flow.return": (input) => ({ result: input["value"] ?? input }),
-  "core.flow.merge": (input) => ({ merged: input["values"] ?? input }),
-  "core.flow.if": (input) => ({ then: input["value"] ?? input }),
-  "core.flow.parallel": (input) => ({ branches: [input["value"] ?? input] }),
-  "core.flow.errorBoundary": (input) => ({ result: input["value"] ?? input }),
-  "core.flow.humanApproval": (input) => ({ approved: input["value"] ?? input }),
-  "core.flow.break": (input) => {
-    throw new GraphBreakSignal(input["value"]);
-  },
-  "core.agent": (input) => ({
-    response: `[Agent response] ${String(input["prompt"] ?? "")}`,
-    actions: [],
+const demoExecutorMap: Record<string, ExecutorFn> = {
+  "math.add": (request) => ({
+    sum: Number(request.inputs.a) + Number(request.inputs.b),
+  }),
+  "math.multiply": (request) => ({
+    product: Number(request.inputs.x) * 2,
   }),
 };
 
 /**
- * Builds a {@link GraphNodeExecutorRegistry} populated with the demo executors.
+ * Builds a {@link GraphNodeCatalogue} populated with the built-in
+ * manifest+executor registrations and the arithmetic demo executors, wrapped
+ * with its {@link GraphNodeExecutorRegistry} facade.
  *
- * Executors are registered by **node kind** (the same key the engine uses to
- * resolve executors at runtime). The for-angular demo nodes use the kind as
- * their tag, so the same key works for both dispatch-by-kind and
- * dispatch-by-tag.
+ * The built-in kinds whose executors need the engine instance (loops, Code,
+ * Switch) are only registered by {@link createDemoEngineConfig}'s
+ * `onEngineCreated` hook via {@link registerEngineBoundGraphNodes}.
  *
- * Registered kinds:
- * - `math.add`, `math.multiply` — arithmetic demo executors.
- * - `core.flow.*` — flow-control kinds (map, delay, return, merge, if,
- *   parallel, errorBoundary, humanApproval). The `core.flow.code`,
- *   `core.flow.log`, and `core.flow.switch` kinds are registered in
- *   `onEngineCreated` via their real executors because Code and Switch
- *   need the engine's `codeSandboxEvaluator`.
- * - `core.agent` — agent node.
- * - `core.loop.foreach`, `core.loop.while`, `core.loop.until` — loop executors
- *   (registered after the engine is created via `onEngineCreated`).
- *
- * @param extra - Additional executors to merge into the registry.
- * @returns A populated registry ready for use with {@link GraphExecutionEngine}.
+ * @param extra - Additional executor registrations to merge into the catalogue.
+ * @returns The populated catalogue and its registry facade.
  */
-export function createGraphExecutorRegistry(
-  extra?: Record<string, GraphNodeExecutor>,
-): GraphNodeExecutorRegistry {
-  const registry = new GraphNodeExecutorRegistry();
+export function createGraphNodeCatalogue(
+  extra?: Record<string, GraphNodeExecutor>
+): { catalogue: GraphNodeCatalogue; registry: GraphNodeExecutorRegistry } {
+  const catalogue = new GraphNodeCatalogue();
+  registerBuiltInGraphNodes(catalogue);
 
-  for (const [kind, fn] of Object.entries(executorMap)) {
-    registry.register(kind, { execute: fn });
+  for (const [kind, fn] of Object.entries(demoExecutorMap)) {
+    catalogue.registerExecutor(kind, { execute: fn });
   }
 
   if (extra) {
     for (const [kind, executor] of Object.entries(extra)) {
-      registry.register(kind, executor);
+      catalogue.registerExecutor(kind, executor);
     }
   }
 
-  return registry;
+  return { catalogue, registry: new GraphNodeExecutorRegistry(catalogue) };
 }
 
 /**
- * Builds a {@link GraphExecutionEngineConfig} populated with all demo executors
- * including loop executors that need a back-reference to the engine and the
- * Code node executor that needs the engine's `codeSandboxEvaluator`.
+ * Builds a {@link GraphNodeExecutorRegistry} facade over a populated
+ * {@link GraphNodeCatalogue} (compatibility entry point).
+ *
+ * @param extra - Additional executor registrations to merge into the catalogue.
+ * @returns The registry facade; the underlying catalogue is available as
+ * `registry.catalog`.
+ */
+export function createGraphExecutorRegistry(
+  extra?: Record<string, GraphNodeExecutor>
+): GraphNodeExecutorRegistry {
+  return createGraphNodeCatalogue(extra).registry;
+}
+
+/**
+ * Registers the engine-bound built-in kinds (loops, Code, Switch) on an
+ * existing catalogue, replacing their placeholder-free entries with the real
+ * engine-bound executors.
+ *
+ * @param catalogue - The catalogue receiving the registrations.
+ * @param engine - The engine instance the loop/Code/Switch executors bind to.
+ * @returns The catalogue with the engine-bound registrations applied.
+ */
+export function registerEngineBoundGraphNodes(
+  catalogue: GraphNodeCatalogue,
+  engine: GraphExecutionEngine
+): GraphNodeCatalogue {
+  for (const registration of builtInGraphNodeRegistrations(engine)) {
+    catalogue.register(registration, { replace: true });
+  }
+  return catalogue;
+}
+
+/**
+ * Builds a `GraphExecutionEngineConfig` populated with all built-in
+ * registrations including loop executors that need a back-reference to the
+ * engine and the Code node executor that needs the engine's
+ * `codeSandboxEvaluator`.
  *
  * The config wires an {@link IsolatedVmCodeSandboxEvaluator} (backed by
  * `isolated-vm`) so the Code Node runs in a truly isolated V8 sandbox.
@@ -101,27 +109,22 @@ export function createGraphExecutorRegistry(
  * @returns A config object ready for `new GraphExecutionEngine(config)`.
  */
 export function createDemoEngineConfig(): {
+  catalogue: GraphNodeCatalogue;
   registry: GraphNodeExecutorRegistry;
   defaultOptions: { failFast: boolean };
   codeSandboxEvaluator: IsolatedVmCodeSandboxEvaluator;
   onEngineCreated: (engine: GraphExecutionEngine) => void;
 } {
-  const registry = createGraphExecutorRegistry();
+  const { catalogue, registry } = createGraphNodeCatalogue();
   const codeSandboxEvaluator = new IsolatedVmCodeSandboxEvaluator();
 
   return {
+    catalogue,
     registry,
     defaultOptions: { failFast: false },
     codeSandboxEvaluator,
     onEngineCreated: (engine: GraphExecutionEngine) => {
-      registry.register("core.loop.foreach", new ForeachGraphNodeExecutor(engine));
-      registry.register("core.loop.while", new WhileGraphNodeExecutor(engine));
-      registry.register("core.loop.until", new UntilGraphNodeExecutor(engine));
-      registry.register("core.flow.code", new CodeGraphNodeExecutor(engine));
-      registry.register("core.flow.log", new LogGraphNodeExecutor());
-      registry.register("core.utility.log", new LogGraphNodeExecutor());
-      registry.register("core.flow.switch", new SwitchGraphNodeExecutor(engine));
-      registry.register("core.flow.break", new BreakGraphNodeExecutor());
+      registerEngineBoundGraphNodes(catalogue, engine);
     },
   };
 }

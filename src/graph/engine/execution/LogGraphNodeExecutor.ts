@@ -12,17 +12,21 @@ import type { StringLike, LogMeta } from "@decaf-ts/logging";
 
 import type { GraphNodeExecutor } from "./GraphNodeExecutor";
 import type { GraphExecutionContext } from "./GraphExecutionContext";
-import type { GraphExecutionValues } from "../types";
+import type { GraphExecutionValues, GraphNodeExecutionRequest } from "../types";
 import type { LogNodeLevel } from "../../shared/types";
-
 /**
  * Resolves the log level for a Log node execution.
  *
- * The level is read from the node's UI config (`node.props.level`) so authors
- * can pin a level per instance via the canvas; defaults to `info` when unset.
+ * The level is read from the canonical node instance configuration
+ * (`parameters.level`, with instance `metadata.level` as the legacy
+ * fallback); defaults to `info` when unset.
  */
 function logLevelOf(context: GraphExecutionContext): LogNodeLevel {
-  const candidate = (context.node.props ?? {}).level as string | undefined;
+  const parameters = context.node.parameters as Record<string, unknown>;
+  const metadata = context.node.metadata as Record<string, unknown> | undefined;
+  const candidate = (parameters.level ?? metadata?.["level"]) as
+    | string
+    | undefined;
   return (candidate as LogNodeLevel) || "info";
 }
 
@@ -42,15 +46,15 @@ export class LogGraphNodeExecutor implements GraphNodeExecutor {
    * the DECAF-48 run attributes and streams over `graph.run.log` through the
    * shared `ctx.logger` path (DECAF-48 Req-1).
    *
-   * @param input - Resolved input values keyed by port name (expects `value`).
+   * @param request - The node execution request (expects the `value` input).
    * @param context - The run-scoped execution context exposing `ctx.logger`.
    * @returns The node's output values keyed by port name (the `logged` port).
    */
   async execute(
-    input: GraphExecutionValues,
+    request: GraphNodeExecutionRequest,
     context: GraphExecutionContext
   ): Promise<GraphExecutionValues> {
-    const value = input["value"];
+    const value = request.inputs["value"];
     const level = logLevelOf(context);
     const logger = context.logger as unknown as Record<
       LogNodeLevel,

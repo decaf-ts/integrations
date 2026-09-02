@@ -9,7 +9,10 @@
  */
 import type { GraphNodeExecutor } from "./GraphNodeExecutor";
 import type { GraphExecutionContext } from "./GraphExecutionContext";
-import type { GraphExecutionValues } from "../types";
+import type {
+  GraphExecutionValues,
+  GraphNodeExecutionRequest,
+} from "../types";
 import type {
   SwitchCaseCondition,
   SwitchNodeMetadata,
@@ -21,20 +24,20 @@ import { ConditionExpressionEvaluator } from "../loops/ConditionExpressionEvalua
 import type { CodeSandboxEvaluator } from "./CodeSandboxEvaluator";
 
 /**
- * Reads the Switch metadata from the node definition's graph metadata.
- *
- * The metadata is stored under `graph.metadata.switch` (the location used by
- * statically-declared `@node` workflows). When absent, falls back to an empty
- * default with the `default` port enabled.
+ * Reads the Switch metadata from the canonical node instance (DECAF-50):
+ * configuration lives in the instance `parameters` (`switch` key) with
+ * instance `metadata` as the legacy fallback (the §4.18 transition compiler
+ * mirrors legacy `graph.metadata.switch` into instance metadata). When
+ * absent, falls back to an empty default with the `default` port enabled.
  */
 function readSwitchMetadata(
   context: GraphExecutionContext
 ): SwitchNodeMetadata {
-  const meta = context.node.graph?.metadata as
-    | Record<string, unknown>
-    | undefined;
-  if (!meta) return { cases: [], defaultPort: "default", hasDefault: false };
-  const switchMeta = meta["switch"] as SwitchNodeMetadata | undefined;
+  const parameters = context.node.parameters as Record<string, unknown>;
+  const metadata = context.node.metadata as Record<string, unknown> | undefined;
+  const raw =
+    parameters["switch"] ?? metadata?.["switch"];
+  const switchMeta = raw as SwitchNodeMetadata | undefined;
   if (!switchMeta || !Array.isArray(switchMeta.cases)) {
     return { cases: [], defaultPort: "default", hasDefault: false };
   }
@@ -93,10 +96,11 @@ export class SwitchGraphNodeExecutor implements GraphNodeExecutor {
   ) {}
 
   async execute(
-    input: GraphExecutionValues,
+    request: GraphNodeExecutionRequest,
     context: GraphExecutionContext
   ): Promise<GraphExecutionValues> {
     const meta = readSwitchMetadata(context);
+    const input = request.inputs;
     const inputValue = input["value"] ?? input;
 
     for (const switchCase of meta.cases) {

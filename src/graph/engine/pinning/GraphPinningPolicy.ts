@@ -31,8 +31,8 @@ export class GraphPinningPolicy {
   /** Extracts pinning metadata from a plan node. */
   getPinningMetadata(node: GraphExecutionPlanNode): GraphPinningMetadata {
     const raw =
-      (node.definition as any)?.graph?.metadata?.pinnable ??
-      (node.metadata as any)?.pinnable;
+      (node.manifest.metadata as Record<string, unknown> | undefined)?.["pinnable"] ??
+      (node.metadata as Record<string, unknown> | undefined)?.["pinnable"];
     return raw
       ? { ...DEFAULT_PINNING_METADATA, ...raw }
       : { ...DEFAULT_PINNING_METADATA, enabled: false };

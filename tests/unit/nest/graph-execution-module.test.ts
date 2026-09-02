@@ -1,11 +1,18 @@
 /**
  * @module integrations/tests/unit/nest/graph-execution-module.test
  * @summary Unit tests for the NestJS graph execution backend module.
- * @description Bootstraps {@link GraphExecutionModule} via `@nestjs/testing` and validates:
- * - `POST /graph/execute` executes a workflow and returns the correct result.
- * - SSE events are emitted in the correct order through the `events()` Observable.
- * - `GET /graph/results/:runId` retrieves the persisted result via the service.
- * - `PUT /graph/workflow/:id` persists and retrieves a workflow snapshot.
+ * @description Bootstraps {@link GraphExecutionModule} via `@nestjs/testing`
+ * and validates the DECAF-50 §4.20 P7 cutover defaults:
+ * - `POST /graph/execute` executes a canonical `GraphWorkflowDocument` and
+ *   returns the correct result.
+ * - Legacy `GraphWorkflowDefinition` payloads (and snapshot wrappers) are
+ *   rejected at the boundary with a Decaf `ValidationError` — the
+ *   flag-independent default (§4.16 inline-definition rejection).
+ * - SSE events are emitted in the correct order through the `events()`
+ *   Observable.
+ * - `GET /graph/results/:runId` retrieves the persisted result via the
+ *   service.
+ * - `PUT /graph/workflow/:id` accepts canonical wrapper snapshots only.
  */
 import { jest, describe, beforeAll, afterAll, it, expect } from "@jest/globals";
 
@@ -13,14 +20,17 @@ import { Test } from "@nestjs/testing";
 import type { INestApplication } from "@nestjs/common";
 import request from "supertest";
 
-import { PortDirection } from "@decaf-ts/ui-decorators/graph";
+import { ValidationError } from "@decaf-ts/db-decorators";
+import type {
+  GraphWorkflowDocument,
+  GraphWorkflowDefinition,
+} from "@decaf-ts/ui-decorators/graph";
 
 import {
   GraphExecutionEventType,
   GraphExecutionStatus,
   type GraphExecutionEvent,
   type GraphExecutionValues,
-  type GraphWorkflowDefinition,
 } from "../../../src/graph";
 
 import {
@@ -30,61 +40,75 @@ import {
   GraphWorkflowService,
 } from "../../../src/nest/graph";
 
-function buildLinearWorkflow(): GraphWorkflowDefinition {
+/**
+ * Builds the canonical two-node document used by the module tests:
+ *   workflow.a/b -> adder -> multiplier -> workflow.result
+ * (math.add sums a+b on `sum`; math.multiply doubles `x` on `product`.)
+ */
+function buildLinearDocument(
+  workflowId = "linear-wf"
+): GraphWorkflowDocument {
+  return {
+    id: workflowId,
+    name: workflowId,
+    inputs: [{ id: "a" }, { id: "b" }],
+    outputs: [{ id: "result" }],
+    nodes: [
+      { id: "adder", kind: "math.add", parameters: {} },
+      { id: "multiplier", kind: "math.multiply", parameters: {} },
+    ],
+    edges: [
+      {
+        id: "e1",
+        type: "data",
+        source: { scope: "workflow", port: "a" },
+        target: { scope: "node", nodeId: "adder", port: "a" },
+      },
+      {
+        id: "e2",
+        type: "data",
+        source: { scope: "workflow", port: "b" },
+        target: { scope: "node", nodeId: "adder", port: "b" },
+      },
+      {
+        id: "e3",
+        type: "data",
+        source: { scope: "node", nodeId: "adder", port: "sum" },
+        target: { scope: "node", nodeId: "multiplier", port: "x" },
+      },
+      {
+        id: "e4",
+        type: "data",
+        source: { scope: "node", nodeId: "multiplier", port: "product" },
+        target: { scope: "workflow", port: "result" },
+      },
+    ],
+  };
+}
+
+/**
+ * Builds a legacy decorated-era `GraphWorkflowDefinition` payload (the
+ * pre-DECAF-50 execution request shape). Post-cutover this payload MUST be
+ * rejected by `POST /graph/execute` (§4.16/§4.20 P7).
+ */
+function buildLegacyWorkflowDefinition(): GraphWorkflowDefinition {
   return {
     name: "linear-wf",
     tag: "linear-wf",
     kind: "workflow",
     labels: [],
     ports: [],
-    inputs: [
-      { property: "a", direction: PortDirection.INPUT, name: "a", label: "a", required: false, hidden: false },
-      { property: "b", direction: PortDirection.INPUT, name: "b", label: "b", required: false, hidden: false },
-    ],
-    outputs: [
-      { property: "result", direction: PortDirection.OUTPUT, name: "result", label: "result", required: false, hidden: false },
-    ],
+    inputs: [],
+    outputs: [],
     nodes: [
-      {
-        id: "adder",
-        kind: "math.add",
-        label: "Adder",
-        node: {
-          name: "adder",
-          tag: "adder",
-          kind: "math.add",
-          labels: [],
-          ports: [
-            { property: "a", direction: PortDirection.INPUT, name: "a", label: "a", required: false, hidden: false },
-            { property: "b", direction: PortDirection.INPUT, name: "b", label: "b", required: false, hidden: false },
-            { property: "sum", direction: PortDirection.OUTPUT, name: "sum", label: "sum", required: false, hidden: false },
-          ],
-        },
-      },
-      {
-        id: "multiplier",
-        kind: "math.multiply",
-        label: "Multiplier",
-        node: {
-          name: "multiplier",
-          tag: "multiplier",
-          kind: "math.multiply",
-          labels: [],
-          ports: [
-            { property: "x", direction: PortDirection.INPUT, name: "x", label: "x", required: false, hidden: false },
-            { property: "product", direction: PortDirection.OUTPUT, name: "product", label: "product", required: false, hidden: false },
-          ],
-        },
-      },
+      { id: "adder", kind: "math.add", label: "Adder" },
+      { id: "multiplier", kind: "math.multiply", label: "Multiplier" },
     ],
     relations: [
-      { source: "workflow", sourcePort: "a", target: "adder", targetPort: "a" },
-      { source: "workflow", sourcePort: "b", target: "adder", targetPort: "b" },
       { source: "adder", sourcePort: "sum", target: "multiplier", targetPort: "x" },
-      { source: "multiplier", sourcePort: "product", target: "workflow", targetPort: "result" },
     ],
     workflow: { inputs: [], outputs: [] },
-  };
+  } as unknown as GraphWorkflowDefinition;
 }
 
 jest.setTimeout(30000);
@@ -132,8 +156,8 @@ describe("GraphExecutionModule (unit)", () => {
     }
   }, 15000);
 
-  it("executes a workflow and returns the correct result", async () => {
-    const workflow = buildLinearWorkflow();
+  it("executes a canonical document and returns the correct result", async () => {
+    const workflow = buildLinearDocument();
     const inputs: GraphExecutionValues = { a: 3, b: 4 };
 
     const response = await controller.execute({ workflow, inputs });
@@ -143,9 +167,36 @@ describe("GraphExecutionModule (unit)", () => {
     expect(response.outputs.result).toBe(14); // (3 + 4) * 2
   });
 
+  it("P7 §4.16 security pin (payload level, flag-independent default): legacy GraphWorkflowDefinition payloads to POST /graph/execute are rejected with a Decaf ValidationError", async () => {
+    const legacy = buildLegacyWorkflowDefinition();
+
+    // Controller contract: the boundary rejects the legacy payload with a
+    // Decaf ValidationError before the engine or planner sees it.
+    await expect(
+      controller.execute({ workflow: legacy as never, inputs: {} })
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      controller.execute({ workflow: legacy as never, inputs: {} })
+    ).rejects.toThrow(/canonical GraphWorkflowDocument/);
+
+    // Snapshot wrappers are non-canonical payloads too and are rejected.
+    const wrapper = { document: buildLinearDocument(), metadata: {} };
+    await expect(
+      controller.execute({ workflow: wrapper as never, inputs: {} })
+    ).rejects.toBeInstanceOf(ValidationError);
+
+    // HTTP surface: the legacy payload never executes — the request fails
+    // without running a workflow or persisting a result.
+    const execRes = await request(app.getHttpServer())
+      .post("/graph/execute")
+      .send({ workflow: legacy, inputs: { a: 3, b: 4 } });
+    expect(execRes.status).toBeGreaterThanOrEqual(400);
+    expect(execRes.body.runId).toBeUndefined();
+  });
+
   it("SSE endpoint emits events in the correct order", async () => {
     sseEvents = [];
-    const workflow = buildLinearWorkflow();
+    const workflow = buildLinearDocument();
     const inputs: GraphExecutionValues = { a: 5, b: 6 };
 
     await controller.execute({ workflow, inputs });
@@ -162,7 +213,7 @@ describe("GraphExecutionModule (unit)", () => {
   });
 
   it("persists the result and retrieves it via the service", async () => {
-    const workflow = buildLinearWorkflow();
+    const workflow = buildLinearDocument();
     const inputs: GraphExecutionValues = { a: 7, b: 8 };
 
     const response = await controller.execute({ workflow, inputs });
@@ -178,7 +229,7 @@ describe("GraphExecutionModule (unit)", () => {
   });
 
   it("GET /graph/results/:runId returns the persisted result via HTTP", async () => {
-    const workflow = buildLinearWorkflow();
+    const workflow = buildLinearDocument();
     const inputs: GraphExecutionValues = { a: 10, b: 20 };
 
     const execRes = await request(app.getHttpServer())
@@ -204,12 +255,28 @@ describe("GraphExecutionModule (unit)", () => {
     expect(res.status).toBe(404);
   });
 
-  it("PUT /graph/workflow/:id saves and retrieves a workflow snapshot via the service", async () => {
-    const snapshot = { state: { nodes: [], edges: [] }, metadata: { serializedAt: "2024-01-01" } };
+  it("PUT /graph/workflow/:id accepts only canonical wrapper snapshots (legacy definition/state snapshots are rejected)", async () => {
+    // Legacy definition/state snapshot payloads are rejected (§4.11 P7).
+    const legacySnapshot = {
+      state: { nodes: [], edges: [] },
+      metadata: { serializedAt: "2024-01-01" },
+    };
+    const legacyRes = await request(app.getHttpServer())
+      .put("/graph/workflow/test-wf-1")
+      .send(legacySnapshot);
+    expect(legacyRes.status).toBeGreaterThanOrEqual(400);
+    expect(await workflowService.loadSnapshot("test-wf-1")).toBeNull();
 
+    // Canonical wrapper snapshots round-trip through the deprecated
+    // snapshot endpoint: the wrapper is stored and `getDocument` prefers
+    // the canonical document column.
+    const wrapper = {
+      document: buildLinearDocument("test-wf-1"),
+      metadata: { serializedAt: "2024-01-01" },
+    };
     const res = await request(app.getHttpServer())
       .put("/graph/workflow/test-wf-1")
-      .send(snapshot);
+      .send(wrapper);
 
     expect(res.status).toBe(200);
     expect(res.body.workflowId).toBe("test-wf-1");
@@ -219,6 +286,10 @@ describe("GraphExecutionModule (unit)", () => {
     const persisted = await workflowService.loadSnapshot("test-wf-1");
     expect(persisted).toBeTruthy();
     expect(persisted!.workflowId).toBe("test-wf-1");
-    expect(persisted!.snapshot).toEqual(snapshot);
+    expect(persisted!.snapshot).toEqual(wrapper);
+    expect(persisted!.document).toEqual(wrapper.document);
+    expect(await workflowService.getDocument("test-wf-1")).toEqual(
+      wrapper.document
+    );
   });
 });

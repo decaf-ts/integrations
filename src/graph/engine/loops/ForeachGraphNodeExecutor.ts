@@ -9,8 +9,11 @@
 import type { GraphNodeExecutor } from "../execution/GraphNodeExecutor";
 import type { GraphExecutionContext } from "../execution/GraphExecutionContext";
 import type { GraphExecutionEngine } from "../execution/GraphExecutionEngine";
-import type { GraphExecutionValues, GraphLoopMetadata } from "../types";
-import type { GraphWorkflowDefinition } from "@decaf-ts/ui-decorators/graph";
+import type {
+  GraphExecutionValues,
+  GraphLoopMetadata,
+  GraphNodeExecutionRequest,
+} from "../types";
 
 import { GRAPH_DEFAULT_MAX_FOREACH_ITERATIONS } from "../constants";
 import { GraphExecutionEventType } from "../../shared/constants";
@@ -39,10 +42,11 @@ export class ForeachGraphNodeExecutor implements GraphNodeExecutor {
   constructor(private readonly engine: GraphExecutionEngine) {}
 
   async execute(
-    input: GraphExecutionValues,
+    request: GraphNodeExecutionRequest,
     context: GraphExecutionContext
   ): Promise<GraphExecutionValues> {
     const metadata = this.extractMetadata(context);
+    const input = request.inputs;
     const items = input.items;
     const maxIterations =
       metadata.maxIterations ?? GRAPH_DEFAULT_MAX_FOREACH_ITERATIONS;
@@ -64,7 +68,7 @@ export class ForeachGraphNodeExecutor implements GraphNodeExecutor {
     const itemPort = metadata.itemPort ?? "item";
     const resultPort = metadata.resultPort ?? "result";
     const statePort = metadata.statePort ?? "state";
-    const bodyWorkflow = metadata.body as GraphWorkflowDefinition;
+    const bodyWorkflow = metadata.body;
 
     const results: unknown[] = [];
     let state = input.state;
@@ -138,11 +142,39 @@ export class ForeachGraphNodeExecutor implements GraphNodeExecutor {
   }
 
   private extractMetadata(context: GraphExecutionContext): GraphLoopMetadata {
-    const raw = (context.node as any).graph?.metadata?.loop ??
-      (context.metadata as any)?.loop;
-    if (!raw) {
-      throw new GraphInputError("foreach node is missing loop metadata");
+    const instance = context.node;
+    const parameters = (instance.parameters ?? {}) as Record<string, unknown>;
+    const loop = instance.loop;
+    const fallback = (context.metadata as Record<string, unknown> | undefined)?.["loop"] as
+      | Record<string, unknown>
+      | undefined;
+    if (!loop?.body && !fallback?.["body"]) {
+      throw new GraphInputError("foreach node is missing loop configuration (instance.loop.body)");
     }
-    return raw as GraphLoopMetadata;
+    const body = (loop?.body ?? fallback?.["body"]) as GraphLoopMetadata["body"];
+    const number = (key: string): number | undefined => {
+      const raw = parameters[key] ?? loop?.[key as "maxIterations" | "timeoutMs" | "concurrency"] ?? fallback?.[key];
+      const value = Number(raw);
+      return raw !== undefined && Number.isFinite(value) ? value : undefined;
+    };
+    const string = (key: string): string | undefined => {
+      const raw = parameters[key] ?? fallback?.[key];
+      return typeof raw === "string" ? raw : undefined;
+    };
+    return {
+      body,
+      maxIterations: number("maxIterations"),
+      timeoutMs: number("timeoutMs"),
+      concurrency: number("concurrency"),
+      condition: (parameters["condition"] ?? fallback?.["condition"]) as
+        | GraphLoopMetadata["condition"]
+        | undefined,
+      inputPort: string("inputPort"),
+      outputPort: string("outputPort"),
+      itemPort: string("itemPort"),
+      resultPort: string("resultPort"),
+      statePort: string("statePort"),
+      slice: number("slice"),
+    };
   }
 }

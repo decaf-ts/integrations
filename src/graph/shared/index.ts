@@ -17,6 +17,7 @@ export { Metadata } from "@decaf-ts/decoration";
 export * from "./constants";
 export * from "./types";
 export * from "./GraphExecutionStateMapper";
+export * from "./GraphResolution";
 export * from "./nodes";
 
 // Re-export the ui-decorators graph metadata the frontend needs so `for-angular`

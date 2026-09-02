@@ -7,31 +7,51 @@ import { GraphExecutionContext } from "../../../src/graph/engine/execution/Graph
 import { GraphExecutionError } from "../../../src/graph/engine/errors/GraphExecutionError";
 import { IsolatedVmCodeSandboxEvaluator } from "../../../src/graph/engine/execution/IsolatedVmCodeSandboxEvaluator";
 import type { CodeSandboxEvaluator } from "../../../src/graph/engine/execution/CodeSandboxEvaluator";
-import type { GraphNodeDefinition, GraphWorkflowDefinition } from "@decaf-ts/ui-decorators/graph";
+import type {
+  GraphNodeInstance,
+  GraphWorkflowDocument,
+} from "@decaf-ts/ui-decorators/graph";
 import type { SwitchNodeMetadata } from "../../../src/graph/shared/types";
+import type { GraphResolvedNodeManifest } from "../../../src/graph/shared/GraphResolution";
+import { nodeExecutionRequest } from "./fixtures";
 
 /**
  * Builds a minimal {@link GraphExecutionContext} for a Switch node whose
- * `graph.metadata.switch` carries the given {@link SwitchNodeMetadata}.
+ * instance metadata carries the given {@link SwitchNodeMetadata} under the
+ * `switch` key.
  */
 function buildContext(
   switchMeta: SwitchNodeMetadata,
   contextMetadata: Record<string, unknown> = {}
 ): GraphExecutionContext {
-  const node: GraphNodeDefinition = {
-    name: "SwitchNode",
-    tag: "SwitchNode",
+  const node: GraphNodeInstance = {
+    id: "SwitchNode",
     kind: "core.flow.switch",
-    labels: [],
-    ports: [],
-    graph: { metadata: { switch: switchMeta } } as never,
+    parameters: {},
+    metadata: { switch: switchMeta } as never,
   };
-  const workflow = { name: "wf" } as GraphWorkflowDefinition;
+  const document: GraphWorkflowDocument = {
+    id: "wf",
+    name: "wf",
+    inputs: [],
+    outputs: [],
+    nodes: [],
+    edges: [],
+  };
+  const manifest: GraphResolvedNodeManifest = {
+    kind: "core.flow.switch",
+    display: { name: "Switch" },
+    inputs: [],
+    outputs: [],
+    parameters: [],
+  };
   return new GraphExecutionContext(
     "run-1",
     undefined,
-    workflow,
+    "wf",
+    document,
     node,
+    manifest,
     ["SwitchNode"],
     async () => {},
     contextMetadata
@@ -61,7 +81,7 @@ describe("SwitchGraphNodeExecutor", () => {
         defaultPort: "default",
       };
       const ctx = buildContext(meta);
-      const result = await executor.execute({ value: { n: 10 } }, ctx);
+      const result = await executor.execute(nodeExecutionRequest({ value: { n: 10 } }), ctx);
       expect(result).toEqual({ ten: { n: 10 } });
     });
 
@@ -79,7 +99,7 @@ describe("SwitchGraphNodeExecutor", () => {
         hasDefault: true,
       };
       const ctx = buildContext(meta);
-      const result = await executor.execute({ value: { n: 99 } }, ctx);
+      const result = await executor.execute(nodeExecutionRequest({ value: { n: 99 } }), ctx);
       expect(result).toEqual({ default: { n: 99 } });
     });
 
@@ -97,10 +117,10 @@ describe("SwitchGraphNodeExecutor", () => {
         hasDefault: false,
       };
       const ctx = buildContext(meta);
-      await expect(executor.execute({ value: { n: 99 } }, ctx)).rejects.toThrow(
+      await expect(executor.execute(nodeExecutionRequest({ value: { n: 99 } }), ctx)).rejects.toThrow(
         GraphExecutionError
       );
-      await expect(executor.execute({ value: { n: 99 } }, ctx)).rejects.toThrow(
+      await expect(executor.execute(nodeExecutionRequest({ value: { n: 99 } }), ctx)).rejects.toThrow(
         /No switch case matched/i
       );
     });
@@ -125,7 +145,7 @@ describe("SwitchGraphNodeExecutor", () => {
       };
       const ctx = buildContext(meta);
       // n=50 matches the first case (gt 0) but not the second (gt 100).
-      const result = await executor.execute({ value: { n: 50 } }, ctx);
+      const result = await executor.execute(nodeExecutionRequest({ value: { n: 50 } }), ctx);
       expect(result).toEqual({ first: { n: 50 } });
     });
 
@@ -143,10 +163,10 @@ describe("SwitchGraphNodeExecutor", () => {
         hasDefault: true,
       };
       const ctx = buildContext(meta);
-      expect(await executor.execute({ value: { name: "foo" } }, ctx)).toEqual({
+      expect(await executor.execute(nodeExecutionRequest({ value: { name: "foo" } }), ctx)).toEqual({
         named: { name: "foo" },
       });
-      expect(await executor.execute({ value: {} }, ctx)).toEqual({
+      expect(await executor.execute(nodeExecutionRequest({ value: {} }), ctx)).toEqual({
         default: {},
       });
     });
@@ -171,10 +191,10 @@ describe("SwitchGraphNodeExecutor", () => {
         hasDefault: true,
       };
       const ctx = buildContext(meta);
-      expect(await executor.execute({ value: { n: 15 } }, ctx)).toEqual({
+      expect(await executor.execute(nodeExecutionRequest({ value: { n: 15 } }), ctx)).toEqual({
         inRange: { n: 15 },
       });
-      expect(await executor.execute({ value: { n: 25 } }, ctx)).toEqual({
+      expect(await executor.execute(nodeExecutionRequest({ value: { n: 25 } }), ctx)).toEqual({
         default: { n: 25 },
       });
     });
@@ -199,7 +219,7 @@ describe("SwitchGraphNodeExecutor", () => {
         defaultPort: "default",
       };
       const ctx = buildContext(meta, { index: 4 });
-      const result = await executor.execute({ value: "item" }, ctx);
+      const result = await executor.execute(nodeExecutionRequest({ value: "item" }), ctx);
       expect(result).toEqual({ even: "item" });
     });
 
@@ -217,7 +237,7 @@ describe("SwitchGraphNodeExecutor", () => {
         hasDefault: true,
       };
       const ctx = buildContext(meta, { index: 3 });
-      const result = await executor.execute({ value: "item" }, ctx);
+      const result = await executor.execute(nodeExecutionRequest({ value: "item" }), ctx);
       expect(result).toEqual({ default: "item" });
     });
 
@@ -235,10 +255,10 @@ describe("SwitchGraphNodeExecutor", () => {
         hasDefault: true,
       };
       const ctx = buildContext(meta);
-      expect(await executor.execute({ value: "non-empty" }, ctx)).toEqual({
+      expect(await executor.execute(nodeExecutionRequest({ value: "non-empty" }), ctx)).toEqual({
         yes: "non-empty",
       });
-      expect(await executor.execute({ value: 0 }, ctx)).toEqual({
+      expect(await executor.execute(nodeExecutionRequest({ value: 0 }), ctx)).toEqual({
         default: 0,
       });
     });
@@ -259,7 +279,7 @@ describe("SwitchGraphNodeExecutor", () => {
         defaultPort: "default",
       };
       const ctx = buildContext(meta, { vars: { mode: "test" } });
-      expect(await executor.execute({ value: 1 }, ctx)).toEqual({
+      expect(await executor.execute(nodeExecutionRequest({ value: 1 }), ctx)).toEqual({
         matched: 1,
       });
     });
@@ -280,10 +300,10 @@ describe("SwitchGraphNodeExecutor", () => {
         defaultPort: "default",
       };
       const ctx = buildContext(meta);
-      await expect(executor.execute({ value: 1 }, ctx)).rejects.toThrow(
+      await expect(executor.execute(nodeExecutionRequest({ value: 1 }), ctx)).rejects.toThrow(
         GraphExecutionError
       );
-      await expect(executor.execute({ value: 1 }, ctx)).rejects.toThrow(
+      await expect(executor.execute(nodeExecutionRequest({ value: 1 }), ctx)).rejects.toThrow(
         /CodeSandboxEvaluator.*registered/i
       );
     });
@@ -302,7 +322,7 @@ describe("SwitchGraphNodeExecutor", () => {
         defaultPort: "default",
       };
       const ctx = buildContext(meta);
-      await expect(executor.execute({ value: 1 }, ctx)).rejects.toThrow(
+      await expect(executor.execute(nodeExecutionRequest({ value: 1 }), ctx)).rejects.toThrow(
         /CodeSandboxEvaluator.*registered/i
       );
     });
@@ -323,10 +343,10 @@ describe("SwitchGraphNodeExecutor", () => {
         defaultPort: "default",
       };
       const ctx = buildContext(meta);
-      await expect(executor.execute({ value: 1 }, ctx)).rejects.toThrow(
+      await expect(executor.execute(nodeExecutionRequest({ value: 1 }), ctx)).rejects.toThrow(
         GraphExecutionError
       );
-      await expect(executor.execute({ value: 1 }, ctx)).rejects.toThrow(
+      await expect(executor.execute(nodeExecutionRequest({ value: 1 }), ctx)).rejects.toThrow(
         /Unknown switch case condition/i
       );
     });
@@ -336,7 +356,7 @@ describe("SwitchGraphNodeExecutor", () => {
     it("routes to default when there are no cases", async () => {
       const executor = new SwitchGraphNodeExecutor({});
       const ctx = buildContext({ cases: [], defaultPort: "default", hasDefault: true });
-      const result = await executor.execute({ value: 42 }, ctx);
+      const result = await executor.execute(nodeExecutionRequest({ value: 42 }), ctx);
       expect(result).toEqual({ default: 42 });
     });
 
@@ -347,7 +367,7 @@ describe("SwitchGraphNodeExecutor", () => {
         defaultPort: "default",
         hasDefault: false,
       });
-      await expect(executor.execute({ value: 42 }, ctx)).rejects.toThrow(
+      await expect(executor.execute(nodeExecutionRequest({ value: 42 }), ctx)).rejects.toThrow(
         /No switch case matched/i
       );
     });
@@ -373,7 +393,7 @@ describe("SwitchGraphNodeExecutor", () => {
         defaultPort: "default",
       };
       const ctx = buildContext(meta);
-      const result = await executor.execute({ value: 1 }, ctx);
+      const result = await executor.execute(nodeExecutionRequest({ value: 1 }), ctx);
       // "code-result:return true;" is a truthy string → routes to case port.
       expect(result).toEqual({ c: 1 });
     });

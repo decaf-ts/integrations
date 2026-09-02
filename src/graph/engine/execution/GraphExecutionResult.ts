@@ -3,17 +3,17 @@
  * @summary Helper for building GraphExecutionResult objects.
  * @description Provides a builder function that assembles a result from a frame.
  */
+import type { GraphWorkflowDocument } from "@decaf-ts/ui-decorators/graph";
 import type { GraphExecutionFrame } from "./GraphExecutionFrame";
 import type { GraphExecutionEvent, GraphExecutionResult, GraphExecutionValues, GraphNodeExecutionResult, GraphRunId } from "../types";
 import type { GraphExecutionStatus } from "../../shared/constants";
-import type { GraphWorkflowDefinition } from "@decaf-ts/ui-decorators/graph";
 
 /**
  * Builds a {@link GraphExecutionResult} from a completed frame.
  */
 export function buildGraphExecutionResult(
   frame: GraphExecutionFrame,
-  workflow: GraphWorkflowDefinition,
+  document: GraphWorkflowDocument,
   inputs: GraphExecutionValues,
   status: GraphExecutionStatus,
   metadata?: Record<string, unknown>
@@ -28,9 +28,9 @@ export function buildGraphExecutionResult(
 
   return {
     runId,
-    workflowId: workflow.name,
+    workflowId: document.id || document.name,
     status,
-    workflow,
+    document,
     inputs: { ...inputs },
     outputs,
     nodeResults,

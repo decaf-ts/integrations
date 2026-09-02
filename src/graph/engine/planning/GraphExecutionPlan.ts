@@ -1,9 +1,11 @@
 /**
  * @module integrations/graph/planning/GraphExecutionPlan
- * @summary The complete execution plan for a workflow.
- * @description Contains resolved nodes, edges, topological layers, and incoming/outgoing maps.
+ * @summary The complete execution plan for a workflow (DECAF-50 §4.9).
+ * @description Contains the resolved workflow, catalogue-resolved plan nodes,
+ * validated edges, topological layers, and incoming/outgoing maps. Plans are
+ * produced exclusively from a {@link GraphResolvedWorkflow}.
  */
-import type { GraphWorkflowDefinition } from "@decaf-ts/ui-decorators/graph";
+import type { GraphResolvedWorkflow } from "../validation/GraphResolvedWorkflow";
 import type { GraphExecutionPlanNode } from "./GraphExecutionPlanNode";
 import type { GraphExecutionPlanEdge } from "./GraphExecutionPlanEdge";
 import type { GraphExecutionPlanLayer } from "./GraphExecutionPlanLayer";
@@ -12,7 +14,9 @@ import type { GraphExecutionPlanLayer } from "./GraphExecutionPlanLayer";
  * The resolved execution plan for a single workflow.
  */
 export interface GraphExecutionPlan {
-  workflow: GraphWorkflowDefinition;
+  /** The validated, catalogue-resolved workflow this plan was built from. */
+  resolved: GraphResolvedWorkflow;
+  /** The canonical document id. */
   workflowId: string;
   nodes: GraphExecutionPlanNode[];
   edges: GraphExecutionPlanEdge[];

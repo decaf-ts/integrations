@@ -25,6 +25,7 @@ export * from "./errors/GraphPortError";
 export * from "./errors/GraphStoreError";
 export * from "./errors/GraphTopologyError";
 export * from "./errors/GraphBreakSignal";
+export * from "./errors/GraphRunCancelledError";
 
 export * from "./events/GraphExecutionEvent";
 export * from "./events/GraphExecutionObserver";
@@ -46,6 +47,8 @@ export * from "./execution/IsolatedVmCodeSandboxEvaluator";
 export * from "./registry/GraphNodeExecutorRegistry";
 export * from "./registry/GraphNodeExecutorResolver";
 
+export * from "./catalog";
+
 export * from "./store/GraphValueKey";
 export * from "./store/GraphCachedValue";
 export * from "./store/GraphValueStoreAdapter";
@@ -56,14 +59,11 @@ export * from "./planning/GraphExecutionPlanNode";
 export * from "./planning/GraphExecutionPlanEdge";
 export * from "./planning/GraphExecutionPlanLayer";
 export * from "./planning/GraphExecutionPlan";
-export * from "./planning/GraphRelationResolver";
 export * from "./planning/GraphExecutionPlanner";
 export * from "./planning/GraphTopology";
 
-// Validation (TASK-215)
-export * from "./validation/GraphDefinitionValidator";
-export * from "./validation/GraphPortSchemaResolver";
-export * from "./validation/GraphValueValidator";
+// Validation (TASK-215; DECAF-50 §4.8 nine-stage document validation gate)
+export * from "./validation";
 
 // Loops (TASK-216)
 export * from "./loops/GraphConditionEvaluator";
@@ -78,6 +78,9 @@ export * from "./pinning/GraphPinningMetadata";
 export * from "./pinning/GraphPinningPolicy";
 export * from "./pinning/GraphPinningDependencyResolver";
 export * from "./pinning/GraphPinningService";
+
+// Run lifecycle (DECAF-50 §4.14–§4.16)
+export * from "./runs";
 
 // Snapshots (TASK-219)
 export * from "./snapshots/GraphExecutionSnapshotMapper";

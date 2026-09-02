@@ -9,9 +9,13 @@
  * and engine-private symbols from here.
  */
 import type {
-  GraphNodeDefinition,
-  GraphWorkflowDefinition,
+  GraphCredentialReference,
+  GraphJsonValue,
+  GraphNodeInstance,
+  GraphWorkflowDocument,
 } from "@decaf-ts/ui-decorators/graph";
+
+import type { GraphResolvedNodeManifest } from "../shared/GraphResolution";
 
 import type { GraphExecutionStatus } from "../shared/constants";
 import type {
@@ -67,6 +71,7 @@ export interface GraphExecutionOptions {
   usePinnedValues?: boolean;
   writeThroughCache?: boolean;
   metadata?: Record<string, unknown>;
+  abortSignal?: AbortSignal;
 }
 
 /**
@@ -87,13 +92,16 @@ export interface GraphNodeExecutionResult {
 
 /**
  * Result of executing an entire workflow.
+ *
+ * The executed source of truth is the canonical {@link GraphWorkflowDocument}
+ * (never a decorated workflow definition).
  */
 export interface GraphExecutionResult {
   runId: GraphRunId;
   parentRunId?: GraphRunId;
   workflowId: GraphWorkflowId;
   status: GraphExecutionStatus;
-  workflow: GraphWorkflowDefinition;
+  document: GraphWorkflowDocument;
   inputs: GraphExecutionValues;
   outputs: GraphExecutionValues;
   nodeResults: Record<GraphNodeId, GraphNodeExecutionResult>;
@@ -104,13 +112,35 @@ export interface GraphExecutionResult {
 }
 
 /**
+ * Credential references resolved for a node execution (DECAF-50 §4.9/§4.16).
+ * Documents carry references only; secret material never enters the request.
+ */
+export type GraphResolvedCredentials = Record<string, GraphCredentialReference>;
+
+/**
+ * Request passed to request-based node executors (DECAF-50 §4.9).
+ * Configuration (`parameters`, `credentials`, `metadata`) and input data
+ * (`inputs`) are separated.
+ */
+export interface GraphNodeExecutionRequest {
+  nodeId: string;
+  kind: string;
+  inputs: GraphExecutionValues;
+  parameters: Record<string, GraphJsonValue>;
+  credentials: GraphResolvedCredentials;
+  metadata?: Record<string, GraphJsonValue>;
+}
+
+/**
  * Options used to construct a {@link GraphExecutionContext}.
  */
 export interface GraphExecutionContextOptions {
   runId: GraphRunId;
   parentRunId?: GraphRunId;
-  workflow: GraphWorkflowDefinition;
-  node: GraphNodeDefinition;
+  workflowId: GraphWorkflowId;
+  document: GraphWorkflowDocument;
+  node: GraphNodeInstance;
+  manifest: GraphResolvedNodeManifest;
   path: string[];
   metadata?: Record<string, unknown>;
 }
@@ -119,7 +149,8 @@ export interface GraphExecutionContextOptions {
  * Metadata describing a loop node's behaviour.
  */
 export interface GraphLoopMetadata {
-  body: GraphWorkflowDefinition | unknown;
+  /** The nested loop-body workflow document (DECAF-50 §4.9). */
+  body: GraphWorkflowDocument;
   maxIterations?: number;
   timeoutMs?: number;
   condition?: GraphConditionDefinition;
@@ -177,7 +208,7 @@ export interface GraphPinningMetadata {
  * Options for pinning a node after a completed run.
  */
 export interface GraphPinNodeOptions {
-  workflow: GraphWorkflowDefinition;
+  document: GraphWorkflowDocument;
   plan: unknown;
   result: GraphExecutionResult;
   nodeId: string;
@@ -189,7 +220,7 @@ export interface GraphPinNodeOptions {
  * Options for unpinning a node.
  */
 export interface GraphUnpinNodeOptions {
-  workflow: GraphWorkflowDefinition;
+  document: GraphWorkflowDocument;
   nodeId: string;
   fingerprint: string;
   namespace?: string;

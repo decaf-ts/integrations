@@ -1,10 +1,28 @@
 /**
  * @module integrations/graph/execution/GraphExecutionEngine
- * @summary Reference graph execution engine.
- * @description Executes graph workflows declared with `@decaf-ts/ui-decorators/graph`, emits events through Decaf's Observable pipeline, supports parallel node execution within topological layers, and returns a complete execution result. Per DECAF-48 §4.4 it also emits `NODE_STATE_CHANGED` / `EDGE_STATE_CHANGED` visual-state events on the same pipeline, and node executors log through the run-scoped `ctx.logger` (streamed over the `graph.run.log` SSE channel).
+ * @summary Reference graph execution engine (DECAF-50 §4.9).
+ * @description Executes canonical {@link GraphWorkflowDocument}s. The public
+ * `execute(document, inputs, options)` entrypoint performs resolution
+ * internally: the document runs through the nine-stage §4.8 validation gate
+ * (structured issue accumulation), is resolved against the trusted backend
+ * catalogue into a {@link GraphResolvedWorkflow}, planned by the
+ * {@link GraphExecutionPlanner} (resolved workflows only — never raw
+ * definitions), and executed layer by layer. Node inputs are built from
+ * routed edges, literal bindings, allowed expressions, manifest defaults,
+ * and node parameters; configuration and input data are separated in the
+ * {@link GraphNodeExecutionRequest}. Executor outputs are validated against
+ * the effective output manifest. Disabled nodes follow the explicit
+ * {@link GraphDisabledNodeBehavior} semantics. Events are emitted through
+ * Decaf's Observable pipeline, including the DECAF-48 §4.4 visual-state
+ * events and the `graph.run.log` run-log channel.
  */
 import type { Observable } from "@decaf-ts/core";
-import type { GraphWorkflowDefinition } from "@decaf-ts/ui-decorators/graph";
+import type {
+  GraphInputBinding,
+  GraphJsonValue,
+  GraphWorkflowDocument,
+  GraphWorkflowPortInstance,
+} from "@decaf-ts/ui-decorators/graph";
 
 import {
   GRAPH_DEFAULT_CONCURRENCY,
@@ -15,15 +33,17 @@ import {
   GraphExecutionStatus,
   GraphVisualState,
 } from "../../shared/constants";
-import { GraphExecutionError } from "../errors";
+import { GraphExecutionError, GraphRunCancelledError } from "../errors";
 import type {
   GraphExecutionErrorPayload,
   GraphExecutionEvent,
   GraphExecutionOptions,
   GraphExecutionResult,
   GraphExecutionValues,
+  GraphNodeExecutionRequest,
   GraphNodeExecutionResult,
   GraphPinNodeOptions,
+  GraphResolvedCredentials,
   GraphUnpinNodeOptions,
   GraphRunId,
 } from "../types";
@@ -31,10 +51,21 @@ import type { GraphExecutionObserver } from "../events/GraphExecutionObserver";
 import { GraphExecutionEventEmitter } from "../events/GraphExecutionEventEmitter";
 import { GraphExecutionEventFactory } from "../events/GraphExecutionEventFactory";
 import type { GraphNodeExecutorRegistry } from "../registry/GraphNodeExecutorRegistry";
+import type { GraphNodeCatalogue } from "../catalog/GraphNodeCatalogue";
 import { GraphExecutionPlanner } from "../planning/GraphExecutionPlanner";
 import type { GraphExecutionPlan } from "../planning/GraphExecutionPlan";
 import type { GraphExecutionPlanNode } from "../planning/GraphExecutionPlanNode";
 import type { GraphExecutionPlanEdge } from "../planning/GraphExecutionPlanEdge";
+import {
+  GraphWorkflowDocumentValidator,
+  type GraphWorkflowDocumentValidationLimits,
+} from "../validation/GraphWorkflowDocumentValidator";
+import type { GraphCredentialAuthorizer } from "../validation/GraphCredentialReferenceValidator";
+import {
+  GraphParameterValidator,
+  isGraphCredentialReferenceLike,
+} from "../validation/GraphParameterValidator";
+import { GraphDocumentValidationError } from "../validation/GraphValidationErrors";
 import type { GraphValueStoreAdapter } from "../store/GraphValueStoreAdapter";
 import { InMemoryGraphValueStoreAdapter } from "../store/InMemoryGraphValueStoreAdapter";
 import { GraphValueStore } from "../store/GraphValueStore";
@@ -52,15 +83,27 @@ import type { CodeSandboxEvaluator } from "./CodeSandboxEvaluator";
  */
 export interface GraphExecutionEngineConfig {
   registry: GraphNodeExecutorRegistry;
+  /**
+   * Trusted backend kind catalogue. Defaults to the registry facade's
+   * catalogue; required for the nine-stage document validation gate.
+   */
+  catalogue?: GraphNodeCatalogue;
+  /** Optional pre-configured document validator (overrides catalogue/limits). */
+  documentValidator?: GraphWorkflowDocumentValidator;
+  /** Backend-enforced document resource limits (§4.8 stage 1). */
+  documentLimits?: GraphWorkflowDocumentValidationLimits;
+  /** Pluggable credential existence/authorization hook (§4.8 stage 8). */
+  credentialAuthorizer?: GraphCredentialAuthorizer;
   planner?: GraphExecutionPlanner;
   valueStoreAdapter?: GraphValueStoreAdapter;
   eventEmitter?: GraphExecutionEventEmitter;
   defaultOptions?: Partial<GraphExecutionOptions>;
   /**
-   * Optional pluggable code sandbox evaluator for code-based conditions
-   * (DECAF-32 §22.4). When absent, code conditions throw
-   * `GRAPH_CODE_SANDBOX_NOT_CONFIGURED`. Downstream projects (e.g. ALFRED)
-   * supply the actual VM sandbox implementation.
+   * Optional pluggable code sandbox evaluator for code-based conditions and
+   * expression bindings (DECAF-32 §22.4). When absent, code conditions and
+   * expression bindings throw `GRAPH_CODE_SANDBOX_NOT_CONFIGURED`.
+   * Downstream projects (e.g. ALFRED) supply the actual VM sandbox
+   * implementation.
    */
   codeSandboxEvaluator?: CodeSandboxEvaluator;
   /**
@@ -75,13 +118,20 @@ export interface GraphExecutionEngineConfig {
 /**
  * Reference graph execution engine.
  *
- * Executes a {@link GraphWorkflowDefinition} by:
- * 1. Planning the workflow into topological layers.
- * 2. Seeding workflow inputs into the value store.
- * 3. Executing nodes layer-by-layer with configurable concurrency.
- * 4. Routing values along edges.
- * 5. Emitting structured events through Decaf's Observable pipeline.
- * 6. Returning a complete {@link GraphExecutionResult}.
+ * Executes a canonical {@link GraphWorkflowDocument} by:
+ * 1. Validating it through the nine-stage gate and resolving it against the
+ *    backend catalogue (§4.8).
+ * 2. Planning the resolved workflow into topological layers (§4.9).
+ * 3. Seeding workflow inputs into the value store.
+ * 4. Executing nodes layer-by-layer with configurable concurrency, honouring
+ *    disabled-node semantics.
+ * 5. Building node inputs from routed edges, literal bindings, allowed
+ *    expressions, and manifest defaults; keeping configuration (parameters,
+ *    credentials) separate from input data.
+ * 6. Validating executor outputs against the effective output manifest.
+ * 7. Routing values along data edges.
+ * 8. Emitting structured events through Decaf's Observable pipeline.
+ * 9. Returning a complete {@link GraphExecutionResult}.
  */
 export class GraphExecutionEngine
   implements Observable<[GraphExecutionObserver], [GraphExecutionEvent]> {
@@ -89,6 +139,7 @@ export class GraphExecutionEngine
   private readonly planner: GraphExecutionPlanner;
   private readonly valueStoreAdapter: GraphValueStoreAdapter;
   private readonly defaultOptions: Partial<GraphExecutionOptions>;
+  private readonly documentValidator: GraphWorkflowDocumentValidator;
   /** Pluggable code sandbox evaluator (§22.4); may be undefined. */
   readonly codeSandboxEvaluator?: CodeSandboxEvaluator;
 
@@ -100,6 +151,13 @@ export class GraphExecutionEngine
     this.defaultOptions = config.defaultOptions ?? {};
     this.codeSandboxEvaluator = config.codeSandboxEvaluator;
     this.config = config;
+    this.documentValidator =
+      config.documentValidator ??
+      new GraphWorkflowDocumentValidator({
+        catalogue: config.catalogue ?? config.registry.catalog,
+        limits: config.documentLimits,
+        credentialAuthorizer: config.credentialAuthorizer,
+      });
     config.onEngineCreated?.(this);
   }
 
@@ -134,32 +192,34 @@ export class GraphExecutionEngine
   }
 
   /**
-   * Executes a workflow with the given inputs and options.
+   * Executes a canonical workflow document with the given inputs and options.
    *
-   * @param workflow - The workflow definition to execute.
-   * @param inputs - Workflow input values keyed by input port name.
+   * Resolution happens internally (DECAF-50 §4.9): the document is validated
+   * through the nine-stage gate and resolved against the backend catalogue
+   * before planning. Decorated `GraphWorkflowDefinition` objects are NOT
+   * accepted — compile them with the §4.18 transition compiler first.
+   *
+   * @param document - The canonical workflow document to execute.
+   * @param inputs - Workflow input values keyed by input port id.
    * @param options - Optional execution overrides (merged over the defaults).
    * @returns The complete execution result, including a `runId`, per-node
-   * results, and workflow outputs (or the failure payload).
+   *   results, and workflow outputs (or the failure payload).
+   * @throws {GraphDocumentValidationError} when the document fails the
+   *   nine-stage validation gate (carries every structured issue).
    */
   async execute(
-    workflow: GraphWorkflowDefinition,
+    document: GraphWorkflowDocument,
     inputs: GraphExecutionValues = {},
     options: GraphExecutionOptions = {}
   ): Promise<GraphExecutionResult> {
     const opts = this.mergeOptions(options);
+    this.assertNotAborted(opts);
     const runId = opts.runId ?? this.generateRunId();
     const path = opts.path ?? [];
     const eventFactory = new GraphExecutionEventFactory();
     const valueStore = new GraphValueStore(this.valueStoreAdapter);
-    valueStore.seedWorkflowInputs(inputs);
-
-    const plan = this.planner.plan(workflow);
-    const frame = new GraphExecutionFrame(
-      runId,
-      plan,
-      valueStore,
-      eventFactory
+    valueStore.seedWorkflowInputs(
+      this.withWorkflowInputDefaults(document, inputs)
     );
 
     const emitFn = async (partial: Partial<GraphExecutionEvent>) => {
@@ -167,18 +227,73 @@ export class GraphExecutionEngine
         type: partial.type ?? GraphExecutionEventType.NODE_OUTPUT,
         runId,
         parentRunId: opts.parentRunId,
-        workflowId: workflow.name,
+        workflowId: document.id || document.name,
         nodeId: partial.nodeId,
         path: partial.path ?? path,
         ...partial,
       });
     };
+    const emitValidationEvent = async (
+      partial: Partial<GraphExecutionEvent> & {
+        type: GraphExecutionEventType;
+      }
+    ): Promise<void> => {
+      const event = eventFactory.create({
+        id: "",
+        sequence: 0,
+        timestamp: new Date(),
+        runId,
+        parentRunId: opts.parentRunId,
+        workflowId: document.id || document.name,
+        path,
+        ...partial,
+      } as Omit<GraphExecutionEvent, "id" | "sequence" | "timestamp">);
+      await this.emitter.updateObservers(event);
+    };
+
+    // ------------------------------------------------------------------
+    // Validation + resolution (nine-stage gate, §4.8) — internal.
+    // ------------------------------------------------------------------
+    await emitValidationEvent({
+      type: GraphExecutionEventType.VALIDATION_STARTED,
+      status: GraphExecutionStatus.PLANNING,
+    });
+
+    const validation = await this.documentValidator.validate(document);
+
+    if (!validation.valid || !validation.resolved) {
+      await emitValidationEvent({
+        type: GraphExecutionEventType.VALIDATION_FAILED,
+        status: GraphExecutionStatus.FAILED,
+        payload: { issues: validation.issues },
+      });
+      throw new GraphDocumentValidationError(
+        `Graph workflow document '${document.id}' failed validation with ${validation.issues.length} issue(s)`,
+        validation.issues
+      );
+    }
+
+    await emitValidationEvent({
+      type: GraphExecutionEventType.VALIDATION_COMPLETED,
+      status: GraphExecutionStatus.PLANNING,
+      payload: { issues: validation.issues.length },
+    });
+
+    this.assertNotAborted(opts);
+
+    const plan = this.planner.plan(validation.resolved);
+    const frame = new GraphExecutionFrame(
+      runId,
+      plan,
+      valueStore,
+      eventFactory
+    );
 
     await this.emitEvent(frame, {
       type: GraphExecutionEventType.WORKFLOW_STARTED,
       runId,
       parentRunId: opts.parentRunId,
-      workflowId: workflow.name,
+      workflowId: plan.workflowId,
       path,
       status: GraphExecutionStatus.RUNNING,
       payload: { inputs },
@@ -188,7 +303,7 @@ export class GraphExecutionEngine
       type: GraphExecutionEventType.WORKFLOW_PLANNED,
       runId,
       parentRunId: opts.parentRunId,
-      workflowId: workflow.name,
+      workflowId: plan.workflowId,
       path,
       status: GraphExecutionStatus.PLANNING,
       payload: { layers: plan.layers.length, nodes: plan.nodes.length },
@@ -196,8 +311,10 @@ export class GraphExecutionEngine
 
     try {
       for (const layer of plan.layers) {
+        this.assertNotAborted(opts);
         await this.executeLayer(frame, plan, layer.nodes, opts, emitFn);
       }
+      this.assertNotAborted(opts);
 
       const firstFailure = [...frame.nodeResults.values()].find(
         (result) => result.status === GraphExecutionStatus.FAILED
@@ -216,7 +333,7 @@ export class GraphExecutionEngine
         type: GraphExecutionEventType.WORKFLOW_COMPLETED,
         runId,
         parentRunId: opts.parentRunId,
-        workflowId: workflow.name,
+        workflowId: plan.workflowId,
         path,
         status: GraphExecutionStatus.SUCCEEDED,
         payload: { outputs: valueStore.getWorkflowValues() },
@@ -224,7 +341,7 @@ export class GraphExecutionEngine
 
       return buildGraphExecutionResult(
         frame,
-        workflow,
+        document,
         inputs,
         GraphExecutionStatus.SUCCEEDED,
         opts.metadata
@@ -233,11 +350,34 @@ export class GraphExecutionEngine
       frame.finish();
       const errorPayload = this.toErrorPayload(error);
 
+      if (
+        error instanceof GraphRunCancelledError ||
+        opts.abortSignal?.aborted === true
+      ) {
+        await this.emitEvent(frame, {
+          type: GraphExecutionEventType.WORKFLOW_CANCELLED,
+          runId,
+          parentRunId: opts.parentRunId,
+          workflowId: plan.workflowId,
+          path,
+          status: GraphExecutionStatus.CANCELLED,
+          error: errorPayload,
+        });
+
+        return buildGraphExecutionResult(
+          frame,
+          document,
+          inputs,
+          GraphExecutionStatus.CANCELLED,
+          opts.metadata
+        );
+      }
+
       await this.emitEvent(frame, {
         type: GraphExecutionEventType.WORKFLOW_FAILED,
         runId,
         parentRunId: opts.parentRunId,
-        workflowId: workflow.name,
+        workflowId: plan.workflowId,
         path,
         status: GraphExecutionStatus.FAILED,
         error: errorPayload,
@@ -245,7 +385,7 @@ export class GraphExecutionEngine
 
       return buildGraphExecutionResult(
         frame,
-        workflow,
+        document,
         inputs,
         GraphExecutionStatus.FAILED,
         opts.metadata
@@ -309,6 +449,25 @@ export class GraphExecutionEngine
   }
 
   /**
+   * Fills unprovided workflow inputs with their declared port defaults.
+   */
+  private withWorkflowInputDefaults(
+    document: GraphWorkflowDocument,
+    inputs: GraphExecutionValues
+  ): GraphExecutionValues {
+    const seeded = { ...inputs };
+    for (const port of document.inputs as GraphWorkflowPortInstance[]) {
+      if (
+        seeded[port.id] === undefined &&
+        port.defaultValue !== undefined
+      ) {
+        seeded[port.id] = port.defaultValue;
+      }
+    }
+    return seeded;
+  }
+
+  /**
    * Executes a layer of nodes with the configured concurrency.
    */
   private async executeLayer(
@@ -333,7 +492,7 @@ export class GraphExecutionEngine
   }
 
   /**
-   * Executes a single node.
+   * Executes a single node, honouring disabled-node semantics (§4.9).
    */
   private async executeNode(
     frame: GraphExecutionFrame,
@@ -342,6 +501,12 @@ export class GraphExecutionEngine
     opts: GraphExecutionOptions,
     emitFn: (event: Partial<GraphExecutionEvent>) => Promise<void>
   ): Promise<void> {
+    this.assertNotAborted(opts);
+    if (planNode.instance.disabled === true) {
+      await this.executeDisabledNode(frame, plan, planNode, opts);
+      return;
+    }
+
     const startedAt = new Date();
     const nodePath = [...(opts.path ?? []), planNode.id];
 
@@ -362,7 +527,7 @@ export class GraphExecutionEngine
       GraphExecutionStatus.RUNNING
     );
 
-    const inputs = this.resolveNodeInputs(frame, plan, planNode);
+    const inputs = await this.resolveNodeInputs(frame, plan, planNode, opts);
 
     // Cache-hit: check for a pinned value before executing the node
     if (opts.usePinnedValues) {
@@ -417,29 +582,39 @@ export class GraphExecutionEngine
     }
 
     try {
-      const executor = this.config.registry.resolve(planNode.kind);
       const context = new GraphExecutionContext(
         frame.runId,
         opts.parentRunId,
-        plan.workflow,
-        planNode.definition,
+        plan.workflowId,
+        plan.resolved.document,
+        planNode.instance,
+        planNode.manifest,
         nodePath,
         emitFn,
         opts.metadata
       );
 
-      const outputs = await executor.execute(inputs, context);
-      const resolvedOutputs = outputs ?? {};
+      const request: GraphNodeExecutionRequest = {
+        nodeId: planNode.id,
+        kind: planNode.kind,
+        inputs,
+        parameters: planNode.instance.parameters ?? {},
+        credentials: this.collectCredentials(planNode),
+        metadata: planNode.instance.metadata,
+      };
 
-      frame.valueStore.setNodeOutputs(planNode.id, resolvedOutputs);
-      this.routeOutgoingEdges(frame, plan, planNode, resolvedOutputs);
+      const rawOutputs = await this.invokeExecutor(planNode, request, context);
+      const outputs = this.validateNodeOutputs(planNode, rawOutputs ?? {});
+
+      frame.valueStore.setNodeOutputs(planNode.id, outputs);
+      this.routeOutgoingEdges(frame, plan, planNode, outputs);
 
       const finishedAt = new Date();
       const result: GraphNodeExecutionResult = {
         nodeId: planNode.id,
         status: GraphExecutionStatus.SUCCEEDED,
         inputs,
-        outputs: resolvedOutputs,
+        outputs,
         startedAt,
         finishedAt,
         events: [],
@@ -453,7 +628,7 @@ export class GraphExecutionEngine
         nodeId: planNode.id,
         path: nodePath,
         status: GraphExecutionStatus.SUCCEEDED,
-        payload: { outputs: resolvedOutputs },
+        payload: { outputs },
       });
       this.emitNodeStateChanged(
         frame,
@@ -500,7 +675,201 @@ export class GraphExecutionEngine
   }
 
   /**
-   * Resolves a node's input values from incoming edges.
+   * Applies the explicit disabled-node semantics (§4.9):
+   * `skip`, `passThroughFirstInput`, or `emitDefaults`, resolved from the
+   * instance metadata, document settings, and the default.
+   */
+  private async executeDisabledNode(
+    frame: GraphExecutionFrame,
+    plan: GraphExecutionPlan,
+    planNode: GraphExecutionPlanNode,
+    opts: GraphExecutionOptions
+  ): Promise<void> {
+    const startedAt = new Date();
+    const nodePath = [...(opts.path ?? []), planNode.id];
+    const behavior = GraphParameterValidator.disabledBehaviorOf(
+      planNode.instance,
+      plan.resolved.document.settings
+    );
+
+    await this.emitEvent(frame, {
+      type: GraphExecutionEventType.NODE_SKIPPED,
+      runId: frame.runId,
+      workflowId: plan.workflowId,
+      nodeId: planNode.id,
+      path: nodePath,
+      status: GraphExecutionStatus.SKIPPED,
+      payload: { disabled: true, behavior },
+    });
+
+    if (behavior === "skip") {
+      const result: GraphNodeExecutionResult = {
+        nodeId: planNode.id,
+        status: GraphExecutionStatus.SKIPPED,
+        inputs: {},
+        startedAt,
+        finishedAt: new Date(),
+        events: [],
+      };
+      frame.recordNodeResult(result);
+      this.emitNodeStateChanged(
+        frame,
+        plan,
+        planNode,
+        nodePath,
+        GraphVisualState.SKIPPED,
+        GraphExecutionStatus.SKIPPED
+      );
+      return;
+    }
+
+    const inputs = await this.resolveNodeInputs(frame, plan, planNode, opts);
+    let outputs: GraphExecutionValues;
+
+    if (behavior === "passThroughFirstInput") {
+      const firstIncoming = (plan.incomingByNode.get(planNode.id) ?? []).find(
+        (edge) => edge.type === "data"
+      );
+      const firstOutput = planNode.manifest.outputs[0]?.id ?? "value";
+      const value = firstIncoming
+        ? frame.valueStore.getPort(
+            firstIncoming.sourceNodeId,
+            firstIncoming.sourcePort
+          )
+        : Object.values(inputs)[0];
+      outputs = { [firstOutput]: value };
+    } else {
+      // emitDefaults — every declared output port is emitted with its
+      // declared default (absent a declared default, undefined).
+      outputs = {};
+      for (const port of planNode.manifest.outputs) {
+        outputs[port.id] = port.metadata?.["defaultValue"];
+      }
+    }
+
+    frame.valueStore.setNodeOutputs(planNode.id, outputs);
+    this.routeOutgoingEdges(frame, plan, planNode, outputs);
+
+    const result: GraphNodeExecutionResult = {
+      nodeId: planNode.id,
+      status: GraphExecutionStatus.SUCCEEDED,
+      inputs,
+      outputs,
+      startedAt,
+      finishedAt: new Date(),
+      events: [],
+    };
+    frame.recordNodeResult(result);
+    this.emitNodeStateChanged(
+      frame,
+      plan,
+      planNode,
+      nodePath,
+      GraphVisualState.SUCCEEDED,
+      GraphExecutionStatus.SUCCEEDED
+    );
+  }
+
+  /**
+   * Invokes the node's catalogue-resolved executor (§4.9 request contract,
+   * post-cutover: every executor receives the full request with
+   * configuration and input data separated).
+   */
+  private async invokeExecutor(
+    planNode: GraphExecutionPlanNode,
+    request: GraphNodeExecutionRequest,
+    context: GraphExecutionContext
+  ): Promise<GraphExecutionValues> {
+    return await planNode.executor.execute(request, context);
+  }
+
+  /**
+   * Validates executor outputs against the effective output manifest
+   * (§4.9): unknown outputs are rejected by default; missing required
+   * outputs fail the node. Lenient transition manifests (legacy
+   * executor-only registrations) are exempt until cutover.
+   */
+  private validateNodeOutputs(
+    planNode: GraphExecutionPlanNode,
+    outputs: GraphExecutionValues
+  ): GraphExecutionValues {
+    const manifest = planNode.manifest;
+    if (manifest.policies?.allowUnknownOutputs === true) {
+      return outputs;
+    }
+
+    const declaredOutputs = new Set(
+      manifest.outputs.map((port) => port.id)
+    );
+    const unknownOutputs = Object.keys(outputs).filter(
+      (key) => !declaredOutputs.has(key)
+    );
+    if (unknownOutputs.length > 0) {
+      throw new GraphExecutionError(
+        `Node '${planNode.id}' of kind '${planNode.kind}' produced unknown output(s): ${unknownOutputs.join(", ")}`,
+        "GRAPH_OUTPUT_VALIDATION_FAILED",
+        { nodeId: planNode.id, unknownOutputs }
+      );
+    }
+
+    const missingRequired = manifest.outputs
+      .filter((port) => port.required === true && !(port.id in outputs))
+      .map((port) => port.id);
+    if (missingRequired.length > 0) {
+      throw new GraphExecutionError(
+        `Node '${planNode.id}' of kind '${planNode.kind}' did not produce required output(s): ${missingRequired.join(", ")}`,
+        "GRAPH_OUTPUT_VALIDATION_FAILED",
+        { nodeId: planNode.id, missingRequired }
+      );
+    }
+
+    return outputs;
+  }
+
+  /**
+   * Collects the resolved credential references for a node: credential-type
+   * parameter values plus the `credentials` record in instance metadata.
+   * Documents carry references only — secret material never enters requests.
+   */
+  private collectCredentials(planNode: GraphExecutionPlanNode): GraphResolvedCredentials {
+    const credentials: GraphResolvedCredentials = {};
+    for (const parameter of planNode.manifest.parameters) {
+      if (parameter.type !== "credential") continue;
+      const value: unknown = (planNode.instance.parameters ?? {})[parameter.id];
+      if (typeof value === "string" && value.length > 0) {
+        credentials[parameter.id] = {
+          credentialId: value,
+          credentialType: parameter.credentialType ?? "",
+        };
+      } else if (isGraphCredentialReferenceLike(value)) {
+        credentials[parameter.id] = {
+          credentialId: value.credentialId,
+          credentialType: value.credentialType,
+        };
+      }
+    }
+    const extra = (planNode.instance.metadata ?? {})["credentials"];
+    if (extra && typeof extra === "object" && !Array.isArray(extra)) {
+      for (const [key, raw] of Object.entries(
+        extra as Record<string, GraphJsonValue>
+      )) {
+        const value: unknown = raw;
+        if (typeof value === "string" && value.length > 0) {
+          credentials[key] = { credentialId: value, credentialType: "" };
+        } else if (isGraphCredentialReferenceLike(value)) {
+          credentials[key] = {
+            credentialId: value.credentialId,
+            credentialType: value.credentialType,
+          };
+        }
+      }
+    }
+    return credentials;
+  }
+
+  /**
+   * Resolves a node's input values from routed data edges, literal bindings,
+   * allowed expression bindings, and manifest port defaults (§4.9).
    *
    * When multiple edges target the same port, their values are spread into the
    * top-level inputs keyed by each edge's `sourcePort`. This allows multiple
@@ -508,13 +877,16 @@ export class GraphExecutionEngine
    * `data` port) and have all values accessible directly as
    * `$input.{sourcePort}` (e.g. `$input.count`, `$input.text`).
    */
-  private resolveNodeInputs(
+  private async resolveNodeInputs(
     frame: GraphExecutionFrame,
     plan: GraphExecutionPlan,
-    planNode: GraphExecutionPlanNode
-  ): GraphExecutionValues {
+    planNode: GraphExecutionPlanNode,
+    opts: GraphExecutionOptions
+  ): Promise<GraphExecutionValues> {
     const inputs: GraphExecutionValues = {};
-    const incoming = plan.incomingByNode.get(planNode.id) ?? [];
+    const incoming = (plan.incomingByNode.get(planNode.id) ?? []).filter(
+      (edge) => edge.type === "data"
+    );
 
     const edgesByTarget = new Map<string, typeof incoming>();
     for (const edge of incoming) {
@@ -539,7 +911,59 @@ export class GraphExecutionEngine
       }
     }
 
+    // Literal bindings, expression bindings, and manifest defaults.
+    const bindings = planNode.instance.inputBindings ?? {};
+    for (const port of planNode.manifest.inputs) {
+      const binding: GraphInputBinding | undefined = bindings[port.id];
+      if (binding?.mode === "literal") {
+        inputs[port.id] = binding.value;
+      } else if (binding?.mode === "expression") {
+        inputs[port.id] = await this.evaluateExpressionBinding(
+          planNode,
+          binding.expression,
+          inputs,
+          opts
+        );
+      } else if (inputs[port.id] === undefined) {
+        const defaultValue = port.metadata?.["defaultValue"];
+        if (defaultValue !== undefined) {
+          inputs[port.id] = defaultValue;
+        }
+      }
+    }
+
     return inputs;
+  }
+
+  /**
+   * Evaluates an expression binding with the EXISTING allowed-expression
+   * machinery only (the pluggable {@link CodeSandboxEvaluator}, DECAF-32
+   * §22.4) — no new evaluator. The expression sees the already-routed input
+   * values as `$input` and the run metadata as context.
+   */
+  private async evaluateExpressionBinding(
+    planNode: GraphExecutionPlanNode,
+    expression: string,
+    inputs: GraphExecutionValues,
+    opts: GraphExecutionOptions
+  ): Promise<unknown> {
+    const evaluator = this.codeSandboxEvaluator;
+    if (!evaluator) {
+      throw new GraphExecutionError(
+        `Expression binding on node '${planNode.id}' requires a CodeSandboxEvaluator to be registered in GraphExecutionEngineConfig.codeSandboxEvaluator`,
+        "GRAPH_CODE_SANDBOX_NOT_CONFIGURED",
+        { nodeId: planNode.id, expression }
+      );
+    }
+    const md = opts.metadata as Record<string, unknown> | undefined;
+    return await evaluator.evaluate({
+      code: expression,
+      language: "javascript",
+      input: inputs,
+      vars: (md?.vars as Record<string, unknown> | undefined) ?? undefined,
+      item: md?.item,
+      index: md?.index as number | undefined,
+    });
   }
 
   /**
@@ -559,7 +983,7 @@ export class GraphExecutionEngine
     const service = this.createPinningService();
     const depFingerprints = this.computeDependencyFingerprints(frame, plan, planNode.id);
     return service.readPinnedValue(
-      plan.workflow,
+      plan.workflowId,
       planNode,
       inputs,
       depFingerprints
@@ -586,7 +1010,7 @@ export class GraphExecutionEngine
         const inputs = depResult?.inputs ?? {};
         const nestedDeps = this.computeDependencyFingerprints(frame, plan, dep);
         fingerprints[dep] = service.computeFingerprint(
-          plan.workflow,
+          plan.workflowId,
           node,
           inputs,
           nestedDeps
@@ -597,7 +1021,8 @@ export class GraphExecutionEngine
   }
 
   /**
-   * Routes a node's outputs to downstream inputs and workflow outputs.
+   * Routes a node's outputs to downstream inputs and workflow outputs along
+   * data edges (connection edges are structural and never route values).
    */
   private routeOutgoingEdges(
     frame: GraphExecutionFrame,
@@ -605,7 +1030,9 @@ export class GraphExecutionEngine
     planNode: GraphExecutionPlanNode,
     outputs: GraphExecutionValues
   ): void {
-    const outgoing = plan.outgoingByNode.get(planNode.id) ?? [];
+    const outgoing = (plan.outgoingByNode.get(planNode.id) ?? []).filter(
+      (edge) => edge.type === "data"
+    );
     for (const edge of outgoing) {
       const value = outputs[edge.sourcePort];
       if (edge.targetNodeId === GRAPH_WORKFLOW_BOUNDARY) {
@@ -738,6 +1165,12 @@ export class GraphExecutionEngine
       ...this.defaultOptions,
       ...options,
     };
+  }
+
+  private assertNotAborted(opts: GraphExecutionOptions): void {
+    if (opts.abortSignal?.aborted === true) {
+      throw new GraphRunCancelledError(opts.runId ?? "unknown");
+    }
   }
 
   /**

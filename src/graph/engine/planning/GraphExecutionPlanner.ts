@@ -1,47 +1,49 @@
 /**
  * @module integrations/graph/planning/GraphExecutionPlanner
- * @summary Topological planner for graph workflows.
- * @description Resolves workflow nodes and relations, validates topology, detects cycles, and produces topological execution layers using Kahn's algorithm.
+ * @summary Topological planner for resolved graph workflows (DECAF-50 §4.9).
+ * @description Turns a {@link GraphResolvedWorkflow} — the output of the
+ * nine-stage §4.8 validation gate — into a {@link GraphExecutionPlan} with
+ * topological layers. The planner accepts ONLY resolved workflows: it never
+ * calls `graphDefinitionOf()` and never accepts `GraphWorkflowDefinition`
+ * objects or inline raw `GraphNodeDefinition` objects (P3 gate). Resolution
+ * against the trusted backend catalogue happens upstream, in
+ * {@link GraphWorkflowDocumentValidator}.
  */
-import type {
-  GraphNodeDefinition,
-  GraphWorkflowDefinition,
-} from "@decaf-ts/ui-decorators/graph";
-import { graphDefinitionOf } from "@decaf-ts/ui-decorators/graph";
-
 import { GRAPH_WORKFLOW_BOUNDARY } from "../constants";
 import { GraphCycleError } from "../errors/GraphCycleError";
 import { GraphTopologyError } from "../errors/GraphTopologyError";
+import { isGraphResolvedWorkflow } from "../validation/GraphWorkflowDocumentValidator";
+import type { GraphResolvedWorkflow } from "../validation/GraphResolvedWorkflow";
 import type { GraphExecutionPlan } from "./GraphExecutionPlan";
 import type { GraphExecutionPlanNode } from "./GraphExecutionPlanNode";
 import type { GraphExecutionPlanEdge } from "./GraphExecutionPlanEdge";
 import type { GraphExecutionPlanLayer } from "./GraphExecutionPlanLayer";
-import { GraphRelationResolver } from "./GraphRelationResolver";
 
 /**
- * Planner that turns a {@link GraphWorkflowDefinition} into a
+ * Planner that turns a {@link GraphResolvedWorkflow} into a
  * {@link GraphExecutionPlan} with topological layers.
  */
 export class GraphExecutionPlanner {
-  private readonly resolver: GraphRelationResolver;
-
-  constructor(resolver?: GraphRelationResolver) {
-    this.resolver = resolver ?? new GraphRelationResolver();
-  }
-
   /**
-   * Plans a workflow for execution.
+   * Plans a resolved workflow for execution.
    *
-   * @param workflow - The workflow definition to plan.
+   * @param workflow - The catalogue-resolved workflow (output of the
+   *   nine-stage validation gate). Raw `GraphWorkflowDefinition` objects and
+   *   inline `GraphNodeDefinition` objects are rejected.
    * @returns The execution plan with nodes, edges, layers, and maps.
-   * @throws {GraphTopologyError} when node IDs are not unique.
+   * @throws {GraphTopologyError} when the input is not a resolved workflow.
    * @throws {GraphCycleError} when the workflow contains an unsupported cycle.
    */
-  plan(workflow: GraphWorkflowDefinition): GraphExecutionPlan {
-    this.validateUniqueNodeIds(workflow);
+  plan(workflow: GraphResolvedWorkflow): GraphExecutionPlan {
+    if (!isGraphResolvedWorkflow(workflow)) {
+      throw new GraphTopologyError(
+        "GraphExecutionPlanner.plan accepts only a GraphResolvedWorkflow produced by the nine-stage validation gate; raw workflow definitions and inline node definitions are rejected",
+        { received: describeInput(workflow) }
+      );
+    }
 
-    const nodes = this.resolveNodes(workflow);
-    const edges = this.resolver.resolve(workflow);
+    const nodes = this.buildPlanNodes(workflow);
+    const edges = this.buildPlanEdges(workflow);
 
     const incomingByNode = this.buildIncomingMap(edges);
     const outgoingByNode = this.buildOutgoingMap(edges);
@@ -49,8 +51,8 @@ export class GraphExecutionPlanner {
     const layers = this.topologicalLayers(nodes, edges);
 
     return {
-      workflow,
-      workflowId: workflow.name,
+      resolved: workflow,
+      workflowId: workflow.document.id || workflow.document.name,
       nodes,
       edges,
       layers,
@@ -60,104 +62,52 @@ export class GraphExecutionPlanner {
   }
 
   /**
-   * Validates that all workflow node IDs are unique.
+   * Builds catalogue-resolved plan nodes from the resolved workflow.
+   * Each plan node carries the canonical instance, the effective manifest,
+   * and the trusted executor — never a raw node definition.
    */
-  private validateUniqueNodeIds(workflow: GraphWorkflowDefinition): void {
-    const seen = new Set<string>();
-    for (const node of workflow.nodes ?? []) {
-      if (seen.has(node.id)) {
-        throw new GraphTopologyError(
-          `Duplicate node id '${node.id}' in workflow '${workflow.name}'`,
-          { nodeId: node.id, workflowId: workflow.name }
-        );
-      }
-      seen.add(node.id);
-    }
+  private buildPlanNodes(workflow: GraphResolvedWorkflow): GraphExecutionPlanNode[] {
+    return workflow.nodes.map((node) => ({
+      id: node.instance.id,
+      kind: node.manifest.kind,
+      instance: node.instance,
+      manifest: node.manifest,
+      executor: node.executor,
+      inputPorts: node.manifest.inputs.map((port) => port.id),
+      outputPorts: node.manifest.outputs.map((port) => port.id),
+      connectionPorts: (node.manifest.connections ?? []).map(
+        (port) => port.id
+      ),
+      metadata: node.instance.metadata,
+    }));
   }
 
   /**
-   * Resolves workflow node metadata into plan nodes with full definitions.
+   * Builds plan edges from the flattened resolved edges (already validated by
+   * §4.8 stage 5/6).
    */
-  private resolveNodes(
-    workflow: GraphWorkflowDefinition
-  ): GraphExecutionPlanNode[] {
-    const result: GraphExecutionPlanNode[] = [];
-    for (const nodeMeta of workflow.nodes ?? []) {
-      const definition = this.resolveDefinition(nodeMeta);
-      const inputPorts = (definition.ports ?? [])
-        .filter((p) => p.direction === "input")
-        .map((p) => p.name);
-      const outputPorts = (definition.ports ?? [])
-        .filter((p) => p.direction === "output")
-        .map((p) => p.name);
-      result.push({
-        id: nodeMeta.id,
-        kind: nodeMeta.kind ?? definition.kind ?? nodeMeta.id,
-        label: nodeMeta.label,
-        source: nodeMeta,
-        definition,
-        inputPorts,
-        outputPorts,
-        metadata: nodeMeta.metadata,
-      });
-    }
-    return result;
+  private buildPlanEdges(workflow: GraphResolvedWorkflow): GraphExecutionPlanEdge[] {
+    return workflow.edges.map((edge) => ({
+      id: edge.id,
+      type: edge.type,
+      sourceNodeId: edge.sourceNodeId,
+      sourcePort: edge.sourcePort,
+      targetNodeId: edge.targetNodeId,
+      targetPort: edge.targetPort,
+      ...(edge.label !== undefined ? { label: edge.label } : {}),
+      metadata: edge.metadata,
+    }));
   }
 
   /**
-   * Attempts to resolve the full graph node definition from metadata.
-   *
-   * Accepts either a decorated Model class/instance (resolved via
-   * `graphDefinitionOf`) or a plain `GraphNodeDefinition`-shaped object
-   * (useful for serialized workflows that inline node definitions).
-   */
-  private resolveDefinition(nodeMeta: {
-    node?: unknown;
-    kind?: string;
-    id: string;
-  }): GraphNodeDefinition {
-    if (nodeMeta.node) {
-      if (this.isRawDefinition(nodeMeta.node)) {
-        return nodeMeta.node as GraphNodeDefinition;
-      }
-      try {
-        return graphDefinitionOf(nodeMeta.node as any);
-      } catch {
-        // fall through to stub
-      }
-    }
-    // Return a minimal stub definition so planning can proceed
-    return {
-      name: nodeMeta.id,
-      tag: nodeMeta.id,
-      kind: nodeMeta.kind ?? nodeMeta.id,
-      labels: [],
-      ports: [],
-    };
-  }
-
-  /**
-   * Returns `true` when a value looks like a raw {@link GraphNodeDefinition}
-   * (a plain object with a `ports` array and a `name` string).
-   */
-  private isRawDefinition(value: unknown): boolean {
-    return (
-      typeof value === "object" &&
-      value !== null &&
-      !Array.isArray(value) &&
-      typeof (value as { name?: unknown }).name === "string" &&
-      Array.isArray((value as { ports?: unknown }).ports)
-    );
-  }
-
-  /**
-   * Builds a map of node id -> incoming edges.
+   * Builds a map of node id -> incoming edges (boundary excluded from keys).
    */
   private buildIncomingMap(
     edges: GraphExecutionPlanEdge[]
   ): Map<string, GraphExecutionPlanEdge[]> {
     const map = new Map<string, GraphExecutionPlanEdge[]>();
     for (const edge of edges) {
+      if (edge.targetNodeId === GRAPH_WORKFLOW_BOUNDARY) continue;
       const list = map.get(edge.targetNodeId) ?? [];
       list.push(edge);
       map.set(edge.targetNodeId, list);
@@ -166,13 +116,15 @@ export class GraphExecutionPlanner {
   }
 
   /**
-   * Builds a map of node id -> outgoing edges.
+   * Builds a map of node id -> outgoing edges (boundary targets included as
+   * edge values so workflow outputs stay routable).
    */
   private buildOutgoingMap(
     edges: GraphExecutionPlanEdge[]
   ): Map<string, GraphExecutionPlanEdge[]> {
     const map = new Map<string, GraphExecutionPlanEdge[]>();
     for (const edge of edges) {
+      if (edge.sourceNodeId === GRAPH_WORKFLOW_BOUNDARY) continue;
       const list = map.get(edge.sourceNodeId) ?? [];
       list.push(edge);
       map.set(edge.sourceNodeId, list);
@@ -184,6 +136,9 @@ export class GraphExecutionPlanner {
    * Produces topological layers using Kahn's algorithm.
    *
    * Workflow boundary edges do not count as executable-node dependencies.
+   * Both data and structural (connection) edges count as dependencies
+   * (DECAF-32 acyclicity preserved; loop constructs are excepted because
+   * their bodies are separate nested documents).
    */
   private topologicalLayers(
     nodes: GraphExecutionPlanNode[],
@@ -236,10 +191,27 @@ export class GraphExecutionPlanner {
         .map((n) => n.id);
       throw new GraphCycleError({
         unplannedNodes: unplanned,
-        workflowId: nodes[0]?.definition?.name,
+        workflowId: executableNodes[0]?.manifest.kind,
       });
     }
 
     return layers;
   }
+}
+
+/**
+ * Produces a safe, JSON-friendly description of a rejected planner input for
+ * error details (never serialises executors or class instances).
+ */
+function describeInput(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object") {
+    return { reason: "input is not an object" };
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    reason: "input is not a GraphResolvedWorkflow",
+    looksLikeWorkflowDefinition:
+      "nodes" in record && "relations" in record && !("nodeById" in record),
+    hasResolvedNodes: Array.isArray(record["nodes"]),
+  };
 }

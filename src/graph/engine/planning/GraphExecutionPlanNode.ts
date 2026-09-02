@@ -1,24 +1,30 @@
 /**
  * @module integrations/graph/planning/GraphExecutionPlanNode
- * @summary Plan node type for the execution plan.
- * @description Represents a single node resolved from a workflow definition, ready for execution.
+ * @summary Plan node type for the execution plan (DECAF-50 §4.9).
+ * @description A node fully resolved against the trusted backend catalogue:
+ * the canonical instance, the effective (dynamics-expanded) manifest, and
+ * the paired executor. The planner never carries raw node definitions.
  */
-import type {
-  GraphNodeDefinition,
-  GraphWorkflowNodeMetadata,
-} from "@decaf-ts/ui-decorators/graph";
+import type { GraphJsonValue, GraphNodeInstance } from "@decaf-ts/ui-decorators/graph";
+
+import type { GraphResolvedNodeManifest } from "../../shared/GraphResolution";
+import type { GraphNodeExecutor } from "../execution/GraphNodeExecutor";
 
 /**
- * A node in the execution plan, derived from a workflow's node metadata and
- * its resolved graph definition.
+ * A node in the execution plan, resolved from a
+ * {@link GraphResolvedWorkflow} (DECAF-50 §4.9).
  */
 export interface GraphExecutionPlanNode {
   id: string;
   kind: string;
-  label?: string;
-  source: GraphWorkflowNodeMetadata;
-  definition: GraphNodeDefinition;
+  /** The canonical node instance from the workflow document. */
+  instance: GraphNodeInstance;
+  /** The effective (dynamics-expanded) manifest for the instance. */
+  manifest: GraphResolvedNodeManifest;
+  /** The trusted executor paired with the kind in the backend catalogue. */
+  executor: GraphNodeExecutor;
   inputPorts: string[];
   outputPorts: string[];
-  metadata?: Record<string, unknown>;
+  connectionPorts: string[];
+  metadata?: Record<string, GraphJsonValue>;
 }

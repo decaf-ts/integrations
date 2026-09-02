@@ -12,3 +12,4 @@ export * from "./GraphPortError";
 export * from "./GraphStoreError";
 export * from "./GraphTopologyError";
 export * from "./GraphBreakSignal";
+export * from "./GraphRunCancelledError";

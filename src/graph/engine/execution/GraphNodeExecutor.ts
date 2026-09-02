@@ -1,30 +1,40 @@
 /**
  * @module integrations/graph/execution/GraphNodeExecutor
- * @summary Interface implemented by every graph node executor.
- * @description A node executor receives the node's resolved input values and a {@link GraphExecutionContext}, and returns the node's output values.
+ * @summary Node executor contract (DECAF-50 §4.9, post-cutover).
+ * @description The single executor contract: executors receive a
+ * {@link GraphNodeExecutionRequest} that separates configuration
+ * (`parameters`, `credentials`, `metadata`) from input data (`inputs`).
+ * The §4.18 transition artifacts (legacy input-only contract, the
+ * compatibility adapter, and the request-executor marker) were removed at
+ * the P7 cutover.
  */
 import type { GraphExecutionContext } from "./GraphExecutionContext";
-import type { GraphExecutionValues } from "../types";
+import type {
+  GraphExecutionValues,
+  GraphNodeExecutionRequest,
+} from "../types";
 
 /**
- * Executor for a specific graph node kind.
+ * Executor for a specific graph node kind (DECAF-50 §4.9 request contract).
  *
  * Implementations are registered in the {@link GraphNodeExecutorRegistry}
- * and resolved by the engine using the node's `kind`.
+ * (a facade over the backend catalogue) and always receive the full
+ * {@link GraphNodeExecutionRequest}; configuration and input data are
+ * separated.
  */
 export interface GraphNodeExecutor<
-  Input extends GraphExecutionValues = GraphExecutionValues,
   Output extends GraphExecutionValues = GraphExecutionValues,
 > {
   /**
-   * Executes the node logic.
+   * Executes the node logic with configuration and input data separated.
    *
-   * @param input - Resolved input values keyed by port name.
+   * @param request - The node execution request (inputs, parameters,
+   * credentials, metadata).
    * @param context - Decaf context for emitting progress and events.
    * @returns The node's output values keyed by port name.
    */
   execute(
-    input: Input,
+    request: GraphNodeExecutionRequest,
     context: GraphExecutionContext
   ): Promise<Output> | Output;
 }
