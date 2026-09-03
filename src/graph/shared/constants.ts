@@ -188,7 +188,12 @@ export enum GraphExecutionEventType {
 export interface GraphRunLimits {
   /** Maximum serialised JSON size accepted for a run create request. */
   maxRequestBytes?: number;
-  /** Maximum number of runs in flight per user (`system` included). */
+  /**
+   * Maximum number of runs in flight per caller: the run's owner user, or
+   * the caller-key bucket supplied by the HTTP layer for anonymous callers
+   * (per-IP where the host exposes it, a shared `"anonymous"` bucket
+   * otherwise).
+   */
   maxConcurrentRuns?: number;
   /** Maximum events retained per run by the in-memory event store. */
   maxEventsPerRun?: number;
@@ -196,15 +201,21 @@ export interface GraphRunLimits {
   maxEventPayloadBytes?: number;
   /** Hard wall-clock budget for a run's engine execution. */
   executionTimeoutMs?: number;
+  /**
+   * How long a terminal run's replayable event state is kept after the run
+   * finishes before being released (SAA-595 resource governance).
+   */
+  eventReplayWindowMs?: number;
 }
 
-/** Default run limits: request size, concurrency, event retention/payload size, and execution timeout. */
+/** Default run limits: request size, per-caller concurrency, event retention/payload size, execution timeout, and post-terminal event replay window. */
 export const DEFAULT_GRAPH_RUN_LIMITS: Required<GraphRunLimits> = {
   maxRequestBytes: 4_000_000,
   maxConcurrentRuns: 32,
   maxEventsPerRun: 10_000,
   maxEventPayloadBytes: 256_000,
   executionTimeoutMs: 600_000,
+  eventReplayWindowMs: 300_000,
 };
 
 /**

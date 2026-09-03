@@ -1,4 +1,3 @@
-import { ForbiddenError } from "@decaf-ts/core";
 import { NotFoundError, ValidationError } from "@decaf-ts/db-decorators";
 import type { Context, MaybeContextualArg } from "@decaf-ts/core";
 import {
@@ -24,6 +23,7 @@ import {
   type GraphRunLimits,
   type GraphRunStore,
 } from "./types";
+import { assertGraphResourceOwnership } from "./ownership";
 
 /** Construction options for {@link GraphRunService}. */
 export interface GraphRunServiceOptions {
@@ -36,14 +36,22 @@ export interface GraphRunServiceOptions {
     run: GraphRun,
     result?: GraphRun["result"]
   ) => Promise<void>;
+  /**
+   * Explicit DECAF-48 §4.15 standalone tolerance: when `true`, anonymous
+   * callers (no resolved identity) are tolerated on owned runs. Defaults to
+   * `false` — ownership checks fail closed for absent identities (SAA-595).
+   */
+  allowAnonymousAccess?: boolean;
 }
 
 /**
  * Run lifecycle service (DECAF-50 §4.16): creates, tracks, cancels, and
  * observes graph runs on top of a {@link GraphRunStore} and
- * {@link GraphRunEventStore}. Enforces run limits (concurrency, timeout,
- * event payload size), scopes every read/cancel to the owning user, and
- * exposes the sequenced event stream the SSE controller replays.
+ * {@link GraphRunEventStore}. Enforces per-caller run limits (concurrency
+ * buckets keyed by owner or caller key, timeout, event payload size), scopes
+ * every read/cancel to the owning user, auto-releases retained event state
+ * after the configured replay window (SAA-595), and exposes the sequenced
+ * event stream the SSE controller replays.
  */
 export class GraphRunService {
   private readonly engine: GraphExecutionEngine;
@@ -54,7 +62,9 @@ export class GraphRunService {
   private readonly options: GraphRunServiceOptions & {
     limits: Required<GraphRunLimits>;
   };
-  private readonly active = new Set<string>();
+  private readonly activeByCaller = new Map<string, Set<string>>();
+  private readonly callerKeysByRun = new Map<string, string>();
+  private readonly releaseTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(
     engine: GraphExecutionEngine,
@@ -86,17 +96,22 @@ export class GraphRunService {
 
   /**
    * Creates and schedules a run for a saved `workflowId` or an inline
-   * workflow document, enforcing the concurrency limit and ownership
-   * bookkeeping. Returns the queued run immediately; execution continues in
-   * the background.
+   * workflow document, enforcing the per-caller concurrency limit and
+   * ownership bookkeeping. Returns the queued run immediately; execution
+   * continues in the background.
+   *
+   * `concurrencyKey` buckets anonymous callers for the per-caller
+   * concurrency cap (e.g. a per-IP key from the HTTP layer); it defaults to
+   * the owner user, or `"anonymous"` when both are absent.
    *
    * @throws ValidationError when the request carries no workflow identity, a
-   * `workflowId` without a configured resolver, or the concurrency limit is
-   * exhausted.
+   * `workflowId` without a configured resolver, or the per-caller concurrency
+   * limit is exhausted.
    */
   async createRun(
     request: GraphRunCreateRequest,
     ownerUser: string | null,
+    concurrencyKey?: string,
     ...args: MaybeContextualArg<Context>
   ): Promise<GraphRun> {
     this.validateCreateRequest(request);
@@ -113,9 +128,11 @@ export class GraphRunService {
       );
     }
 
-    if (this.active.size >= this.options.limits.maxConcurrentRuns) {
+    const callerKey = concurrencyKey ?? ownerUser ?? "anonymous";
+    const activeForCaller = this.activeByCaller.get(callerKey) ?? new Set<string>();
+    if (activeForCaller.size >= this.options.limits.maxConcurrentRuns) {
       throw new ValidationError(
-        `Graph run rejected: the configured limit of ${this.options.limits.maxConcurrentRuns} concurrent runs is exhausted`
+        `Graph run rejected: the configured limit of ${this.options.limits.maxConcurrentRuns} concurrent runs per caller is exhausted`
       );
     }
 
@@ -132,7 +149,9 @@ export class GraphRunService {
     await this.runStore.saveRun({ ...run }, ...args);
 
     const provider = this.documentProviderFor(request, ownerUser);
-    this.active.add(runId);
+    activeForCaller.add(runId);
+    this.activeByCaller.set(callerKey, activeForCaller);
+    this.callerKeysByRun.set(runId, callerKey);
     const completion = this.executor.schedule(
       run,
       provider,
@@ -141,7 +160,7 @@ export class GraphRunService {
     );
     void completion
       .catch(() => undefined)
-      .finally(() => this.active.delete(runId));
+      .finally(() => this.finishActiveRun(runId));
 
     return run;
   }
@@ -227,20 +246,63 @@ export class GraphRunService {
     return this.getRun(runId, ownerUser, ...args);
   }
 
-  /** Convenience helper: creates a run and waits for its completion. */
+  /**
+   * Convenience helper: creates a run and waits for its completion. The
+   * optional `concurrencyKey` is forwarded to {@link createRun} to bucket
+   * anonymous callers for the per-caller concurrency cap.
+   */
   async executeAndWait(
     request: GraphRunCreateRequest,
     ownerUser: string | null,
+    concurrencyKey?: string,
     ...args: MaybeContextualArg<Context>
   ): Promise<GraphRun> {
-    const run = await this.createRun(request, ownerUser, ...args);
+    const run = await this.createRun(
+      request,
+      ownerUser,
+      concurrencyKey,
+      ...args
+    );
     return this.waitForRun(run.runId, ownerUser, ...args);
   }
 
-  /** Releases all per-run bookkeeping for a finished run. */
+  /**
+   * Releases all per-run bookkeeping for a finished run: caller-bucket
+   * membership, executor state, publisher sequencing, retained event state,
+   * and any pending auto-release timer.
+   */
   release(runId: string): void {
-    this.active.delete(runId);
+    this.finishActiveRun(runId);
+    const pending = this.releaseTimers.get(runId);
+    if (pending) {
+      clearTimeout(pending);
+      this.releaseTimers.delete(runId);
+    }
     this.executor.release(runId);
+    this.eventStore.release?.(runId);
+  }
+
+  /**
+   * Removes a run from its caller's concurrency bucket and schedules event
+   * state release after the configured replay window.
+   */
+  private finishActiveRun(runId: string): void {
+    const callerKey = this.callerKeysByRun.get(runId);
+    if (callerKey !== undefined) {
+      this.callerKeysByRun.delete(runId);
+      const bucket = this.activeByCaller.get(callerKey);
+      if (bucket) {
+        bucket.delete(runId);
+        if (bucket.size === 0) this.activeByCaller.delete(callerKey);
+      }
+    }
+    if (this.releaseTimers.has(runId)) return;
+    const timer = setTimeout(() => {
+      this.releaseTimers.delete(runId);
+      this.release(runId);
+    }, this.options.limits.eventReplayWindowMs);
+    timer.unref?.();
+    this.releaseTimers.set(runId, timer);
   }
 
   private validateCreateRequest(request: GraphRunCreateRequest): void {
@@ -311,9 +373,14 @@ export class GraphRunService {
   }
 
   private assertOwnership(run: GraphRun, ownerUser: string | null): void {
-    if (!run.ownerUser || !ownerUser || run.ownerUser === ownerUser) return;
-    throw new ForbiddenError(
-      `Graph run '${run.runId}' is owned by another user`
+    assertGraphResourceOwnership(
+      { owner: run.ownerUser },
+      ownerUser,
+      {
+        allowAnonymousAccess: this.options.allowAnonymousAccess === true,
+        resourceKind: "Graph run",
+        resourceId: run.runId,
+      }
     );
   }
 

@@ -122,7 +122,13 @@ describe("GraphExecutionModule (unit)", () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [GraphExecutionModule.forRoot()],
+      // SAA-595: the deprecated global SSE stream is disabled by default;
+      // this suite pins its (ownership-gated) residual behavior explicitly.
+      imports: [
+        GraphExecutionModule.forRoot({
+          execution: { enableGlobalEventStream: true },
+        }),
+      ],
     }).compile();
 
     app = moduleRef.createNestApplication();

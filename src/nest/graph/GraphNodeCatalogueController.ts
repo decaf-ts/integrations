@@ -30,6 +30,7 @@ import type {
   GraphNodeResolutionContext,
   GraphResolvedNodeManifest,
 } from "../../graph";
+import { graphWorkflowOwnerOf } from "./GraphWorkflowService";
 
 /** DI token for {@link GraphCatalogueControllerOptions}. */
 export const GRAPH_CATALOGUE_CONTROLLER_OPTIONS =
@@ -127,6 +128,12 @@ export class GraphNodeCatalogueController {
     return this.requestContext;
   }
 
+  /**
+   * Builds the rate-limit bucket key for an operation: the authenticated
+   * owner resolved via {@link graphWorkflowOwnerOf} (SAA-595 F6), falling
+   * back to the context `user.id`, then the request IP, then a shared
+   * `"anonymous"` bucket.
+   */
   private rateLimitKey(operation: string): string {
     const context = this.requestContext;
     const user =
@@ -134,6 +141,7 @@ export class GraphNodeCatalogueController {
         | Record<string, unknown>
         | undefined;
     const identity =
+      graphWorkflowOwnerOf(context) ||
       (typeof user?.["id"] === "string" && user["id"]) ||
       (context as unknown as { request?: { ip?: string } } | undefined)?.request
         ?.ip ||

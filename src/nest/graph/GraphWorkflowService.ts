@@ -1,12 +1,12 @@
 import { Inject, Optional } from "@nestjs/common";
 import { NotFoundError, ValidationError } from "@decaf-ts/db-decorators";
 import {
-  ForbiddenError,
   ModelService,
   service,
   type Context,
   type MaybeContextualArg,
 } from "@decaf-ts/core";
+import { assertGraphResourceOwnership } from "../../graph";
 import {
   graphWorkflowSnapshotLikeToCanonical,
   isGraphJsonSafeValue,
@@ -32,13 +32,20 @@ export const GRAPH_WORKFLOW_OPTIONS = "GRAPH_WORKFLOW_OPTIONS";
 export interface GraphWorkflowServiceOptions {
   /** Backend-enforced resource limits for submitted documents (§4.16). */
   limits?: GraphWorkflowDocumentLimits;
+  /**
+   * Explicit DECAF-48 §4.15 standalone tolerance: when `true`, anonymous
+   * callers are tolerated on owned workflows. Defaults to `false` —
+   * ownership checks fail closed for absent identities (SAA-595 F3).
+   */
+  allowAnonymousAccess?: boolean;
 }
 
 /**
  * Resolves the authenticated user identifier from a request context
  * (DECAF-36 Req-B5: the auth handler accumulates `{ user, roles, organization }`
  * onto the context). Returns `undefined` for anonymous/system callers, which
- * the ownership rules tolerate for standalone module runs (DECAF-48 §4.15).
+ * the explicit DECAF-48 §4.15 standalone tolerance
+ * (`allowAnonymousAccess`) may admit on owned resources (SAA-595 F3).
  */
 export function graphWorkflowOwnerOf(ctx: Context | undefined): string | undefined {
   if (!ctx) return undefined;
@@ -95,11 +102,14 @@ function legacyDocumentOf(snapshot: Record<string, unknown>): GraphWorkflowDocum
  * submitted document at the boundary (forbidden fields, resource limits,
  * catalogue-backed nine-stage validation) before persisting, and converting
  * previously persisted legacy snapshots to canonical documents on read.
- * Enforces per-user ownership between distinct users.
+ * Enforces per-user ownership; absent caller identities are denied on owned
+ * workflows unless the explicit DECAF-48 §4.15 standalone tolerance
+ * (`allowAnonymousAccess`) is set (SAA-595 F3).
  */
 export class GraphWorkflowService extends ModelService<GraphWorkflowModel> {
-  protected readonly limits: Required<GraphWorkflowDocumentLimits>;
-  protected readonly catalogue: GraphNodeCatalogue | undefined;
+  protected limits: Required<GraphWorkflowDocumentLimits>;
+  protected catalogue: GraphNodeCatalogue | undefined;
+  private allowAnonymousAccess: boolean;
 
   constructor(
     @Optional() @Inject(GRAPH_WORKFLOW_OPTIONS) options?: GraphWorkflowServiceOptions,
@@ -110,7 +120,26 @@ export class GraphWorkflowService extends ModelService<GraphWorkflowModel> {
       ...DEFAULT_GRAPH_WORKFLOW_DOCUMENT_LIMITS,
       ...options?.limits,
     };
+    this.allowAnonymousAccess = options?.allowAnonymousAccess === true;
     this.catalogue = catalogue;
+  }
+
+  /**
+   * Applies options to this service instance and returns it.
+   *
+   * `@service` classes resolve through the injectable-decorators singleton
+   * registry, which does not forward constructor arguments reliably (Nest
+   * provider options included); the module wiring uses this method to apply
+   * {@link GRAPH_WORKFLOW_OPTIONS} deterministically (SAA-595 F3).
+   */
+  configure(options: GraphWorkflowServiceOptions): this {
+    if (options.limits) {
+      this.limits = { ...this.limits, ...options.limits };
+    }
+    if (options.allowAnonymousAccess !== undefined) {
+      this.allowAnonymousAccess = options.allowAnonymousAccess === true;
+    }
+    return this;
   }
 
   async saveDocument(
@@ -276,15 +305,21 @@ export class GraphWorkflowService extends ModelService<GraphWorkflowModel> {
     }
   }
 
+  /**
+   * Guards a persisted workflow record with the centralized
+   * {@link assertGraphResourceOwnership} check, honouring this service's
+   * configured `allowAnonymousAccess` tolerance (SAA-595 F3).
+   */
   private assertOwnership(
     workflowId: string,
     model: GraphWorkflowModel | null | undefined,
     user: string | undefined
   ): void {
-    if (!model?.owner || !user || model.owner === user) return;
-    throw new ForbiddenError(
-      `Graph workflow '${workflowId}' is owned by another user`
-    );
+    assertGraphResourceOwnership(model ?? null, user ?? null, {
+      allowAnonymousAccess: this.allowAnonymousAccess,
+      resourceKind: "Graph workflow",
+      resourceId: workflowId,
+    });
   }
 
   private applyCanonicalWrapper(

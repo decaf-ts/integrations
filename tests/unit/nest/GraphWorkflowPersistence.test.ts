@@ -169,7 +169,13 @@ describe("GraphWorkflowPersistence (§4.19 nest row)", () => {
   beforeAll(async () => {
     const persistence = new PersistenceService();
     await persistence.boot([[RamAdapter, { UUID: "root" }]] as never);
-    service = new GraphWorkflowService();
+    // SAA-595: the §4.15 anonymous-on-owned tolerance this suite pins (test 4)
+    // is now an explicit opt-in; secure defaults fail closed. `@service`
+    // singletons do not forward constructor args, so options are applied
+    // via configure().
+    service = new GraphWorkflowService().configure({
+      allowAnonymousAccess: true,
+    });
   });
 
   it("1. saveDocument → getDocument semantic round trip; updatedAt set; workflowId is the primary key", async () => {

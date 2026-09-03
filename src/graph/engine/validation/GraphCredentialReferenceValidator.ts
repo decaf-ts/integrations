@@ -22,6 +22,9 @@ import type { GraphResolvedNodeManifest } from "../../shared/GraphResolution";
 import { GRAPH_PLAIN_SECRET_KEYS, isGraphCredentialReferenceLike } from "./GraphParameterValidator";
 import type { GraphValidationIssue } from "./GraphValidationIssue";
 
+/** Nesting depth cap for the recursive plain-secret scan. */
+const MAX_PLAIN_SECRET_SCAN_DEPTH = 8;
+
 /**
  * Server-side hook resolving credential references.
  */
@@ -164,9 +167,10 @@ export class GraphCredentialReferenceValidator {
 
   /**
    * Plain credential secrets must never appear in workflow documents: any
-   * parameter or metadata key on the secret deny-list is an issue, as is a
-   * credential reference object carrying extra material (e.g. a `secret`
-   * or `value` member).
+   * parameter or metadata key on the secret deny-list is an issue at any
+   * nesting depth (objects and arrays are walked recursively with a depth
+   * cap and cycle guard), as is a credential reference object carrying
+   * extra material (e.g. a `secret` or `value` member).
    */
   private scanPlainSecrets(
     node: GraphNodeInstance,
@@ -175,36 +179,83 @@ export class GraphCredentialReferenceValidator {
   ): void {
     const denyList = new Set<string>(GRAPH_PLAIN_SECRET_KEYS);
     for (const [key, value] of Object.entries(node.parameters ?? {})) {
-      if (denyList.has(key)) {
-        issues.push({
-          code: "credential.plain-secret",
-          path: `${path}.parameters.${key}`,
-          message: `Node '${node.id}' parameter '${key}' carries plain secret material; workflow documents may only hold credential references`,
-          nodeId: node.id,
-        });
-        continue;
-      }
-      if (value && typeof value === "object" && !Array.isArray(value)) {
-        for (const innerKey of Object.keys(value)) {
-          if (denyList.has(innerKey)) {
-            issues.push({
-              code: "credential.plain-secret",
-              path: `${path}.parameters.${key}.${innerKey}`,
-              message: `Node '${node.id}' parameter '${key}' carries plain secret material in '${innerKey}'; workflow documents may only hold credential references`,
-              nodeId: node.id,
-            });
-          }
-        }
-      }
+      this.scanPlainSecretValue(
+        value,
+        [key],
+        node,
+        `${path}.parameters`,
+        denyList,
+        issues
+      );
     }
-    for (const key of Object.keys(node.metadata ?? {})) {
-      if (denyList.has(key)) {
-        issues.push({
-          code: "credential.plain-secret",
-          path: `${path}.metadata.${key}`,
-          message: `Node '${node.id}' metadata key '${key}' carries plain secret material; workflow documents may only hold credential references`,
-          nodeId: node.id,
-        });
+    for (const [key, value] of Object.entries(node.metadata ?? {})) {
+      this.scanPlainSecretValue(
+        value,
+        [key],
+        node,
+        `${path}.metadata`,
+        denyList,
+        issues
+      );
+    }
+  }
+
+  /**
+   * Recursive worker for {@link scanPlainSecrets}: walks one parameter or
+   * metadata value, reporting a `credential.plain-secret` issue when the
+   * current path's key is on the deny-list, and recursing into objects and
+   * arrays otherwise (array items append a `[]` path segment). The
+   * {@link MAX_PLAIN_SECRET_SCAN_DEPTH} cap bounds the walk — deep enough
+   * for legitimate documents, and a guard against pathological/cyclic
+   * input — so nested deny-list keys are caught at any practical depth.
+   */
+  private scanPlainSecretValue(
+    value: unknown,
+    keyPath: string[],
+    node: GraphNodeInstance,
+    basePath: string,
+    denyList: Set<string>,
+    issues: GraphValidationIssue[],
+    depth = 0
+  ): void {
+    const key = keyPath[keyPath.length - 1];
+    if (denyList.has(key)) {
+      issues.push({
+        code: "credential.plain-secret",
+        path: `${basePath}.${keyPath.join(".")}`,
+        message: `Node '${node.id}' carries plain secret material in '${keyPath.join(".")}'; workflow documents may only hold credential references`,
+        nodeId: node.id,
+      });
+      return;
+    }
+    if (depth >= MAX_PLAIN_SECRET_SCAN_DEPTH || value === null) return;
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        this.scanPlainSecretValue(
+          item,
+          [...keyPath, "[]"],
+          node,
+          basePath,
+          denyList,
+          issues,
+          depth + 1
+        );
+      }
+      return;
+    }
+    if (typeof value === "object") {
+      for (const [innerKey, innerValue] of Object.entries(
+        value as Record<string, unknown>
+      )) {
+        this.scanPlainSecretValue(
+          innerValue,
+          [...keyPath, innerKey],
+          node,
+          basePath,
+          denyList,
+          issues,
+          depth + 1
+        );
       }
     }
   }

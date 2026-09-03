@@ -5,10 +5,11 @@ import {
   GraphNodeCatalogue,
   GraphRunService,
   InMemoryGraphRunEventStore,
+  type GraphCredentialAuthorizer,
   type GraphRunLimits,
 } from "../../graph";
 import { createDemoEngineConfig } from "./GraphExecutorRegistryFactory";
-import { GraphExecutionController } from "./GraphExecutionController";
+import { GraphExecutionController, GRAPH_EXECUTION_OPTIONS, type GraphExecutionControllerOptions } from "./GraphExecutionController";
 import {
   GraphNodeCatalogueController,
   GRAPH_CATALOGUE_CONTROLLER_OPTIONS,
@@ -66,6 +67,19 @@ export interface GraphExecutionModuleOptions {
    * authentication enforcement and backend-enforced run resource limits.
    */
   runs?: GraphRunControllerOptions;
+  /**
+   * Options for the legacy synchronous execution surface (SAA-595): the
+   * deprecated global SSE stream is disabled unless explicitly enabled.
+   */
+  execution?: GraphExecutionControllerOptions;
+  /**
+   * Production hosts MUST wire a {@link GraphCredentialAuthorizer} backed by
+   * their credential store (DECAF-50 §4.8 stage 8). Without it, stage-8
+   * credential checks are shape/type-only: a reference that is
+   * well-formed and type-matched is accepted without verifying that the
+   * credential exists or that the run is authorized to use it (SAA-595 F8).
+   */
+  credentialAuthorizer?: GraphCredentialAuthorizer;
 }
 
 /**
@@ -77,7 +91,12 @@ export interface GraphExecutionModuleOptions {
 export class GraphExecutionModule {
   /**
    * Creates the dynamic module. Boots a default RamAdapter for standalone
-   * development unless `initAdapter` is `false`.
+   * development unless `initAdapter` is `false`. Wires the optional
+   * {@link GraphCredentialAuthorizer} into the engine's stage-8 validator
+   * (SAA-595 F8), and applies the workflow options to the
+   * {@link GraphWorkflowService} singleton via its {@link
+   * GraphWorkflowService.configure} method, since `@service` constructor
+   * injection does not forward provider options reliably.
    */
   static forRoot(
     options: GraphExecutionModuleOptions = {}
@@ -100,7 +119,11 @@ export class GraphExecutionModule {
             new RamAdapter({ user: adapterUser });
           }
           const config = sharedConfig();
-          return new GraphExecutionEngine(config);
+          return new GraphExecutionEngine(
+            options.credentialAuthorizer
+              ? { ...config, credentialAuthorizer: options.credentialAuthorizer }
+              : config
+          );
         },
       },
       {
@@ -121,13 +144,24 @@ export class GraphExecutionModule {
         useValue: (options.runs ?? {}) as GraphRunControllerOptions,
       },
       {
+        provide: GRAPH_EXECUTION_OPTIONS,
+        useValue: (options.execution ?? {}) as GraphExecutionControllerOptions,
+      },
+      {
         provide: InMemoryGraphRunEventStore,
         useFactory: () =>
           new InMemoryGraphRunEventStore(options.runs?.limits ?? {}),
       },
       GraphResultService,
       GraphRunModelService,
-      GraphWorkflowService,
+      {
+        provide: GraphWorkflowService,
+        useFactory: (
+          workflowOptions: GraphWorkflowServiceOptions &
+            GraphWorkflowControllerOptions
+        ) => new GraphWorkflowService().configure(workflowOptions),
+        inject: [GRAPH_WORKFLOW_OPTIONS],
+      },
       {
         provide: GraphRunService,
         useFactory: (
@@ -138,6 +172,7 @@ export class GraphExecutionModule {
         ) =>
           new GraphRunService(engine, runStore, eventStore, {
             limits: (options.runs?.limits ?? {}) as GraphRunLimits,
+            allowAnonymousAccess: options.runs?.allowAnonymousAccess === true,
             documentResolver: {
               resolve: async (workflowId, _ownerUser, ...args) =>
                 workflowService.getDocument(workflowId, ...args),

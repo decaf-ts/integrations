@@ -1,4 +1,5 @@
 export * from "./types";
+export * from "./ownership";
 export * from "./GraphRunFingerprint";
 export * from "./InMemoryGraphRunEventStore";
 export * from "./InMemoryGraphRunStore";

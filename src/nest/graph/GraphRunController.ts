@@ -38,8 +38,19 @@ export const GRAPH_RUN_OPTIONS = "GRAPH_RUN_OPTIONS";
 
 /** Options for the run lifecycle HTTP API (DECAF-50 §4.14–§4.15): authentication mode and run limits. */
 export interface GraphRunControllerOptions {
-  /** Whether an authenticated request context is required (default `"optional"`). */
+  /**
+   * Whether an authenticated request context is required (default
+   * `"required"`, SAA-595 secure-defaults alignment). `"optional"` admits
+   * anonymous requests for standalone module runs (DECAF-48 §4.15) — pair it
+   * with an explicit `allowAnonymousAccess` decision.
+   */
   auth?: "required" | "optional";
+  /**
+   * Explicit DECAF-48 §4.15 standalone tolerance: when `true`, anonymous
+   * callers are tolerated on owned runs. Defaults to `false` — ownership
+   * checks fail closed for absent identities (SAA-595 F3).
+   */
+  allowAnonymousAccess?: boolean;
   /** Run limits forwarded to {@link GraphRunService}. */
   limits?: GraphRunLimits;
 }
@@ -60,6 +71,13 @@ export interface GraphRunRequestBody {
   inputs?: GraphExecutionValues;
 }
 
+/**
+ * Maps a thrown Decaf error to the Nest HTTP equivalent for the run
+ * lifecycle API: ownership/authorization failures become `403` (naming the
+ * run), missing runs `404`, validation failures `400`, and anything else
+ * surfaces as `500` with its message. Nest {@link HttpException}s pass
+ * through unchanged.
+ */
 function graphRunHttpErrorOf(e: unknown, runId?: string): HttpException {
   if (e instanceof ForbiddenError || e instanceof AuthorizationError) {
     return new HttpException(
@@ -109,8 +127,14 @@ export class GraphRunController {
     private readonly options: GraphRunControllerOptions = {}
   ) {}
 
+  /**
+   * Enforces the configured authentication mode: `auth` defaults to
+   * `"required"` (SAA-595 secure-defaults alignment) and rejects
+   * unauthenticated calls with `401`; `"optional"` admits anonymous
+   * requests for standalone module runs (DECAF-48 §4.15).
+   */
   private requireAuthenticatedContext(): DecafRequestContext | undefined {
-    if ((this.options.auth ?? "optional") !== "required") {
+    if ((this.options.auth ?? "required") !== "required") {
       return this.requestContext;
     }
     if (!this.requestContext) {
@@ -126,6 +150,24 @@ export class GraphRunController {
     return graphWorkflowOwnerOf(this.requestContext) ?? null;
   }
 
+  /** Concurrency-bucket key for the per-caller run cap: the owner, else the request IP, else a shared anonymous bucket. */
+  private concurrencyKeyOf(owner: string | null): string {
+    if (owner) return owner;
+    const ip = (
+      this.requestContext as unknown as
+        | { request?: { ip?: string } }
+        | undefined
+    )?.request?.ip;
+    return ip ? `ip:${ip}` : "anonymous";
+  }
+
+  /**
+   * Creates and schedules a run (DECAF-50 §4.14): accepts an inline workflow
+   * document or a saved `workflowId` plus optional inputs, answers
+   * `202 Accepted` with the queued run's identity and its event/result URLs.
+   * The per-caller concurrency cap buckets by owner user, then request IP,
+   * then a shared anonymous bucket (SAA-595 F4).
+   */
   @Post("runs")
   @HttpCode(HttpStatus.ACCEPTED)
   async createRun(
@@ -140,9 +182,11 @@ export class GraphRunController {
       ...(body?.inputs !== undefined ? { inputs: body.inputs } : {}),
     };
     try {
+      const owner = this.ownerUserOf();
       const run = await this.runService.createRun(
         request,
-        this.ownerUserOf(),
+        owner,
+        this.concurrencyKeyOf(owner),
         context
       );
       return {

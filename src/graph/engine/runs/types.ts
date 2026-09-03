@@ -72,11 +72,19 @@ export interface GraphRunEventStore {
   append(event: GraphRunEventEnvelope): Promise<void>;
   /** Returns the run's envelopes with `sequence` greater than the given one (SSE replay). */
   listAfter(runId: string, sequence: number): Promise<GraphRunEventEnvelope[]>;
-  /** Subscribes a live listener to the run's stream; returns an unsubscribe function. */
+  /**
+   * Subscribes a live listener to the run's stream; returns an unsubscribe function.
+   */
   subscribe(
     runId: string,
     listener: (event: GraphRunEventEnvelope) => void
   ): () => void;
+  /**
+   * Releases all retained event state for a finished run (after the replay
+   * window). Optional: in-memory stores implement it; durable stores may
+   * no-op or keep events for audit.
+   */
+  release?(runId: string): void;
 }
 
 /** Persistence port for run records: save and read {@link GraphRun}s by id, with optional leading {@link Context}. */

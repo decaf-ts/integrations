@@ -23,11 +23,19 @@ import type { GraphWorkflowDocumentLimits } from "./GraphWorkflowDocumentLimits"
 /** Options for the workflow persistence HTTP API (DECAF-50 §4.10): authentication mode and document resource limits. */
 export interface GraphWorkflowControllerOptions {
   /**
-   * `"required"` rejects unauthenticated calls with `401`; `"optional"`
-   * (default) tolerates anonymous/system callers for standalone module runs
-   * (DECAF-48 §4.15) while still enforcing ownership between distinct users.
+   * `"required"` rejects unauthenticated calls with `401` (default,
+   * SAA-595 secure-defaults alignment); `"optional"` tolerates
+   * anonymous/system callers for standalone module runs (DECAF-48 §4.15)
+   * while still enforcing ownership between distinct users — pair it with an
+   * explicit `allowAnonymousAccess` decision.
    */
   auth?: "required" | "optional";
+  /**
+   * Explicit DECAF-48 §4.15 standalone tolerance: when `true`, anonymous
+   * callers are tolerated on owned workflows. Defaults to `false` —
+   * ownership checks fail closed for absent identities (SAA-595 F3).
+   */
+  allowAnonymousAccess?: boolean;
   /** Backend-enforced resource limits (DECAF-50 §4.16). */
   limits?: GraphWorkflowDocumentLimits;
 }
@@ -92,8 +100,14 @@ export class GraphWorkflowController {
     private readonly options: GraphWorkflowControllerOptions = {}
   ) {}
 
+  /**
+   * Enforces the configured authentication mode: `auth` defaults to
+   * `"required"` (SAA-595 secure-defaults alignment) and rejects
+   * unauthenticated calls with `401`; `"optional"` admits anonymous
+   * requests for standalone module runs (DECAF-48 §4.15).
+   */
   private requireAuthenticatedContext(): DecafRequestContext | undefined {
-    if ((this.options.auth ?? "optional") !== "required") {
+    if ((this.options.auth ?? "required") !== "required") {
       return this.requestContext;
     }
     if (!this.requestContext) {

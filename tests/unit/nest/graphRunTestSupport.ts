@@ -91,7 +91,15 @@ export async function createGraphRunTestApp(): Promise<{
   port: number;
 }> {
   const moduleRef = await Test.createTestingModule({
-    imports: [TestRequestContextModule, GraphExecutionModule.forRoot()],
+    imports: [
+      TestRequestContextModule,
+      // SAA-595: the DECAF-48 §4.15 standalone anonymous tolerance these
+      // suites pin is now an explicit opt-in (secure defaults fail closed).
+      GraphExecutionModule.forRoot({
+        runs: { auth: "optional", allowAnonymousAccess: true },
+        workflows: { auth: "optional", allowAnonymousAccess: true },
+      }),
+    ],
   }).compile();
   const app = moduleRef.createNestApplication();
   await app.init();
