@@ -32,7 +32,7 @@ import {
   GRAPH_FLOW_CONTROL_NODES,
   GRAPH_BUILT_IN_NODE_MANIFESTS,
   GRAPH_BUILT_IN_NODE_MANIFESTS_BY_KIND,
-} from "../../../src/graph/shared/nodes";
+} from "@decaf-ts/ui-decorators/graph";
 import { registerEngineBoundGraphNodes } from "../../../src/nest/graph";
 
 /** The built-in kinds whose executors need the engine instance. */

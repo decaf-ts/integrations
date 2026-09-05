@@ -1,3 +1,12 @@
+/**
+ * @module integrations/graph/engine/runs/GraphRunExecutor
+ * @summary Asynchronous graph run execution (DECAF-50 §4.16).
+ * @description Schedules runs against the {@link GraphExecutionEngine},
+ * mirrors engine events into the run's sequenced SSE stream, enforces run
+ * timeouts via per-run `AbortController`s, and finalizes the run's terminal
+ * state in the run store. Exactly one execution per `runId` — repeated
+ * schedules await the same completion promise.
+ */
 import type { Context, MaybeContextualArg } from "@decaf-ts/core";
 import {
   isGraphJsonValue,
@@ -9,7 +18,7 @@ import { GraphExecutionEngine } from "../execution/GraphExecutionEngine";
 import type {
   GraphExecutionErrorPayload,
   GraphExecutionEvent,
-} from "../../shared/types";
+} from "@decaf-ts/ui-decorators/graph";
 import type {
   GraphExecutionResult,
   GraphExecutionValues,
@@ -17,15 +26,17 @@ import type {
 import {
   GraphExecutionEventType,
   GraphExecutionStatus,
-} from "../../shared/constants";
+} from "@decaf-ts/ui-decorators/graph";
 import { GraphRunEventPublisher } from "./GraphRunEventPublisher";
 import {
   DEFAULT_GRAPH_RUN_LIMITS,
   isGraphRunTerminalEventType,
-  type GraphRun,
   type GraphRunEventEnvelopeInput,
   type GraphRunLimits,
   type GraphRunStatus,
+} from "@decaf-ts/ui-decorators/graph";
+import {
+  type GraphRun,
   type GraphRunStore,
 } from "./types";
 

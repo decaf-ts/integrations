@@ -1,3 +1,12 @@
+/**
+ * @module integrations/nest/graph/GraphNodeCatalogueController
+ * @summary Catalogue HTTP API (DECAF-50 §4.12–§4.13).
+ * @description Serves the trusted node catalogue over HTTP — manifest
+ * listing (`node-types`), per-kind manifests/icons, parameterized `resolve`,
+ * and node-method invocation — with optional authentication and per-user
+ * rate limits on the expensive `resolve`/`methods` operations; non-JSON-safe
+ * request bodies are rejected.
+ */
 import {
   Controller,
   Get,
@@ -29,7 +38,7 @@ import { GraphNodeCatalogue } from "../../graph";
 import type {
   GraphNodeResolutionContext,
   GraphResolvedNodeManifest,
-} from "../../graph";
+} from "@decaf-ts/ui-decorators/graph";
 import { graphWorkflowOwnerOf } from "./GraphWorkflowService";
 
 /** DI token for {@link GraphCatalogueControllerOptions}. */

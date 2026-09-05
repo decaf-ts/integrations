@@ -7,13 +7,13 @@ import {
   GraphExecutionStatus,
   GraphVisualState,
   graphRunTopicOf,
-} from "../../../src/graph/shared/constants";
+} from "@decaf-ts/ui-decorators/graph";
 import {
   deriveNodeVisualState,
   mapExecutionStatus,
   visualStateOfEvent,
-} from "../../../src/graph/shared/GraphExecutionStateMapper";
-import type { GraphExecutionEvent } from "../../../src/graph/shared/types";
+} from "@decaf-ts/ui-decorators/graph";
+import type { GraphExecutionEvent } from "@decaf-ts/ui-decorators/graph";
 
 describe("GraphExecutionStateMapper", () => {
   describe("mapExecutionStatus", () => {

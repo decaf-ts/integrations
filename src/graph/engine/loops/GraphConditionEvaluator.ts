@@ -6,7 +6,7 @@
  * {@link ConditionExpressionEvaluator} instead of the built-in `type`-based switch.
  */
 import type { GraphConditionDefinition } from "../types";
-import type { ConditionExpression } from "../../shared/types";
+import type { ConditionExpression } from "@decaf-ts/ui-decorators/graph";
 import { GraphConditionType } from "../constants";
 import { GraphExecutionError } from "../errors/GraphExecutionError";
 import { ConditionExpressionEvaluator } from "./ConditionExpressionEvaluator";

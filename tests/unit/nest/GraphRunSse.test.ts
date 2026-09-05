@@ -27,11 +27,13 @@ import type { TestingModule } from "@nestjs/testing";
 
 import {
   GraphExecutionEventType,
+  isGraphRunTerminalEventType,
+} from "@decaf-ts/ui-decorators/graph";
+import {
   GraphNodeCatalogue,
   GraphRunEventPublisher,
   GraphRunService,
   InMemoryGraphRunEventStore,
-  isGraphRunTerminalEventType,
 } from "../../../src/graph";
 import {
   GateCenter,

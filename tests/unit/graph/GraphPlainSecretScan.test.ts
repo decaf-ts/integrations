@@ -25,6 +25,9 @@ import type {
 } from "@decaf-ts/ui-decorators/graph";
 
 import {
+  type GraphResolvedNodeManifest,
+} from "@decaf-ts/ui-decorators/graph";
+import {
   GraphCredentialReferenceValidator,
   GraphDocumentValidationError,
   GraphExecutionEngine,
@@ -32,7 +35,6 @@ import {
   GraphNodeExecutorRegistry,
   GraphWorkflowDocumentValidator,
   type GraphNodeExecutor,
-  type GraphResolvedNodeManifest,
 } from "../../../src/graph";
 import type { GraphValidationIssue } from "../../../src/graph";
 import { documentNode } from "./fixtures";

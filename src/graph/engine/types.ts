@@ -5,8 +5,8 @@
  * types (`ExprValue`, `ConditionExpression`, `CodeCondition`,
  * `SwitchCaseCondition`, `SwitchCase`, `SwitchNodeMetadata`,
  * `NodeMetadataChange`, `GraphExecutionEvent`, `GraphExecutionErrorPayload`)
- * live in `../shared/types`; engine modules import shared symbols from there
- * and engine-private symbols from here.
+ * live in `@decaf-ts/ui-decorators/graph`; engine modules import shared
+ * symbols from there and engine-private symbols from here.
  */
 import type {
   GraphCredentialReference,
@@ -15,19 +15,13 @@ import type {
   GraphWorkflowDocument,
 } from "@decaf-ts/ui-decorators/graph";
 
-import type { GraphResolvedNodeManifest } from "../shared/GraphResolution";
+import type { GraphResolvedNodeManifest } from "@decaf-ts/ui-decorators/graph";
 
-import type { GraphExecutionStatus } from "../shared/constants";
+import type { GraphExecutionStatus } from "@decaf-ts/ui-decorators/graph";
 import type {
   GraphExecutionErrorPayload,
   GraphExecutionEvent,
-} from "../shared/types";
-
-// Re-export frontend-safe types so engine modules have a single import surface.
-export type {
-  GraphExecutionErrorPayload,
-  GraphExecutionEvent,
-} from "../shared/types";
+} from "@decaf-ts/ui-decorators/graph";
 
 /**
  * Unique identifier for a single graph execution run.

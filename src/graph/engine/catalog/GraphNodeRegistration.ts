@@ -1,3 +1,12 @@
+/**
+ * @module integrations/graph/engine/catalog/GraphNodeRegistration
+ * @summary Catalogue registration contracts (DECAF-50 §4.12).
+ * @description The manifest+executor {@link GraphNodeRegistration} pairing
+ * the catalogue registers, the node-method invocation contracts
+ * (`GraphNodeMethodRequest`/`GraphNodeMethodContext`), the
+ * resolved-manifest provider hook, and the `defineGraphNode` /
+ * `declaredGraphNodeMethods` helpers.
+ */
 import type {
   GraphCredentialReference,
   GraphJsonValue,
@@ -9,7 +18,7 @@ import type { GraphNodeExecutor } from "../execution/GraphNodeExecutor";
 import type {
   GraphNodeResolutionContext,
   GraphResolvedNodeManifest,
-} from "../../shared/GraphResolution";
+} from "@decaf-ts/ui-decorators/graph";
 
 /** Invocation payload for a catalogue-exposed node method (DECAF-50 §4.12). */
 export interface GraphNodeMethodRequest {

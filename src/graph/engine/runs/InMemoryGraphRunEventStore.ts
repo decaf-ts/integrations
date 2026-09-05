@@ -1,9 +1,22 @@
-import type { GraphRunEventEnvelope, GraphRunEventStore } from "./types";
+/**
+ * @module integrations/graph/engine/runs/InMemoryGraphRunEventStore
+ * @summary In-memory reference run event store.
+ * @description Non-persistent {@link GraphRunEventStore} backed by per-run
+ * arrays: appends notify live subscribers, `listAfter` serves SSE replays,
+ * and retention keeps at most `maxEventsPerRun` envelopes per run — evicting
+ * non-terminal events first so terminal outcomes are never dropped.
+ */
+import type {
+  GraphRunEventEnvelope,
+} from "@decaf-ts/ui-decorators/graph";
+import type {
+  GraphRunEventStore,
+} from "./types";
 import {
   DEFAULT_GRAPH_RUN_LIMITS,
   isGraphRunTerminalEventType,
   type GraphRunLimits,
-} from "./types";
+} from "@decaf-ts/ui-decorators/graph";
 
 /**
  * Non-persistent {@link GraphRunEventStore} backed by per-run arrays:

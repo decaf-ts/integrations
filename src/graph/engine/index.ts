@@ -4,14 +4,9 @@
  * @description Reference interpreter for Decaf graph workflows. Executes
  * workflows declared with `@decaf-ts/ui-decorators/graph`, emits events
  * through Decaf's Observable pipeline, supports structured loops, configurable
- * value stores, and pinnable/cacheable nodes.
- *
- * Re-exports `../shared` so backend consumers have a single import surface.
+ * value stores, and pinnable/cacheable nodes. Frontend-safe shared
+ * declarations live in `@decaf-ts/ui-decorators/graph`.
  */
-
-// Re-export frontend-safe declarations so backend consumers have one surface.
-export * from "../shared";
-
 export * from "./constants";
 export * from "./types";
 export * from "./decorators";
@@ -27,7 +22,6 @@ export * from "./errors/GraphTopologyError";
 export * from "./errors/GraphBreakSignal";
 export * from "./errors/GraphRunCancelledError";
 
-export * from "./events/GraphExecutionEvent";
 export * from "./events/GraphExecutionObserver";
 export * from "./events/GraphExecutionEventEmitter";
 export * from "./events/GraphExecutionEventFactory";

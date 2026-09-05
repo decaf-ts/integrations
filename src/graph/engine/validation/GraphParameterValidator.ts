@@ -22,8 +22,8 @@ import {
   GRAPH_DEFAULT_DISABLED_NODE_BEHAVIOR,
   GRAPH_DISABLED_NODE_BEHAVIORS,
   isGraphDisabledNodeBehavior,
-} from "../../shared/constants";
-import type { GraphResolvedNodeManifest } from "../../shared/GraphResolution";
+} from "@decaf-ts/ui-decorators/graph";
+import type { GraphResolvedNodeManifest } from "@decaf-ts/ui-decorators/graph";
 import type { GraphValidationIssue } from "./GraphValidationIssue";
 import type { GraphResolvedEdgeInstance } from "./GraphResolvedWorkflow";
 

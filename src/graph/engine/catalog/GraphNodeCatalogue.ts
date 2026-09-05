@@ -1,3 +1,13 @@
+/**
+ * @module integrations/graph/engine/catalog/GraphNodeCatalogue
+ * @summary Trusted backend node catalogue (DECAF-50 §4.10–§4.12).
+ * @description The single registry of node kinds the nine-stage validator
+ * resolves against and the execution engine pulls executors from.
+ * Registrations are validated fail-fast on
+ * {@link GraphNodeCatalogue.register} (manifest serializability, static
+ * ports, parameters, dynamic-port rules, credentials, method declarations)
+ * and manifests are served as JSON-safe clones — never class instances.
+ */
 import type {
   GraphJsonValue,
   GraphNodeManifest,
@@ -17,7 +27,7 @@ import type {
   GraphCatalogueQueryContext,
   GraphNodeResolutionContext,
   GraphResolvedNodeManifest,
-} from "../../shared/GraphResolution";
+} from "@decaf-ts/ui-decorators/graph";
 import {
   GraphNodeRegistrationError,
   GraphNodeNotFoundError,

@@ -30,6 +30,8 @@ import {
   GraphExecutionEventType,
   GraphExecutionStatus,
   type GraphExecutionEvent,
+} from "@decaf-ts/ui-decorators/graph";
+import {
   type GraphExecutionValues,
 } from "../../../src/graph";
 

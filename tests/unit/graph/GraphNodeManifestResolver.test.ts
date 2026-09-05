@@ -25,7 +25,7 @@ import {
 } from "../../../src/graph";
 import {
   SWITCH_GRAPH_NODE_MANIFEST,
-} from "../../../src/graph/shared/nodes";
+} from "@decaf-ts/ui-decorators/graph";
 
 function portNode(
   id: string,

@@ -25,7 +25,7 @@ import {
   GraphExecutionEventType,
   isGraphRunTerminalEventType,
   type GraphRunEventEnvelope,
-} from "../../../src/graph";
+} from "@decaf-ts/ui-decorators/graph";
 import { GraphExecutionModule } from "../../../src/nest/graph";
 import type { GraphWorkflowDocument } from "@decaf-ts/ui-decorators/graph";
 import { linearDocument } from "../../unit/graph/fixtures";

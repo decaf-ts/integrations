@@ -9,7 +9,7 @@ import {
   type GraphExecutionObserver,
 } from "../../../src/graph/engine/events";
 import type { GraphExecutionEvent } from "../../../src/graph/engine/types";
-import { GraphExecutionEventType } from "../../../src/graph/shared/constants";
+import { GraphExecutionEventType } from "@decaf-ts/ui-decorators/graph";
 
 describe("GraphExecutionEventEmitter", () => {
   it("observe registers an observer and returns an unsubscribe function", () => {

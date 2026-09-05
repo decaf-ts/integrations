@@ -13,7 +13,7 @@ import type { GraphNodeCatalogue } from "../catalog/GraphNodeCatalogue";
 import type {
   GraphNodeResolutionContext,
   GraphResolvedNodeManifest,
-} from "../../shared/GraphResolution";
+} from "@decaf-ts/ui-decorators/graph";
 import type { GraphValidationIssue } from "./GraphValidationIssue";
 import type { GraphResolvedNodeInstance } from "./GraphResolvedWorkflow";
 

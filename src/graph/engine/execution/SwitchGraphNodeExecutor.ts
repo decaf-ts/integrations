@@ -18,7 +18,7 @@ import type {
   SwitchNodeMetadata,
   ConditionExpression,
   CodeCondition,
-} from "../../shared/types";
+} from "@decaf-ts/ui-decorators/graph";
 import { GraphExecutionError } from "../errors/GraphExecutionError";
 import { ConditionExpressionEvaluator } from "../loops/ConditionExpressionEvaluator";
 import type { CodeSandboxEvaluator } from "./CodeSandboxEvaluator";

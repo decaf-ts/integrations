@@ -24,7 +24,7 @@ import {
   GraphExecutionEventType,
   GraphExecutionStatus,
   type GraphExecutionEvent,
-} from "../../../src/graph";
+} from "@decaf-ts/ui-decorators/graph";
 import { GraphExecutionModule } from "../../../src/nest/graph";
 import { linearDocument } from "../../unit/graph/fixtures";
 import { TestRequestContextModule } from "../../unit/nest/graphRunTestSupport";

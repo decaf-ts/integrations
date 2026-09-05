@@ -14,8 +14,8 @@ import type { Logger, LogMeta, StringLike } from "@decaf-ts/logging";
 import {
   GraphLogAttribute,
   GraphExecutionEventType,
-} from "../shared/constants";
-import type { GraphRunLogEntry, GraphExecutionEvent } from "../shared/types";
+} from "@decaf-ts/ui-decorators/graph";
+import type { GraphRunLogEntry, GraphExecutionEvent } from "@decaf-ts/ui-decorators/graph";
 
 /**
  * Signature of the context's event emitter used to forward log entries onto

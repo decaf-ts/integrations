@@ -11,8 +11,8 @@ import type {
   GraphNodeInstance,
   GraphWorkflowDocument,
 } from "@decaf-ts/ui-decorators/graph";
-import type { SwitchNodeMetadata } from "../../../src/graph/shared/types";
-import type { GraphResolvedNodeManifest } from "../../../src/graph/shared/GraphResolution";
+import type { SwitchNodeMetadata } from "@decaf-ts/ui-decorators/graph";
+import type { GraphResolvedNodeManifest } from "@decaf-ts/ui-decorators/graph";
 import { nodeExecutionRequest } from "./fixtures";
 
 /**

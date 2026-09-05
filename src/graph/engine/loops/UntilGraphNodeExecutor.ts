@@ -13,7 +13,7 @@ import type {
 } from "../types";
 
 import { GRAPH_DEFAULT_MAX_LOOP_ITERATIONS } from "../constants";
-import { GraphExecutionEventType } from "../../shared/constants";
+import { GraphExecutionEventType } from "@decaf-ts/ui-decorators/graph";
 import { GraphInputError } from "../errors/GraphInputError";
 import { GraphLoopLimitError } from "../errors/GraphLoopLimitError";
 import { GraphConditionEvaluator } from "./GraphConditionEvaluator";

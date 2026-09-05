@@ -5,7 +5,9 @@
  */
 import type { Observable } from "@decaf-ts/core";
 import type { GraphExecutionObserver } from "./GraphExecutionObserver";
-import type { GraphExecutionEvent } from "../types";
+import type {
+  GraphExecutionEvent,
+} from "@decaf-ts/ui-decorators/graph";
 
 /**
  * Manages observer registration and event dispatch for the graph execution

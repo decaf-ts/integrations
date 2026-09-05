@@ -23,9 +23,11 @@ import type { INestApplication } from "@nestjs/common";
 
 import {
   GraphExecutionEventType,
-  GraphNodeCatalogue,
   isGraphRunTerminalEventType,
   type GraphRunEventEnvelope,
+} from "@decaf-ts/ui-decorators/graph";
+import {
+  GraphNodeCatalogue,
 } from "../../../src/graph";
 import { GraphExecutionModule } from "../../../src/nest/graph";
 import {

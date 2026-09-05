@@ -13,7 +13,7 @@ import type { StringLike, LogMeta } from "@decaf-ts/logging";
 import type { GraphNodeExecutor } from "./GraphNodeExecutor";
 import type { GraphExecutionContext } from "./GraphExecutionContext";
 import type { GraphExecutionValues, GraphNodeExecutionRequest } from "../types";
-import type { LogNodeLevel } from "../../shared/types";
+import type { LogNodeLevel } from "@decaf-ts/ui-decorators/graph";
 /**
  * Resolves the log level for a Log node execution.
  *

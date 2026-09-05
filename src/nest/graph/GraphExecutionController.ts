@@ -1,3 +1,13 @@
+/**
+ * @module integrations/nest/graph/GraphExecutionController
+ * @summary Legacy synchronous graph execution surface (SAA-595).
+ * @description The deprecated `POST /graph/execute` endpoint, the deprecated
+ * global `SSE /graph/events` stream, plus the run-result read and workflow
+ * persistence endpoints. All execution now flows through
+ * {@link GraphRunService}; only canonical documents are accepted (inline
+ * node/definition/executor/ports/component fields are rejected at the
+ * boundary) and the global stream is disabled unless explicitly enabled.
+ */
 import {
   Controller,
   Post,
@@ -16,10 +26,10 @@ import {
 import { Subject, Observable } from "rxjs";
 import { concatMap, filter } from "rxjs/operators";
 
+import type { GraphExecutionEvent } from "@decaf-ts/ui-decorators/graph";
 import {
   GraphExecutionEngine,
   GraphRunService,
-  type GraphExecutionEvent,
   type GraphExecutionValues,
 } from "../../graph";
 import {

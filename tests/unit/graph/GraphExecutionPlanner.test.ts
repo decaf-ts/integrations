@@ -153,7 +153,7 @@ describe("GraphExecutionPlanner", () => {
  * must contain no `graphDefinitionOf()` reference and no
  * `GraphRelationResolver` (deleted at P3). `graphDefinitionOf()` is the
  * decorated-workflow compiler helper and its only remaining runtime usages
- * live in `src/graph/shared/nodes/flow-control.ts` (§4.18 decorated path,
+ * live in `ui-decorators/src/graph/nodes/flow-control/switch.ts` (§4.18 decorated path,
  * outside the engine); the planning module keeps exactly one doc-comment
  * mention at source level, which compilation strips — so the compiled
  * surface is the honest observable here.

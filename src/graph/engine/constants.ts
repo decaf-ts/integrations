@@ -3,8 +3,8 @@
  * @summary Graph execution engine-private constants and enums.
  * @description Engine-only constants, default limits, and enumerations.
  * Frontend-safe enums (`GraphExecutionStatus`, `GraphExecutionEventType`)
- * live in `../shared/constants`; engine modules import shared symbols from
- * there and engine-private symbols from here.
+ * live in `@decaf-ts/ui-decorators/graph`; engine modules import shared
+ * symbols from there and engine-private symbols from here.
  */
 
 /**

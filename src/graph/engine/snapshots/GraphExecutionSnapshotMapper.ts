@@ -3,9 +3,11 @@
  * @summary Maps execution results to snapshot patches.
  * @description Produces a GraphExecutionSnapshotPatch consumable by `@decaf-ts/ui-decorators/graph` snapshots, rather than replacing the snapshot system.
  */
-import { GraphExecutionStatus } from "../../shared/constants";
+import { GraphExecutionStatus } from "@decaf-ts/ui-decorators/graph";
 import type {
   GraphExecutionEvent,
+} from "@decaf-ts/ui-decorators/graph";
+import type {
   GraphExecutionResult,
   GraphExecutionSnapshotPatch,
 } from "../types";

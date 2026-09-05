@@ -7,7 +7,7 @@
  */
 import type { GraphJsonValue, GraphNodeInstance } from "@decaf-ts/ui-decorators/graph";
 
-import type { GraphResolvedNodeManifest } from "../../shared/GraphResolution";
+import type { GraphResolvedNodeManifest } from "@decaf-ts/ui-decorators/graph";
 import type { GraphNodeExecutor } from "../execution/GraphNodeExecutor";
 
 /**

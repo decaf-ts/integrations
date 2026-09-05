@@ -1,12 +1,22 @@
+/**
+ * @module integrations/nest/graph/GraphExecutionModule
+ * @summary NestJS graph backend module wiring (DECAF-50 §4.10–§4.16).
+ * @description The dynamic module assembling the graph backend: the
+ * {@link GraphExecutionEngine}, the trusted {@link GraphNodeCatalogue} with
+ * built-in registrations, the run lifecycle services and stores, and the
+ * HTTP/SSE controllers (catalogue, workflows, runs, legacy execution) — each
+ * configurable with authentication enforcement and backend-enforced
+ * resource limits via {@link GraphExecutionModuleOptions}.
+ */
 import { DynamicModule, Module, Provider } from "@nestjs/common";
 
+import type { GraphRunLimits } from "@decaf-ts/ui-decorators/graph";
 import {
   GraphExecutionEngine,
   GraphNodeCatalogue,
   GraphRunService,
   InMemoryGraphRunEventStore,
   type GraphCredentialAuthorizer,
-  type GraphRunLimits,
 } from "../../graph";
 import { createDemoEngineConfig } from "./GraphExecutorRegistryFactory";
 import { GraphExecutionController, GRAPH_EXECUTION_OPTIONS, type GraphExecutionControllerOptions } from "./GraphExecutionController";

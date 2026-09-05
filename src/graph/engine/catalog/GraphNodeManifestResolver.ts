@@ -1,3 +1,12 @@
+/**
+ * @module integrations/graph/engine/catalog/GraphNodeManifestResolver
+ * @summary Manifest resolution against node instances (DECAF-50 §4.11).
+ * @description Expands a manifest's `dynamicPorts` rules against the
+ * instance's parameter values and resolves the effective
+ * {@link GraphResolvedNodeManifest} — static plus expanded dynamic ports,
+ * JSON-safe cloned, with credentials/capabilities/policies/metadata carried
+ * over.
+ */
 import type {
   GraphDynamicPortRule,
   GraphJsonValue,
@@ -12,8 +21,8 @@ import type { GraphNodeInstance } from "@decaf-ts/ui-decorators/graph";
 import type {
   GraphNodeResolutionContext,
   GraphResolvedNodeManifest,
-} from "../../shared/GraphResolution";
-import { isGraphResolvedNodeManifest } from "../../shared/GraphResolution";
+} from "@decaf-ts/ui-decorators/graph";
+import { isGraphResolvedNodeManifest } from "@decaf-ts/ui-decorators/graph";
 import { GraphNodeRegistrationError } from "./GraphCatalogueErrors";
 import type { GraphResolvedManifestProvider } from "./GraphNodeRegistration";
 

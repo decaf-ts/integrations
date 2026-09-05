@@ -1,3 +1,13 @@
+/**
+ * @module integrations/graph/engine/runs/GraphRunService
+ * @summary Graph run lifecycle service (DECAF-50 §4.16).
+ * @description Creates, tracks, cancels, and observes graph runs on top of a
+ * {@link GraphRunStore} and {@link GraphRunEventStore}: per-caller run
+ * limits (concurrency buckets keyed by owner or caller key, timeout, event
+ * payload size), fail-closed ownership scoping on every read/cancel,
+ * event-state auto-release after the replay window (SAA-595), and the
+ * sequenced event stream the SSE controller replays.
+ */
 import { NotFoundError, ValidationError } from "@decaf-ts/db-decorators";
 import type { Context, MaybeContextualArg } from "@decaf-ts/core";
 import {
@@ -15,12 +25,14 @@ import { graphRunDocumentFingerprint } from "./GraphRunFingerprint";
 import {
   DEFAULT_GRAPH_RUN_LIMITS,
   isGraphRunTerminalStatus,
+  type GraphRunEventEnvelope,
+  type GraphRunLimits,
+} from "@decaf-ts/ui-decorators/graph";
+import {
   type GraphRun,
   type GraphRunCreateRequest,
   type GraphRunDocumentResolver,
-  type GraphRunEventEnvelope,
   type GraphRunEventStore,
-  type GraphRunLimits,
   type GraphRunStore,
 } from "./types";
 import { assertGraphResourceOwnership } from "./ownership";

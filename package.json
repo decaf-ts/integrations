@@ -280,17 +280,6 @@
       },
       "default": "./lib/esm/sftp/index.js"
     },
-    "./graph/shared": {
-      "import": {
-        "types": "./lib/types/graph/shared/index.d.mts",
-        "default": "./lib/esm/graph/shared/index.js"
-      },
-      "require": {
-        "types": "./lib/types/graph/shared/index.d.cts",
-        "default": "./lib/cjs/graph/shared/index.cjs"
-      },
-      "default": "./lib/esm/graph/shared/index.js"
-    },
     "./plugins": {
       "import": {
         "types": "./lib/types/plugins/index.d.mts",

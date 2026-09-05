@@ -10,15 +10,16 @@
  * method-declaration pairing, and the listManifests ordering/filtering.
  */
 import { jest, describe, it, expect } from "@jest/globals";
-import type {
-  GraphJsonValue,
-  GraphNodeInstance,
-  GraphNodeManifest,
-  GraphNodeMethodManifest,
-  GraphPortManifest,
-} from "@decaf-ts/ui-decorators/graph";
 import {
   GraphCatalogueQueryContext,
+  type GraphJsonValue,
+  type GraphNodeInstance,
+  type GraphNodeManifest,
+  type GraphNodeMethodManifest,
+  type GraphPortManifest,
+  type GraphResolvedNodeManifest,
+} from "@decaf-ts/ui-decorators/graph";
+import {
   GraphExecutionEngine,
   GraphNodeCatalogue,
   GraphNodeExecutorRegistry,
@@ -29,9 +30,8 @@ import {
   registerBuiltInGraphNodes,
   type GraphNodeMethod,
   type GraphNodeMethodRequest,
-  type GraphResolvedNodeManifest,
 } from "../../../src/graph";
-import { GRAPH_BUILT_IN_NODE_MANIFESTS } from "../../../src/graph/shared/nodes";
+import { GRAPH_BUILT_IN_NODE_MANIFESTS } from "@decaf-ts/ui-decorators/graph";
 import type { GraphNodeExecutor } from "../../../src/graph/engine/execution/GraphNodeExecutor";
 
 function manifestOf(

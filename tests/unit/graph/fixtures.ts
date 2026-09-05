@@ -148,7 +148,7 @@ import type {
   GraphWorkflowDocument,
   GraphWorkflowPortInstance,
 } from "@decaf-ts/ui-decorators/graph";
-import type { GraphResolvedNodeManifest } from "../../../src/graph/shared/GraphResolution";
+import type { GraphResolvedNodeManifest } from "@decaf-ts/ui-decorators/graph";
 import type { GraphNodeCatalogue } from "../../../src/graph/engine/catalog/GraphNodeCatalogue";
 import { GraphNodeCatalogue as GraphNodeCatalogueClass } from "../../../src/graph/engine/catalog/GraphNodeCatalogue";
 import type { GraphNodeExecutor } from "../../../src/graph/engine/execution/GraphNodeExecutor";

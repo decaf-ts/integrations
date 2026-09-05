@@ -4,7 +4,9 @@
  * @description Extends Decaf's {@link Observer} so graph events flow through the standard Observable/Observer pipeline.
  */
 import type { Observer } from "@decaf-ts/core";
-import type { GraphExecutionEvent } from "../types";
+import type {
+  GraphExecutionEvent,
+} from "@decaf-ts/ui-decorators/graph";
 
 /**
  * Observer that receives {@link GraphExecutionEvent} instances from the

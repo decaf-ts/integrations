@@ -1,3 +1,11 @@
+/**
+ * @module integrations/nest/graph/GraphRunModelService
+ * @summary Persistent run store on the Decaf model layer.
+ * @description Persists {@link GraphRun} rows as {@link GraphRunModel} via
+ * the Decaf {@link ModelService}, implementing the engine-side
+ * {@link GraphRunStore} and converting between the engine run shape and the
+ * JSON-safe persisted columns.
+ */
 import {
   ModelService,
   service,
@@ -8,7 +16,7 @@ import type {
   GraphRun,
   GraphRunStore,
 } from "../../graph/engine/runs/types";
-import { isGraphRunStatus } from "../../graph/engine/runs/types";
+import { isGraphRunStatus } from "@decaf-ts/ui-decorators/graph";
 import { GraphRunModel } from "./GraphRunModel";
 
 function toJsonSafe(value: unknown): Record<string, unknown> | undefined {

@@ -15,7 +15,7 @@ import type {
 } from "@decaf-ts/ui-decorators/graph";
 
 import type { GraphNodeExecutor } from "../execution/GraphNodeExecutor";
-import type { GraphResolvedNodeManifest } from "../../shared/GraphResolution";
+import type { GraphResolvedNodeManifest } from "@decaf-ts/ui-decorators/graph";
 
 /**
  * A node instance resolved against the backend catalogue.

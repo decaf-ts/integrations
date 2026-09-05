@@ -18,11 +18,13 @@ import type {
 } from "@decaf-ts/ui-decorators/graph";
 import type { Logger } from "@decaf-ts/logging";
 
-import { GraphExecutionEventType } from "../../shared/constants";
-import type { GraphResolvedNodeManifest } from "../../shared/GraphResolution";
+import { GraphExecutionEventType } from "@decaf-ts/ui-decorators/graph";
+import type { GraphResolvedNodeManifest } from "@decaf-ts/ui-decorators/graph";
 import { GraphRunLogger } from "../../log/GraphRunLogger";
 import type {
   GraphExecutionEvent,
+} from "@decaf-ts/ui-decorators/graph";
+import type {
   GraphRunId,
 } from "../types";
 

@@ -28,12 +28,14 @@ import type { GraphWorkflowDocument } from "@decaf-ts/ui-decorators/graph";
 
 import {
   GraphExecutionEventType,
+  isGraphRunTerminalEventType,
+  type GraphRunEventEnvelope,
+} from "@decaf-ts/ui-decorators/graph";
+import {
   GraphNodeCatalogue,
   GraphRunService,
   graphRunDocumentFingerprint,
-  isGraphRunTerminalEventType,
   type GraphNodeExecutor,
-  type GraphRunEventEnvelope,
 } from "../../../src/graph";
 import {
   cyclicDocument,

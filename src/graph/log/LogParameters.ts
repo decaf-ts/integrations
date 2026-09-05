@@ -14,7 +14,7 @@
 import type { LogParameterDescriptor } from "@decaf-ts/logging";
 import { logParameterRegistry } from "@decaf-ts/logging";
 
-import { GraphLogAttribute } from "../shared/constants";
+import { GraphLogAttribute } from "@decaf-ts/ui-decorators/graph";
 
 /** Registry modules may re-run (tests / hot reload); keep it idempotent. */
 const registered = new Set<string>();

@@ -5,8 +5,16 @@
  */
 import type { GraphWorkflowDocument } from "@decaf-ts/ui-decorators/graph";
 import type { GraphExecutionFrame } from "./GraphExecutionFrame";
-import type { GraphExecutionEvent, GraphExecutionResult, GraphExecutionValues, GraphNodeExecutionResult, GraphRunId } from "../types";
-import type { GraphExecutionStatus } from "../../shared/constants";
+import type {
+  GraphExecutionEvent,
+} from "@decaf-ts/ui-decorators/graph";
+import type {
+  GraphExecutionResult,
+  GraphExecutionValues,
+  GraphNodeExecutionResult,
+  GraphRunId,
+} from "../types";
+import type { GraphExecutionStatus } from "@decaf-ts/ui-decorators/graph";
 
 /**
  * Builds a {@link GraphExecutionResult} from a completed frame.

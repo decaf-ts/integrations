@@ -3,7 +3,7 @@
  * @summary Unit tests for the graph execution event factory.
  */
 import { GraphExecutionEventFactory } from "../../../src/graph/engine/events";
-import { GraphExecutionEventType } from "../../../src/graph/shared/constants";
+import { GraphExecutionEventType } from "@decaf-ts/ui-decorators/graph";
 
 describe("GraphExecutionEventFactory", () => {
   it("creates events with unique ids, incrementing sequence, and timestamp", () => {

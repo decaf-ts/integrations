@@ -3,7 +3,9 @@
  * @summary Factory for creating graph execution events with unique ids, sequence numbers, and timestamps.
  * @description Provides a stateful factory that produces monotonically-sequenced events for a single execution run.
  */
-import type { GraphExecutionEvent } from "../types";
+import type {
+  GraphExecutionEvent,
+} from "@decaf-ts/ui-decorators/graph";
 
 /**
  * Factory that enriches partial events with a unique id, an incrementing

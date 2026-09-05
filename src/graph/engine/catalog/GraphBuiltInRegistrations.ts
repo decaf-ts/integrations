@@ -1,3 +1,13 @@
+/**
+ * @module integrations/graph/engine/catalog/GraphBuiltInRegistrations
+ * @summary Built-in graph node registrations (DECAF-50 §4.12).
+ * @description Pairs every built-in manifest from
+ * `GRAPH_BUILT_IN_NODE_MANIFESTS_BY_KIND` (shared via
+ * `@decaf-ts/ui-decorators/graph`) with its default executor as a
+ * {@link GraphNodeRegistration}, and registers the full set into a
+ * {@link GraphNodeCatalogue}. Engine-bound executors (loops, switch) are
+ * only included when an {@link GraphExecutionEngine} is supplied.
+ */
 import type {
   GraphExecutionValues,
   GraphNodeExecutionRequest,
@@ -16,7 +26,7 @@ import {
   UntilGraphNodeExecutor,
   WhileGraphNodeExecutor,
 } from "../loops";
-import { GRAPH_BUILT_IN_NODE_MANIFESTS_BY_KIND } from "../../shared/nodes/manifests";
+import { GRAPH_BUILT_IN_NODE_MANIFESTS_BY_KIND } from "@decaf-ts/ui-decorators/graph";
 import { GraphNodeCatalogue } from "./GraphNodeCatalogue";
 import {
   defineGraphNode,

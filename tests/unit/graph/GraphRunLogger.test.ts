@@ -7,12 +7,12 @@
 import { GraphRunLogger } from "../../../src/graph/log/GraphRunLogger";
 import { GraphExecutionContext } from "../../../src/graph/engine/execution/GraphExecutionContext";
 import { LogGraphNodeExecutor } from "../../../src/graph/engine/execution/LogGraphNodeExecutor";
-import { GraphExecutionEventType } from "../../../src/graph/shared/constants";
+import { GraphExecutionEventType } from "@decaf-ts/ui-decorators/graph";
 import type {
   GraphNodeInstance,
   GraphWorkflowDocument,
 } from "@decaf-ts/ui-decorators/graph";
-import type { GraphResolvedNodeManifest } from "../../../src/graph/shared/GraphResolution";
+import type { GraphResolvedNodeManifest } from "@decaf-ts/ui-decorators/graph";
 import { nodeExecutionRequest } from "./fixtures";
 
 function buildDocument(): GraphWorkflowDocument {

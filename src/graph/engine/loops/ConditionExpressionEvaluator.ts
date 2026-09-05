@@ -5,7 +5,7 @@
  * `eq`/`neq`/`gt`/`gte`/`lt`/`lte`/`and`/`or`/`not`/`exists` operators and
  * `ExprValue` references (`{const}`, `{path}`, `{step, path}`).
  */
-import type { ConditionExpression, ExprValue } from "../../shared/types";
+import type { ConditionExpression, ExprValue } from "@decaf-ts/ui-decorators/graph";
 import { GraphExecutionError } from "../errors/GraphExecutionError";
 
 /**

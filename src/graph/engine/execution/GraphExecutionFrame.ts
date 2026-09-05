@@ -8,6 +8,8 @@ import type { GraphValueStore } from "../store/GraphValueStore";
 import type { GraphExecutionEventFactory } from "../events/GraphExecutionEventFactory";
 import type {
   GraphExecutionEvent,
+} from "@decaf-ts/ui-decorators/graph";
+import type {
   GraphNodeExecutionResult,
   GraphRunId,
 } from "../types";

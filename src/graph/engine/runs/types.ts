@@ -5,8 +5,7 @@
  * (DECAF-50 §4.14–§4.16). The frontend-safe run wire contract —
  * `GraphRunStatus`, `GraphRunEventEnvelope`, `GraphRunEventEnvelopeInput`
  * and the run limits/terminal predicates — lives in
- * `../shared/{types,constants}` and is re-exported here so backend consumers
- * keep a single `@decaf-ts/integrations/graph` surface.
+ * `@decaf-ts/ui-decorators/graph` (imported from there).
  *
  * Engine-only contracts: the full {@link GraphRun} shape (whose `result?`
  * carries engine dates) and the run store/event-store/create-request/
@@ -15,25 +14,11 @@
 import type { Context, MaybeContextualArg } from "@decaf-ts/core";
 import type { GraphWorkflowDocument } from "@decaf-ts/ui-decorators/graph";
 import type { GraphExecutionResult, GraphExecutionValues } from "../types";
-import type { GraphExecutionErrorPayload } from "../../shared/types";
+import type { GraphExecutionErrorPayload } from "@decaf-ts/ui-decorators/graph";
 import type {
   GraphRunEventEnvelope,
   GraphRunStatus,
-} from "../../shared/types";
-
-export type {
-  GraphRunEventEnvelope,
-  GraphRunEventEnvelopeInput,
-  GraphRunStatus,
-} from "../../shared/types";
-export type { GraphRunLimits } from "../../shared/constants";
-export {
-  DEFAULT_GRAPH_RUN_LIMITS,
-  GRAPH_RUN_TERMINAL_EVENT_TYPES,
-  isGraphRunStatus,
-  isGraphRunTerminalEventType,
-  isGraphRunTerminalStatus,
-} from "../../shared/constants";
+} from "@decaf-ts/ui-decorators/graph";
 
 /**
  * Engine-side run record (DECAF-50 §4.14): lifecycle status, timestamps, and

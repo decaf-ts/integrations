@@ -35,9 +35,11 @@ import type {
   GraphWorkflowDocument,
 } from "@decaf-ts/ui-decorators/graph";
 import type {
+  GraphRunEventEnvelope,
+} from "@decaf-ts/ui-decorators/graph";
+import type {
   GraphExecutionContext,
   GraphNodeExecutor,
-  GraphRunEventEnvelope,
 } from "../../../src/graph";
 import { GraphExecutionModule } from "../../../src/nest/graph";
 import { documentEdge, documentNode, documentPort } from "../graph/fixtures";

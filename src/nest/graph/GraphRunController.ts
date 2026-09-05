@@ -1,3 +1,13 @@
+/**
+ * @module integrations/nest/graph/GraphRunController
+ * @summary Asynchronous run lifecycle HTTP API (DECAF-50 §4.14–§4.15).
+ * @description Creates (`POST /graph/runs`), reads
+ * (`GET /graph/runs/:runId`), cancels (`DELETE /graph/runs/:runId`), and
+ * replays (`SSE /graph/runs/:runId/events`) graph runs on top of
+ * {@link GraphRunService}, enforcing authentication, run limits, and
+ * ownership; engine errors surface as `500` with their message while Nest
+ * {@link HttpException}s pass through unchanged.
+ */
 import {
   Body,
   Controller,
@@ -21,16 +31,16 @@ import { AuthorizationError, ForbiddenError } from "@decaf-ts/core";
 import type { GraphWorkflowDocument } from "@decaf-ts/ui-decorators/graph";
 import { DecafRequestContext } from "@decaf-ts/for-nest";
 import type {
-  GraphExecutionValues,
-  GraphRun,
   GraphRunEventEnvelope,
   GraphRunLimits,
+} from "@decaf-ts/ui-decorators/graph";
+import { isGraphRunTerminalEventType } from "@decaf-ts/ui-decorators/graph";
+import type {
+  GraphExecutionValues,
+  GraphRun,
   GraphRunCreateRequest,
 } from "../../graph";
-import {
-  isGraphRunTerminalEventType,
-  GraphRunService,
-} from "../../graph";
+import { GraphRunService } from "../../graph";
 import { graphWorkflowOwnerOf } from "./GraphWorkflowService";
 
 /** DI token for {@link GraphRunControllerOptions}. */

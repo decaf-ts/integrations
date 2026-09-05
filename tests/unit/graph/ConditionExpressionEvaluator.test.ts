@@ -5,7 +5,7 @@
 import { ConditionExpressionEvaluator } from "../../../src/graph/engine/loops/ConditionExpressionEvaluator";
 import { GraphConditionEvaluator } from "../../../src/graph/engine/loops/GraphConditionEvaluator";
 import { GraphExecutionError } from "../../../src/graph/engine/errors/GraphExecutionError";
-import type { ConditionExpression } from "../../../src/graph/shared/types";
+import type { ConditionExpression } from "@decaf-ts/ui-decorators/graph";
 
 describe("ConditionExpressionEvaluator", () => {
   const evaluator = new ConditionExpressionEvaluator();

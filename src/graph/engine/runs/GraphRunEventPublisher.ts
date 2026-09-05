@@ -1,10 +1,21 @@
+/**
+ * @module integrations/graph/engine/runs/GraphRunEventPublisher
+ * @summary Sequenced run event publishing (DECAF-50 §4.16).
+ * @description Sequences and persists run events for the SSE run stream:
+ * assigns a monotonically increasing `sequence` per run, stamps ISO
+ * timestamps, truncates oversized/non-serializable payloads to the
+ * configured limits, and chains appends per run so store writes preserve
+ * publish order.
+ */
 import type { GraphJsonValue } from "@decaf-ts/ui-decorators/graph";
 import {
   DEFAULT_GRAPH_RUN_LIMITS,
   type GraphRunEventEnvelope,
   type GraphRunEventEnvelopeInput,
-  type GraphRunEventStore,
   type GraphRunLimits,
+} from "@decaf-ts/ui-decorators/graph";
+import {
+  type GraphRunEventStore,
 } from "./types";
 
 /**

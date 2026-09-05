@@ -5,7 +5,7 @@
  * `GraphWorkflowDocument`s only, performing validation and resolution
  * internally.
  */
-import { GraphExecutionEventType } from "../../../src/graph/shared/constants";
+import { GraphExecutionEventType } from "@decaf-ts/ui-decorators/graph";
 import type {
   GraphInputBinding,
   GraphNodeManifest,

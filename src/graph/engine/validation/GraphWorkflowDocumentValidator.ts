@@ -43,7 +43,7 @@ import type { GraphNodeCatalogue } from "../catalog/GraphNodeCatalogue";
 import type {
   GraphNodeResolutionContext,
   GraphResolvedNodeManifest,
-} from "../../shared/GraphResolution";
+} from "@decaf-ts/ui-decorators/graph";
 import { GraphNodeInstanceValidator } from "./GraphNodeInstanceValidator";
 import { GraphParameterValidator } from "./GraphParameterValidator";
 import { GraphEdgeInstanceValidator } from "./GraphEdgeInstanceValidator";
