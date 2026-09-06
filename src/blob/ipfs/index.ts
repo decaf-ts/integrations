@@ -4,6 +4,7 @@
  * @description Re-exports the IPFS blob store service and key-index abstraction.
  */
 export * from "./IpfsBlobStoreService";
+export * from "./IpfsBlobEnvironment";
 export * from "./IpfsKeyIndex";
 export * from "./MemoryIpfsKeyIndex";
 export * from "./PostgresIpfsKeyIndex";

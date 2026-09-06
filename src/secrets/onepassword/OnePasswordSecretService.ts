@@ -1,4 +1,8 @@
-import { SecretError, SecretProvider } from "../../secrets/core";
+import {
+  ClientBasedSecretService,
+  SecretError,
+  SecretProvider,
+} from "../../secrets/core";
 import {
   SecretName,
   SecretPayload,
@@ -12,28 +16,50 @@ import {
   type SerializedSecretPayload,
 } from "../../secrets/core";
 import {
-  ClientBasedService,
+  service,
   type ContextualArgs,
   type MaybeContextualArg,
 } from "@decaf-ts/core";
 import { OnePasswordSecretServiceConfig } from "./OnePasswordSecretServiceConfig";
+import { OnePasswordSecretEnvironment } from "./OnePasswordSecretEnvironment";
+import { envString } from "../../shared/environmentValue";
 import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 
-export class OnePasswordSecretService extends ClientBasedService<
+@service("secret-onepassword")
+export class OnePasswordSecretService extends ClientBasedSecretService<
   unknown,
   OnePasswordSecretServiceConfig
 > {
   readonly provider: SecretProvider = "1password";
 
+  protected configFromEnvironment():
+    | OnePasswordSecretServiceConfig
+    | undefined {
+    const env = OnePasswordSecretEnvironment.secrets.onePassword;
+    const connectHost = envString(env?.connectHost);
+    if (!connectHost) return undefined;
+    return {
+      provider: "1password",
+      connectHost,
+      connectToken: envString(env.connectToken),
+      vaultId: envString(env.vaultId),
+      itemIdTemplate: envString(env.itemIdTemplate),
+      keyId: envString(env.keyId),
+    };
+  }
+
   async initialize(
     ...args: ContextualArgs<any>
   ): Promise<{ config: OnePasswordSecretServiceConfig; client: unknown }> {
-    const config = args[0] as OnePasswordSecretServiceConfig;
+    const config =
+      this.getConfigFromArgs<OnePasswordSecretServiceConfig>(...args);
     if (!config.connectHost) {
       throw new InternalError(
         "1Password service requires connectHost configuration"
       );
     }
+    this._config = config;
+    this._client = {};
     return { config, client: {} };
   }
 

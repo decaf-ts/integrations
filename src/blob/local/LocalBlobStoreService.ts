@@ -3,7 +3,7 @@
  * @summary Local filesystem blob store service.
  * @description Filesystem-backed blob store wrapping node:fs with atomic writes and path-traversal protection.
  */
-import { type ContextualArgs, ForbiddenError, type MaybeContextualArg, UnsupportedError } from "@decaf-ts/core";
+import { type ContextualArgs, ForbiddenError, type MaybeContextualArg, service, UnsupportedError } from "@decaf-ts/core";
 import {
   ConflictError,
   InternalError,
@@ -19,6 +19,8 @@ import {
 } from "fs";
 import { dirname, join, relative, resolve, sep } from "path";
 import { BlobStoreService } from "../core/BlobStoreService";
+import { LocalBlobEnvironment } from "./LocalBlobEnvironment";
+import { envString } from "../../shared/environmentValue";
 import type {
   BlobGetOptions,
   BlobGetResult,
@@ -38,10 +40,25 @@ interface LocalFsClient {
   root: string;
 }
 
+@service("blob-local")
 export class LocalBlobStoreService extends BlobStoreService<
   LocalFsClient,
   LocalBlobStoreServiceConfig
 > {
+  protected override configFromEnvironment():
+    | LocalBlobStoreServiceConfig
+    | undefined {
+    const env = LocalBlobEnvironment.blobs.local;
+    const rootPath = envString(env?.rootPath);
+    if (!rootPath) return undefined;
+    return {
+      provider: "local",
+      sourceId: envString(env.sourceId) as string,
+      rootPath,
+      prefix: envString(env.prefix),
+    };
+  }
+
   override async initialize(
     ...args: ContextualArgs<any>
   ): Promise<{

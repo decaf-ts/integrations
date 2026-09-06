@@ -10,6 +10,7 @@ import {
   ConnectionError,
   ForbiddenError,
   type MaybeContextualArg,
+  service,
   UnsupportedError,
 } from "@decaf-ts/core";
 import {
@@ -20,6 +21,8 @@ import {
 } from "@decaf-ts/db-decorators";
 import { BlobStoreService } from "../core/BlobStoreService";
 import { collectToBuffer, computeSha256, toAsyncIterable } from "../core/BlobValue";
+import { GcsBlobEnvironment } from "./GcsBlobEnvironment";
+import { envString } from "../../shared/environmentValue";
 import type {
   BlobGetOptions,
   BlobGetResult,
@@ -35,11 +38,28 @@ import type {
   GcsBlobStoreServiceConfig,
 } from "../core/BlobTypes";
 
+@service("blob-gcs")
 export class GcsBlobStoreService extends BlobStoreService<
   Bucket,
   GcsBlobStoreServiceConfig
 > {
   private storage!: Storage;
+
+  protected override configFromEnvironment():
+    | GcsBlobStoreServiceConfig
+    | undefined {
+    const env = GcsBlobEnvironment.blobs.gcs;
+    const bucket = envString(env?.bucket);
+    if (!bucket) return undefined;
+    return {
+      provider: "gcs",
+      sourceId: envString(env.sourceId) as string,
+      bucket,
+      projectId: envString(env.projectId),
+      apiEndpoint: envString(env.apiEndpoint),
+      prefix: envString(env.prefix),
+    };
+  }
 
   override async initialize(
     ...args: ContextualArgs<any>

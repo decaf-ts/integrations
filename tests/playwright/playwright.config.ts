@@ -3,7 +3,7 @@ import { defineConfig } from "@playwright/test";
 /**
  * Playwright config for BI dashboard embed plugin e2e tests.
  *
- * Tests live in the current directory and are matched by `*.e2e.test.ts`.
+ * Tests live in the current directory and are matched by `*.e2e.ts`.
  * Each test file manages its own Docker lifecycle (build, up, down) via the
  * shared helpers in `helpers.ts`.
  */

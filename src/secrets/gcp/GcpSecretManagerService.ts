@@ -1,7 +1,7 @@
 import { SecretManagerServiceClient } from "@google-cloud/secret-manager";
 import * as grpc from "@grpc/grpc-js";
-import { SecretProvider } from "../../secrets/core";
-import { ClientBasedService, type MaybeContextualArg } from "@decaf-ts/core";
+import { ClientBasedSecretService, SecretProvider } from "../../secrets/core";
+import { service, type MaybeContextualArg } from "@decaf-ts/core";
 import {
   SecretName,
   SecretPayload,
@@ -16,6 +16,8 @@ import {
   type SerializedSecretPayload,
 } from "../../secrets/core";
 import { GcpSecretManagerServiceConfig } from "./GcpSecretManagerServiceConfig";
+import { GcpSecretEnvironment } from "./GcpSecretEnvironment";
+import { envNumber, envString } from "../../shared/environmentValue";
 import {
   BadRequestError,
   ConflictError,
@@ -23,11 +25,27 @@ import {
   NotFoundError,
 } from "@decaf-ts/db-decorators";
 
-export class GcpSecretManagerService extends ClientBasedService<
+@service("secret-gcp")
+export class GcpSecretManagerService extends ClientBasedSecretService<
   SecretManagerServiceClient,
   GcpSecretManagerServiceConfig
 > {
   readonly provider: SecretProvider = "gcp-secret-manager";
+
+  protected configFromEnvironment():
+    | GcpSecretManagerServiceConfig
+    | undefined {
+    const env = GcpSecretEnvironment.secrets.gcp;
+    const projectId = envString(env?.projectId);
+    if (!projectId) return undefined;
+    return {
+      provider: "gcp-secret-manager",
+      projectId,
+      apiEndpoint: envString(env.apiEndpoint),
+      port: envNumber(env.port),
+      keyId: envString(env.keyId),
+    };
+  }
 
   async initialize(
     ...args: MaybeContextualArg<any>
@@ -35,10 +53,8 @@ export class GcpSecretManagerService extends ClientBasedService<
     config: GcpSecretManagerServiceConfig;
     client: SecretManagerServiceClient;
   }> {
-    const { ctxArgs } = (await this.logCtx(args, "initialize", true)).for(
-      this.initialize
-    );
-    const config = ctxArgs[0] as GcpSecretManagerServiceConfig;
+    const config =
+      this.getConfigFromArgs<GcpSecretManagerServiceConfig>(...args);
     const client = new SecretManagerServiceClient({
       projectId: config.projectId,
       credentials: config.credentials,

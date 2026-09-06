@@ -4,3 +4,4 @@
  * @description Re-exports the in-memory blob store service.
  */
 export * from "./MemoryBlobStoreService";
+export * from "./MemoryBlobEnvironment";

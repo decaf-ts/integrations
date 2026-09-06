@@ -1,8 +1,4 @@
-import {
-  Context,
-  type ContextualArgs,
-  type MaybeContextualArg,
-} from "@decaf-ts/core";
+import { service, type ContextualArgs, type MaybeContextualArg } from "@decaf-ts/core";
 import { InternalError } from "@decaf-ts/db-decorators";
 import {
   SftpSource,
@@ -11,6 +7,8 @@ import {
   type SftpSourceConfig,
   assertSftpConfig,
 } from "../core/SftpSource";
+import { AwsSftpEnvironment } from "./AwsSftpEnvironment";
+import { envNumber, envString } from "../../shared/environmentValue";
 
 export interface AwsTransferSftpConfig extends SftpSourceConfig {
   provider: "aws-transfer";
@@ -31,6 +29,7 @@ interface S3LikeClient {
   deleteObject(params: unknown): Promise<unknown>;
 }
 
+@service("sftp-aws")
 export class AwsSftpService extends SftpSource<
   S3LikeClient,
   AwsTransferSftpConfig
@@ -39,12 +38,43 @@ export class AwsSftpService extends SftpSource<
     super();
   }
 
+  protected configFromEnvironment(): AwsTransferSftpConfig | undefined {
+    const env = AwsSftpEnvironment.sftp.aws;
+    const region = envString(env?.region);
+    const bucket = envString(env?.bucket);
+    const host = envString(env?.host);
+    const username = envString(env?.username);
+    const password = envString(env?.password);
+    const privateKey = envString(env?.privateKey);
+    if (
+      !region ||
+      !bucket ||
+      !host ||
+      !username ||
+      (!password && !privateKey)
+    )
+      return undefined;
+    return {
+      provider: "aws-transfer",
+      sourceId: envString(env.sourceId) as string,
+      host,
+      port: envNumber(env.port),
+      username,
+      password,
+      privateKey,
+      passphrase: envString(env.passphrase),
+      remotePath: envString(env.remotePath),
+      region,
+      bucket,
+      s3Prefix: envString(env.s3Prefix),
+      serverId: envString(env.serverId),
+    };
+  }
+
   override async initialize(
     ...args: ContextualArgs<any>
   ): Promise<{ config: AwsTransferSftpConfig; client: S3LikeClient }> {
-    const config = args[0];
-    if (!config || config instanceof Context)
-      throw new InternalError(`No configuration provided`);
+    const config = this.getConfigFromArgs<AwsTransferSftpConfig>(...args);
     assertSftpConfig(config);
     if (!config.region)
       throw new InternalError("AwsTransferSftpConfig.region is required");
@@ -59,6 +89,8 @@ export class AwsSftpService extends SftpSource<
     const client = new S3Client({
       region: config.region,
     }) as unknown as S3LikeClient;
+    this._config = config;
+    this._client = client;
     return { config, client };
   }
 

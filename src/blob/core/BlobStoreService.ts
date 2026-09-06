@@ -104,13 +104,24 @@ export abstract class BlobStoreService<
     ...args: MaybeContextualArg<any>
   ): TExpected {
     const config = args[0] as TExpected | undefined;
-    if (!config || typeof config !== "object") {
-      throw new ValidationError(
-        "Blob store config must be the first initialize argument"
-      );
+    if (config && typeof config === "object") {
+      return config;
     }
-    return config;
+    const fromEnvironment = this.configFromEnvironment() as
+      | TExpected
+      | undefined;
+    if (fromEnvironment) return fromEnvironment;
+    throw new ValidationError(
+      "Blob store config must be the first initialize argument, or resolvable from environment"
+    );
   }
+
+  /**
+   * @description Builds a config from the provider's environment as a fallback.
+   * @summary Providers that support environment-sourced configuration should
+   * override this to read from their own `blobs.<provider>` environment slice.
+   */
+  protected abstract configFromEnvironment(): TConfig | undefined;
 
   protected uri(key: BlobKey, scheme: string, extra?: string): string {
     const base = `${scheme}://${this.sourceId}/${this.physicalKey(key)}`;

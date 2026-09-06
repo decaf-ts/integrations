@@ -8,6 +8,7 @@ import { create as kuboCreate, type KuboRPCClient } from "kubo-rpc-client";
 import {
   type ContextualArgs,
   type MaybeContextualArg,
+  service,
   UnsupportedError,
 } from "@decaf-ts/core";
 import {
@@ -18,6 +19,8 @@ import {
 } from "@decaf-ts/db-decorators";
 import { BlobStoreService } from "../core/BlobStoreService";
 import { collectToBuffer, computeSha256, toAsyncIterable } from "../core/BlobValue";
+import { IpfsBlobEnvironment } from "./IpfsBlobEnvironment";
+import { envBoolean, envString } from "../../shared/environmentValue";
 import type {
   BlobGetOptions,
   BlobGetResult,
@@ -34,11 +37,39 @@ import type {
 } from "../core/BlobTypes";
 import { createIpfsKeyIndex, type IpfsKeyIndex } from "./IpfsKeyIndex";
 
+@service("blob-ipfs")
 export class IpfsBlobStoreService extends BlobStoreService<
   KuboRPCClient,
   IpfsBlobStoreServiceConfig
 > {
   private index!: IpfsKeyIndex;
+
+  protected override configFromEnvironment():
+    | IpfsBlobStoreServiceConfig
+    | undefined {
+    const env = IpfsBlobEnvironment.blobs.ipfs;
+    const sourceId = envString(env?.sourceId);
+    if (!sourceId) return undefined;
+    return {
+      provider: "ipfs",
+      sourceId,
+      apiUrl: envString(env.apiUrl),
+      gatewayUrl: envString(env.gatewayUrl),
+      pinByDefault: envBoolean(env.pinByDefault),
+      encryptedOnly: envBoolean(env.encryptedOnly),
+      prefix: envString(env.prefix),
+      keyIndex: {
+        provider:
+          (envString(env.keyIndex?.provider) as
+            | "memory"
+            | "postgres"
+            | "local-json"
+            | undefined) ?? "memory",
+        connectionRef: envString(env.keyIndex?.connectionRef),
+        path: envString(env.keyIndex?.path),
+      },
+    };
+  }
 
   override async initialize(
     ...args: ContextualArgs<any>

@@ -18,7 +18,7 @@ const config = {
       },
     ],
   },
-  testRegex: "/tests/.*\\.(test|spec)\\.(ts|tsx)$",
+  testRegex: "/tests/.*\\.(test|e2e)\\.ts$",
   testPathIgnorePatterns: [
     "/node_modules/",
     "/tests/e2e/plugins/.*\\.e2e\\.test\\.ts$",

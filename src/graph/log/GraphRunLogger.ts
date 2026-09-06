@@ -170,6 +170,11 @@ export class GraphRunLogger implements Logger {
   }
 
   /** @inheritdoc */
+  action(action: string, message: StringLike, code?: number, ...rest: any[]): void {
+    this.inner.action(action, message, code, ...rest);
+  }
+
+  /** @inheritdoc */
   setConfig(): void {
     // Configuration is owned by the wrapped MiniLogger; nothing to apply.
   }

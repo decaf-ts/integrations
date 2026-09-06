@@ -1,8 +1,8 @@
 import { SecretClient } from "@azure/keyvault-secrets";
 import { DefaultAzureCredential } from "@azure/identity";
-import { SecretProvider } from "../../secrets/core";
+import { ClientBasedSecretService, SecretProvider } from "../../secrets/core";
 import {
-  ClientBasedService,
+  service,
   type ContextualArgs,
   type MaybeContextualArg,
 } from "@decaf-ts/core";
@@ -20,6 +20,8 @@ import {
   type SerializedSecretPayload,
 } from "../../secrets/core";
 import { AzureKeyVaultSecretServiceConfig } from "./AzureKeyVaultSecretServiceConfig";
+import { AzureSecretEnvironment } from "./AzureSecretEnvironment";
+import { envString } from "../../shared/environmentValue";
 import {
   BadRequestError,
   ConflictError,
@@ -27,11 +29,25 @@ import {
   NotFoundError,
 } from "@decaf-ts/db-decorators";
 
-export class AzureKeyVaultSecretService extends ClientBasedService<
+@service("secret-azure")
+export class AzureKeyVaultSecretService extends ClientBasedSecretService<
   SecretClient,
   AzureKeyVaultSecretServiceConfig
 > {
   readonly provider: SecretProvider = "azure-key-vault";
+
+  protected configFromEnvironment():
+    | AzureKeyVaultSecretServiceConfig
+    | undefined {
+    const env = AzureSecretEnvironment.secrets.azure;
+    const vaultUrl = envString(env?.vaultUrl);
+    if (!vaultUrl) return undefined;
+    return {
+      provider: "azure-key-vault",
+      vaultUrl,
+      keyId: envString(env.keyId),
+    };
+  }
 
   async initialize(
     ...args: ContextualArgs<any>
@@ -39,11 +55,14 @@ export class AzureKeyVaultSecretService extends ClientBasedService<
     config: AzureKeyVaultSecretServiceConfig;
     client: SecretClient;
   }> {
-    const config = args[0] as AzureKeyVaultSecretServiceConfig;
+    const config =
+      this.getConfigFromArgs<AzureKeyVaultSecretServiceConfig>(...args);
     const client = new SecretClient(
       config.vaultUrl,
       config.credentials || new DefaultAzureCredential()
     );
+    this._config = config;
+    this._client = client;
     return { config, client };
   }
 

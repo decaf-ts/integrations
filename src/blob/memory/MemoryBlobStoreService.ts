@@ -3,7 +3,7 @@
  * @summary In-memory blob store service.
  * @description Process-local Map-backed blob store for tests and examples. No SDK dependency.
  */
-import { type ContextualArgs, type MaybeContextualArg, UnsupportedError } from "@decaf-ts/core";
+import { type ContextualArgs, type MaybeContextualArg, service, UnsupportedError } from "@decaf-ts/core";
 import {
   ConflictError,
   InternalError,
@@ -12,6 +12,8 @@ import {
 } from "@decaf-ts/db-decorators";
 import { collectToBuffer, computeSha256, toAsyncIterable } from "../core/BlobValue";
 import { BlobStoreService } from "../core/BlobStoreService";
+import { MemoryBlobEnvironment } from "./MemoryBlobEnvironment";
+import { envString } from "../../shared/environmentValue";
 import type {
   BlobGetOptions,
   BlobGetResult,
@@ -32,10 +34,22 @@ interface MemoryEntry {
   metadata: BlobMetadata;
 }
 
+@service("blob-memory")
 export class MemoryBlobStoreService extends BlobStoreService<
   Map<string, MemoryEntry>,
   BlobStoreServiceConfig
 > {
+  protected override configFromEnvironment(): BlobStoreServiceConfig | undefined {
+    const env = MemoryBlobEnvironment.blobs.memory;
+    const sourceId = envString(env?.sourceId);
+    if (!sourceId) return undefined;
+    return {
+      provider: "memory",
+      sourceId,
+      prefix: envString(env.prefix),
+    };
+  }
+
   override async initialize(
     ...args: ContextualArgs<any>
   ): Promise<{

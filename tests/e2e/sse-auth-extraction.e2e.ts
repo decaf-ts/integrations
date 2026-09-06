@@ -3,7 +3,7 @@
  * @summary Live SSE fingerprint-extraction e2e over the Keycloak auth harness (DECAF-48).
  * @description Validates how the requester fingerprint for the for-nest SSE subscription
  * path is resolved (auth user -> x-correlation-id -> per-connection id) using the same
- * live authenticated Keycloak e2e harness as `keycloak-auth.e2e.test.ts`.
+ * live authenticated Keycloak e2e harness as `keycloak-auth.e2e.ts`.
  *
  * Covers:
  *  (a) the authenticated user's token identity is the fingerprint and WINS over any

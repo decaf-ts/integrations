@@ -1,9 +1,10 @@
 import {
   ClientBasedService,
+  Context,
   type ContextualArgs,
   type MaybeContextualArg,
 } from "@decaf-ts/core";
-import { InternalError } from "@decaf-ts/db-decorators";
+import { InternalError, ValidationError } from "@decaf-ts/db-decorators";
 
 export type SftpProvider = "ssh2" | "aws-transfer";
 
@@ -70,6 +71,29 @@ export abstract class SftpSource<
   ): Promise<void>;
 
   abstract close(...args: MaybeContextualArg<any>): Promise<void>;
+
+  protected getConfigFromArgs<TExpected extends TConfig>(
+    ...args: MaybeContextualArg<any>
+  ): TExpected {
+    const config = args[0] as TExpected | undefined;
+    if (config && typeof config === "object" && !(config instanceof Context)) {
+      return config;
+    }
+    const fromEnvironment = this.configFromEnvironment() as
+      | TExpected
+      | undefined;
+    if (fromEnvironment) return fromEnvironment;
+    throw new ValidationError(
+      "SFTP source config must be the first initialize argument, or resolvable from environment"
+    );
+  }
+
+  /**
+   * @description Builds a config from the provider's environment as a fallback.
+   * @summary Providers must override this to read from their own `sftp.<provider>`
+   * environment slice.
+   */
+  protected abstract configFromEnvironment(): TConfig | undefined;
 }
 
 export function assertSftpConfig(config: SftpSourceConfig): void {

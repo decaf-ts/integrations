@@ -1,4 +1,4 @@
-import { SecretError, SecretProvider } from "../core";
+import { ClientBasedSecretService, SecretError, SecretProvider } from "../core";
 import {
   SecretName,
   SecretPayload,
@@ -21,30 +21,44 @@ import {
 } from "../core";
 import { Secret } from "./Secret";
 import {
-  ClientBasedService,
   ContextualArgs,
   MaybeContextualArg,
   Repository,
+  service,
 } from "@decaf-ts/core";
 import { ModelSecretServiceConfig } from "./ModelSecretServiceConfig";
+import { ModelSecretEnvironment } from "./ModelSecretEnvironment";
+import { envString } from "../../shared/environmentValue";
 import { Condition } from "@decaf-ts/core";
 import { CryptoService } from "@decaf-ts/crypto/integration/services/crypto";
 import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 
 const DEFAULT_KEY_ID = "default-key";
 
-export class ModelSecretService extends ClientBasedService<
+@service("secret-model")
+export class ModelSecretService extends ClientBasedSecretService<
   Repository<Secret, any>,
   ModelSecretServiceConfig
 > {
   readonly provider: SecretProvider = "model";
   private cryptoService!: CryptoService;
 
+  protected configFromEnvironment(): ModelSecretServiceConfig | undefined {
+    const env = ModelSecretEnvironment.secrets.model;
+    const keySecret = envString(env?.keySecret);
+    if (!keySecret) return undefined;
+    return {
+      provider: "model",
+      keySecret,
+      keyId: envString(env.keyId),
+    };
+  }
+
   async initialize(...args: ContextualArgs<any>): Promise<{
     config: ModelSecretServiceConfig;
     client: Repository<Secret, any>;
   }> {
-    const config = args[0] as ModelSecretServiceConfig;
+    const config = this.getConfigFromArgs<ModelSecretServiceConfig>(...args);
     const repository =
       (args[1] as Repository<Secret, any> | undefined) ||
       new Repository<Secret, any>(undefined, Secret);

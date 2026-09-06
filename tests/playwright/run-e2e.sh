@@ -18,7 +18,7 @@ run_kibana() {
   cd "$INTEGRATIONS_ROOT"
   npx playwright test \
     --config tests/e2e/plugins/playwright.config.ts \
-    "$SCRIPT_DIR/kibana.e2e.test.ts"
+    "$SCRIPT_DIR/kibana.e2e.ts"
 }
 
 run_superset() {
@@ -26,7 +26,7 @@ run_superset() {
   cd "$INTEGRATIONS_ROOT"
   npx playwright test \
     --config tests/e2e/plugins/playwright.config.ts \
-    "$SCRIPT_DIR/superset.e2e.test.ts"
+    "$SCRIPT_DIR/superset.e2e.ts"
 }
 
 case "$MODE" in

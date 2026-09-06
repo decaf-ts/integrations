@@ -4,3 +4,4 @@
  * @description Re-exports the GCS blob store service.
  */
 export * from "./GcsBlobStoreService";
+export * from "./GcsBlobEnvironment";

@@ -17,6 +17,7 @@ import {
   ConnectionError,
   ForbiddenError,
   type MaybeContextualArg,
+  service,
   UnsupportedError,
 } from "@decaf-ts/core";
 import {
@@ -26,7 +27,13 @@ import {
   ValidationError,
 } from "@decaf-ts/db-decorators";
 import { BlobStoreService } from "../core/BlobStoreService";
-import { collectToBuffer, computeSha256, toAsyncIterable } from "../core/BlobValue";
+import {
+  collectToBuffer,
+  computeSha256,
+  toAsyncIterable,
+} from "../core/BlobValue";
+import { AzureBlobEnvironment } from "./AzureBlobEnvironment";
+import { envString } from "../../shared/environmentValue";
 import type {
   AzureBlobStoreServiceConfig,
   BlobGetOptions,
@@ -42,34 +49,48 @@ import type {
   BlobValue,
 } from "../core/BlobTypes";
 
+@service("blob-azure")
 export class AzureBlobStoreService extends BlobStoreService<
   ContainerClient,
   AzureBlobStoreServiceConfig
 > {
   private blobServiceClient!: BlobServiceClient;
 
-  override async initialize(
-    ...args: ContextualArgs<any>
-  ): Promise<{
+  protected configFromEnvironment(): AzureBlobStoreServiceConfig | undefined {
+    const env = AzureBlobEnvironment.blobs.azure;
+    const container = envString(env?.container);
+    if (!container) return undefined;
+    return {
+      provider: "azure-blob",
+      sourceId: envString(env.sourceId) as string,
+      container,
+      accountName: envString(env.accountName),
+      connectionString: envString(env.connectionString),
+      endpoint: envString(env.endpoint),
+      prefix: envString(env.prefix),
+    };
+  }
+
+  override async initialize(...args: ContextualArgs<any>): Promise<{
     config: AzureBlobStoreServiceConfig;
     client: ContainerClient;
   }> {
-    const { log } = (
-      await this.logCtx(args, "initialize", true)
-    ).for(this.initialize);
-    const config =
-      this.getConfigFromArgs<AzureBlobStoreServiceConfig>(...args);
+    const { log } = (await this.logCtx(args, "initialize", true)).for(
+      this.initialize
+    );
+    const config = this.getConfigFromArgs<AzureBlobStoreServiceConfig>(...args);
     if (!config.container) {
-      throw new InternalError(
-        "AzureBlobStoreService requires a container"
-      );
+      throw new InternalError("AzureBlobStoreService requires a container");
     }
 
     if (config.connectionString) {
-      this.blobServiceClient =
-        BlobServiceClient.fromConnectionString(config.connectionString);
+      this.blobServiceClient = BlobServiceClient.fromConnectionString(
+        config.connectionString
+      );
     } else {
-      const endpoint = config.endpoint || `https://${config.accountName}.blob.core.windows.net`;
+      const endpoint =
+        config.endpoint ||
+        `https://${config.accountName}.blob.core.windows.net`;
       this.blobServiceClient = new BlobServiceClient(
         endpoint,
         new DefaultAzureCredential()
@@ -126,7 +147,11 @@ export class AzureBlobStoreService extends BlobStoreService<
       };
       return {
         key,
-        uri: this.uri(key, "azure-blob", response.versionId ? `version=${response.versionId}` : undefined),
+        uri: this.uri(
+          key,
+          "azure-blob",
+          response.versionId ? `version=${response.versionId}` : undefined
+        ),
         provider: this.provider,
         sourceId: this.sourceId,
         metadata,
@@ -150,7 +175,9 @@ export class AzureBlobStoreService extends BlobStoreService<
         options.range?.start,
         options.range
           ? (options.range.end ?? undefined) !== undefined
-            ? (options.range.end ?? undefined)! - (options.range?.start ?? 0) + 1
+            ? (options.range.end ?? undefined)! -
+              (options.range?.start ?? 0) +
+              1
             : undefined
           : undefined
       );
@@ -175,10 +202,7 @@ export class AzureBlobStoreService extends BlobStoreService<
     }
   }
 
-  async has(
-    key: BlobKey,
-    ...args: MaybeContextualArg<any>
-  ): Promise<boolean> {
+  async has(key: BlobKey, ...args: MaybeContextualArg<any>): Promise<boolean> {
     const { log } = (await this.logCtx(args, "has", true)).for(this.has);
     log.verbose(`Checking blob ${key}`);
     try {
@@ -209,10 +233,7 @@ export class AzureBlobStoreService extends BlobStoreService<
     }
   }
 
-  async delete(
-    key: BlobKey,
-    ...args: MaybeContextualArg<any>
-  ): Promise<void> {
+  async delete(key: BlobKey, ...args: MaybeContextualArg<any>): Promise<void> {
     const { log } = (await this.logCtx(args, "delete", true)).for(this.delete);
     log.verbose(`Deleting blob ${key}`);
     try {
@@ -363,25 +384,44 @@ export class AzureBlobStoreService extends BlobStoreService<
     }
     const message = err.message || "Unknown error";
     const lower = message.toLowerCase();
-    const statusCode = (err as any)?.statusCode || (err as any)?.$metadata?.httpStatusCode;
+    const statusCode =
+      (err as any)?.statusCode || (err as any)?.$metadata?.httpStatusCode;
     const code = (err as any)?.code;
 
-    if (lower.includes("blobnotfound") || statusCode === 404 || lower.includes("not found") || code === "BlobNotFound") {
+    if (
+      lower.includes("blobnotfound") ||
+      statusCode === 404 ||
+      lower.includes("not found") ||
+      code === "BlobNotFound"
+    ) {
       return new NotFoundError(err);
     }
-    if (statusCode === 409 || lower.includes("conflict") || lower.includes("already exists")) {
+    if (
+      statusCode === 409 ||
+      lower.includes("conflict") ||
+      lower.includes("already exists")
+    ) {
       return new ConflictError(err);
     }
     if (statusCode === 401 || lower.includes("unauthorized")) {
       return new AuthorizationError(err);
     }
-    if (statusCode === 403 || lower.includes("permission") || lower.includes("forbidden")) {
+    if (
+      statusCode === 403 ||
+      lower.includes("permission") ||
+      lower.includes("forbidden")
+    ) {
       return new ForbiddenError(err);
     }
     if (statusCode === 429 || lower.includes("rate limit")) {
       return new ConflictError(err);
     }
-    if (statusCode === 503 || lower.includes("timeout") || lower.includes("unavailable") || lower.includes("connection")) {
+    if (
+      statusCode === 503 ||
+      lower.includes("timeout") ||
+      lower.includes("unavailable") ||
+      lower.includes("connection")
+    ) {
       return new ConnectionError(err);
     }
     return new InternalError(err);

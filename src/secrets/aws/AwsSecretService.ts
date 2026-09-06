@@ -14,10 +14,11 @@ import {
 } from "@aws-sdk/client-secrets-manager";
 import {
   AuthorizationError,
-  ClientBasedService,
+  service,
   type MaybeContextualArg,
 } from "@decaf-ts/core";
 import {
+  ClientBasedSecretService,
   SecretProvider,
   SecretName,
   SecretPayload,
@@ -37,6 +38,8 @@ import {
   type SerializedSecretPayload,
 } from "../../secrets/core";
 import { AwsSecretServiceConfig } from "./AwsSecretServiceConfig";
+import { AwsSecretEnvironment } from "./AwsSecretEnvironment";
+import { envString } from "../../shared/environmentValue";
 import {
   BadRequestError,
   BaseError,
@@ -45,7 +48,8 @@ import {
   NotFoundError,
 } from "@decaf-ts/db-decorators";
 
-export class AwsSecretService extends ClientBasedService<
+@service("secret-aws")
+export class AwsSecretService extends ClientBasedSecretService<
   SecretsManagerClient,
   AwsSecretServiceConfig
 > {
@@ -53,16 +57,33 @@ export class AwsSecretService extends ClientBasedService<
     return "aws-secrets-manager";
   }
 
+  protected configFromEnvironment(): AwsSecretServiceConfig | undefined {
+    const env = AwsSecretEnvironment.secrets.aws;
+    const region = envString(env?.region);
+    if (!region) return undefined;
+    const accessKeyId = envString(env.credentials?.accessKeyId);
+    return {
+      provider: "aws-secrets-manager",
+      region,
+      endpoint: envString(env.endpoint),
+      keyId: envString(env.keyId),
+      credentials: accessKeyId
+        ? {
+            accessKeyId,
+            secretAccessKey: envString(env.credentials?.secretAccessKey) as string,
+            sessionToken: envString(env.credentials?.sessionToken),
+          }
+        : undefined,
+    };
+  }
+
   async initialize(
     ...args: MaybeContextualArg<any>
   ): Promise<{ config: AwsSecretServiceConfig; client: SecretsManagerClient }> {
-    const { ctxArgs } = (await this.logCtx(args, "initialize", true)).for(
+    const { log } = (await this.logCtx(args, "initialize", true)).for(
       this.initialize
     );
-    const config = ctxArgs[0] as AwsSecretServiceConfig;
-    if (!config) {
-      throw new InternalError("Missing configuration for AwsSecretService");
-    }
+    const config = this.getConfigFromArgs<AwsSecretServiceConfig>(...args);
     const client = new SecretsManagerClient({
       region: config.region,
       credentials: config.credentials,
@@ -70,6 +91,7 @@ export class AwsSecretService extends ClientBasedService<
     });
     this._config = config;
     this._client = client;
+    log.verbose("Initialized AWS Secrets Manager client");
     return { config, client };
   }
 

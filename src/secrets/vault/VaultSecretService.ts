@@ -1,4 +1,4 @@
-import { SecretProvider } from "../../secrets/core";
+import { ClientBasedSecretService, SecretProvider } from "../../secrets/core";
 import {
   SecretName,
   SecretPayload,
@@ -12,8 +12,10 @@ import {
   deserializeSecretPayload,
   type SerializedSecretPayload,
 } from "../../secrets/core";
-import { ClientBasedService, type MaybeContextualArg } from "@decaf-ts/core";
+import { service, type MaybeContextualArg } from "@decaf-ts/core";
 import { VaultSecretServiceConfig } from "./VaultSecretServiceConfig";
+import { VaultSecretEnvironment } from "./VaultSecretEnvironment";
+import { envString } from "../../shared/environmentValue";
 import {
   BadRequestError,
   ConflictError,
@@ -110,19 +112,33 @@ export class VaultKvV2Client {
   }
 }
 
-export class VaultSecretService extends ClientBasedService<
+@service("secret-vault")
+export class VaultSecretService extends ClientBasedSecretService<
   VaultKvV2Client,
   VaultSecretServiceConfig
 > {
   readonly provider: SecretProvider = "hashicorp-vault";
 
+  protected configFromEnvironment(): VaultSecretServiceConfig | undefined {
+    const env = VaultSecretEnvironment.secrets.vault;
+    const address = envString(env?.address);
+    const token = envString(env?.token);
+    const path = envString(env?.path);
+    if (!address || !token || !path) return undefined;
+    return {
+      provider: "hashicorp-vault",
+      address,
+      token,
+      path,
+      namespace: envString(env.namespace),
+      keyId: envString(env.keyId),
+    };
+  }
+
   async initialize(
     ...args: MaybeContextualArg<any>
   ): Promise<{ config: VaultSecretServiceConfig; client: VaultKvV2Client }> {
-    const { ctxArgs } = (await this.logCtx(args, "initialize", true)).for(
-      this.initialize
-    );
-    const config = ctxArgs[0] as VaultSecretServiceConfig;
+    const config = this.getConfigFromArgs<VaultSecretServiceConfig>(...args);
     const client = new VaultKvV2Client({
       baseUrl: config.address,
       token: config.token,

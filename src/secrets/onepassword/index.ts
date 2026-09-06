@@ -5,3 +5,4 @@
  */
 export * from "./OnePasswordSecretService";
 export * from "./OnePasswordSecretServiceConfig";
+export * from "./OnePasswordSecretEnvironment";

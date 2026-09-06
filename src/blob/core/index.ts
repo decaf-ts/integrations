@@ -5,6 +5,7 @@
  */
 export * from "./BlobTypes";
 export * from "./BlobErrors";
+export * from "./BlobEnvironment";
 export * from "./BlobKey";
 export * from "./BlobValue";
 export * from "./BlobStoreService";

@@ -5,4 +5,5 @@
  */
 export * from "./Secret";
 export * from "./ModelSecretServiceConfig";
+export * from "./ModelSecretEnvironment";
 export * from "./ModelSecretService";

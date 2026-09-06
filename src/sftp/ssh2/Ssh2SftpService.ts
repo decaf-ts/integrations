@@ -1,8 +1,4 @@
-import {
-  Context,
-  type ContextualArgs,
-  type MaybeContextualArg,
-} from "@decaf-ts/core";
+import { service, type ContextualArgs, type MaybeContextualArg } from "@decaf-ts/core";
 import { InternalError } from "@decaf-ts/db-decorators";
 import {
   SftpSource,
@@ -11,6 +7,8 @@ import {
   type SftpSourceConfig,
   assertSftpConfig,
 } from "../core/SftpSource";
+import { Ssh2SftpEnvironment } from "./Ssh2SftpEnvironment";
+import { envNumber, envString } from "../../shared/environmentValue";
 
 export interface Ssh2SftpConfig extends SftpSourceConfig {
   provider: "ssh2";
@@ -61,6 +59,7 @@ interface Ssh2SftpHandle {
   end(cb?: () => void): void;
 }
 
+@service("sftp-ssh2")
 export class Ssh2SftpService extends SftpSource<Ssh2Client, Ssh2SftpConfig> {
   private sftp?: Ssh2SftpHandle;
 
@@ -68,12 +67,31 @@ export class Ssh2SftpService extends SftpSource<Ssh2Client, Ssh2SftpConfig> {
     super();
   }
 
+  protected configFromEnvironment(): Ssh2SftpConfig | undefined {
+    const env = Ssh2SftpEnvironment.sftp.ssh2;
+    const host = envString(env?.host);
+    const username = envString(env?.username);
+    const password = envString(env?.password);
+    const privateKey = envString(env?.privateKey);
+    if (!host || !username || (!password && !privateKey)) return undefined;
+    return {
+      provider: "ssh2",
+      sourceId: envString(env.sourceId) as string,
+      host,
+      port: envNumber(env.port),
+      username,
+      password,
+      privateKey,
+      passphrase: envString(env.passphrase),
+      remotePath: envString(env.remotePath),
+      readyTimeout: envNumber(env.readyTimeout),
+    };
+  }
+
   override async initialize(
     ...args: ContextualArgs<any>
   ): Promise<{ config: Ssh2SftpConfig; client: Ssh2Client }> {
-    const config = args[0];
-    if (!config || config instanceof Context)
-      throw new InternalError(`No configuration provided`);
+    const config = this.getConfigFromArgs<Ssh2SftpConfig>(...args);
     assertSftpConfig(config);
     const Client = await import("ssh2")
       .then((m) => m.Client)
@@ -94,6 +112,8 @@ export class Ssh2SftpService extends SftpSource<Ssh2Client, Ssh2SftpConfig> {
               new InternalError(`SFTP subsystem error: ${err.message}`)
             );
           this.sftp = sftp;
+          this._config = config;
+          this._client = client;
           resolve({ config, client });
         });
       });

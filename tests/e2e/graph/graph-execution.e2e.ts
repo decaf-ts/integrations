@@ -10,7 +10,7 @@
  * engine → SSE → client in the `["graph", type, runId, envelope]` wire
  * format for-http consumers expect. The residual stream itself (and its
  * ServerEventConnector wire format) is what is under test here; everything
- * else uses the run-scoped transport (see `full-stack.e2e.test.ts`).
+ * else uses the run-scoped transport (see `full-stack.e2e.ts`).
  */
 import { jest, describe, beforeAll, afterAll, it, expect } from "@jest/globals";
 

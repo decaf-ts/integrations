@@ -4,3 +4,4 @@
  * @description Re-exports the local filesystem blob store service.
  */
 export * from "./LocalBlobStoreService";
+export * from "./LocalBlobEnvironment";
