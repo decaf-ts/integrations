@@ -67,6 +67,9 @@ export class LocalBlobStoreService extends BlobStoreService<
   }> {
     const config =
       this.getConfigFromArgs<LocalBlobStoreServiceConfig>(...args);
+    if (!config) {
+      return this.skipInitialization() as never;
+    }
     if (!config.rootPath) {
       throw new InternalError(
         "LocalBlobStoreService requires a rootPath"

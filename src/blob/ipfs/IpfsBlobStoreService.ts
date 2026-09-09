@@ -82,6 +82,9 @@ export class IpfsBlobStoreService extends BlobStoreService<
     ).for(this.initialize);
     const config =
       this.getConfigFromArgs<IpfsBlobStoreServiceConfig>(...args);
+    if (!config) {
+      return this.skipInitialization() as never;
+    }
 
     const apiUrl = config.apiUrl || "http://localhost:5001";
     const client = kuboCreate({ url: apiUrl });

@@ -100,20 +100,80 @@ export abstract class BlobStoreService<
     return cleanKey(key);
   }
 
+  // Resolves the provider config from the initialize arguments or the provider's
+  // environment slice. `Service.boot` passes a decaf `Context` (not a blob
+  // config) to every registered `ClientBasedService`, so an object-shaped arg
+  // must not blindly be treated as config. A real blob config always carries a
+  // non-empty string `provider`. When no config can be resolved, `undefined` is
+  // returned only for a context-bearing auto-boot, so an unconfigured provider
+  // (e.g. an optional `blob-minio`/`blob-r2` registered alongside `blob-s3`)
+  // does not block the whole service graph from booting; an explicit
+  // `initialize()` with neither config nor environment still throws.
   protected getConfigFromArgs<TExpected extends TConfig>(
     ...args: MaybeContextualArg<any>
-  ): TExpected {
+  ): TExpected | undefined {
     const config = args[0] as TExpected | undefined;
-    if (config && typeof config === "object") {
+    if (config && this.isConfigLike(config)) {
       return config;
     }
     const fromEnvironment = this.configFromEnvironment() as
       | TExpected
       | undefined;
     if (fromEnvironment) return fromEnvironment;
+    if (this.hasContext(args)) return undefined;
     throw new ValidationError(
       "Blob store config must be the first initialize argument, or resolvable from environment"
     );
+  }
+
+  // True only for an object that carries a non-empty string `provider` and is
+  // not a decaf `Context`. Avoids mistaking a contextual argument (e.g. the
+  // `Context` that `Service.boot` passes) for the config.
+  protected isConfigLike(value: unknown): boolean {
+    if (!value || typeof value !== "object") return false;
+    if (this.isContextLike(value)) return false;
+    const candidate = value as { provider?: unknown };
+    return (
+      typeof candidate.provider === "string" &&
+      candidate.provider.length > 0
+    );
+  }
+
+  // Duck-typed decaf `Context` detection. Avoids `instanceof` so linked builds
+  // of `@decaf-ts/core` with a duplicate `Context` constructor still resolve.
+  protected isContextLike(value: unknown): boolean {
+    if (!value || typeof value !== "object") return false;
+    const candidate = value as {
+      get?: unknown;
+      accumulate?: unknown;
+      override?: unknown;
+      toOverrides?: unknown;
+    };
+    return (
+      typeof candidate.get === "function" &&
+      typeof candidate.accumulate === "function" &&
+      typeof candidate.override === "function" &&
+      typeof candidate.toOverrides === "function"
+    );
+  }
+
+  // `Service.boot` passes a `Context`, which marks a background auto-boot of an
+  // unconfigured provider (resolved to a skip), as opposed to an explicit
+  // `initialize()` that must fail loudly when no config is available.
+  protected hasContext(args: MaybeContextualArg<any>): boolean {
+    return (args || []).some((a) => this.isContextLike(a));
+  }
+
+  // Used when an auto-boot encounters an unconfigured provider; leaves the
+  // service deterministic (the `config`/`client` getters still throw if
+  // accessed) without blocking the rest of the service graph.
+  protected skipInitialization(): {
+    config: undefined;
+    client: undefined;
+  } {
+    this._config = undefined;
+    this._client = undefined;
+    return { config: undefined, client: undefined };
   }
 
   /**

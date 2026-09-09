@@ -66,6 +66,9 @@ export abstract class S3CompatibleBlobStoreService extends BlobStoreService<
     ).for(this.initialize);
     const config =
       this.getConfigFromArgs<S3BlobStoreServiceConfig>(...args);
+    if (!config) {
+      return this.skipInitialization() as never;
+    }
     if (!config.bucket) {
       throw new InternalError("S3BlobStoreService requires a bucket");
     }

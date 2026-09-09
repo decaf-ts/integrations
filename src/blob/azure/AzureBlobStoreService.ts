@@ -79,6 +79,9 @@ export class AzureBlobStoreService extends BlobStoreService<
       this.initialize
     );
     const config = this.getConfigFromArgs<AzureBlobStoreServiceConfig>(...args);
+    if (!config) {
+      return this.skipInitialization() as never;
+    }
     if (!config.container) {
       throw new InternalError("AzureBlobStoreService requires a container");
     }

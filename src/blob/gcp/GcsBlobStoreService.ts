@@ -72,6 +72,9 @@ export class GcsBlobStoreService extends BlobStoreService<
     ).for(this.initialize);
     const config =
       this.getConfigFromArgs<GcsBlobStoreServiceConfig>(...args);
+    if (!config) {
+      return this.skipInitialization() as never;
+    }
     if (!config.bucket) {
       throw new InternalError("GcsBlobStoreService requires a bucket");
     }

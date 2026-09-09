@@ -57,6 +57,9 @@ export class MemoryBlobStoreService extends BlobStoreService<
     client: Map<string, MemoryEntry>;
   }> {
     const config = this.getConfigFromArgs<BlobStoreServiceConfig>(...args);
+    if (!config) {
+      return this.skipInitialization() as never;
+    }
     this._config = config;
     this._client = new Map<string, MemoryEntry>();
     return { config, client: this._client };
