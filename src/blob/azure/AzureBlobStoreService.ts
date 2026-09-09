@@ -49,13 +49,35 @@ import type {
   BlobValue,
 } from "../core/BlobTypes";
 
+/**
+ * @description Azure Blob storage service registered as `blob-azure`
+ * @summary Stores blobs in an Azure Blob Storage container via
+ * `@azure/storage-blob`, authenticating either with a connection string or
+ * `DefaultAzureCredential`, and signing URLs with SAS tokens.
+ * @class AzureBlobStoreService
+ * @memberOf module:integrations/blob/azure/service
+ */
 @service("blob-azure")
 export class AzureBlobStoreService extends BlobStoreService<
   ContainerClient,
   AzureBlobStoreServiceConfig
 > {
+  /**
+   * @description The `BlobServiceClient` used to resolve the container client
+   * @summary Built in `initialize()` from the connection string or endpoint;
+   * kept separately so `url()` can inspect the credential for SAS signing.
+   * @type {BlobServiceClient}
+   * @private
+   */
   private blobServiceClient!: BlobServiceClient;
 
+  /**
+   * @description Builds the Azure blob config from the environment
+   * @summary Reads the `blobs.azure` environment slice; considered
+   * unconfigured when no `container` is set, which keeps the auto-boot
+   * fallback (see `getConfigFromArgs`) resolving to `undefined`.
+   * @return {AzureBlobStoreServiceConfig | undefined} The environment-derived config, or `undefined` when unconfigured
+   */
   protected configFromEnvironment(): AzureBlobStoreServiceConfig | undefined {
     const env = AzureBlobEnvironment.blobs.azure;
     const container = envString(env?.container);
@@ -71,6 +93,21 @@ export class AzureBlobStoreService extends BlobStoreService<
     };
   }
 
+  /**
+   * @description Initializes the Azure Blob container client
+   * @summary Resolves the config via `getConfigFromArgs` (explicit config,
+   * then the `blobs.azure` environment slice). When no config resolves during
+   * a context-bearing auto-boot of an unconfigured provider, returns
+   * `skipInitialization()` so `Service.boot` does not throw; an explicit
+   * `initialize()` with no resolvable config still throws a
+   * `ValidationError`. Requires a `container`, builds the
+   * `BlobServiceClient` from the connection string when present or from the
+   * endpoint (defaulting to `https://<accountName>.blob.core.windows.net`)
+   * with `DefaultAzureCredential` otherwise, and stores the container client.
+   * @param {...ContextualArgs<any>} args - An optional `AzureBlobStoreServiceConfig`, optionally followed by a decaf `Context`
+   * @return {Promise<{config: AzureBlobStoreServiceConfig, client: ContainerClient}>} The resolved config and the container client
+   * @throws {InternalError} When a resolved config has no `container`
+   */
   override async initialize(...args: ContextualArgs<any>): Promise<{
     config: AzureBlobStoreServiceConfig;
     client: ContainerClient;

@@ -37,13 +37,35 @@ import type {
 } from "../core/BlobTypes";
 import { createIpfsKeyIndex, type IpfsKeyIndex } from "./IpfsKeyIndex";
 
+/**
+ * @description IPFS blob store service registered as `blob-ipfs`
+ * @summary Stores blobs on an IPFS (Kubo) node via `kubo-rpc-client`. Because
+ * the blob API is key/value CRUD-like and IPFS is content-addressed, an
+ * `IpfsKeyIndex` maps logical keys to CIDs; when `encryptedOnly` is set only
+ * encrypted payloads are accepted.
+ * @class IpfsBlobStoreService
+ * @memberOf module:integrations/blob/ipfs/service
+ */
 @service("blob-ipfs")
 export class IpfsBlobStoreService extends BlobStoreService<
   KuboRPCClient,
   IpfsBlobStoreServiceConfig
 > {
+  /**
+   * @description The key index mapping logical keys to IPFS CIDs
+   * @summary Created in `initialize()` from the configured `keyIndex` provider.
+   * @type {IpfsKeyIndex}
+   * @private
+   */
   private index!: IpfsKeyIndex;
 
+  /**
+   * @description Builds the IPFS blob config from the environment
+   * @summary Reads the `blobs.ipfs` environment slice; considered
+   * unconfigured when no `sourceId` is set, which keeps the auto-boot
+   * fallback (see `getConfigFromArgs`) resolving to `undefined`.
+   * @return {IpfsBlobStoreServiceConfig | undefined} The environment-derived config, or `undefined` when unconfigured
+   */
   protected override configFromEnvironment():
     | IpfsBlobStoreServiceConfig
     | undefined {
@@ -71,6 +93,18 @@ export class IpfsBlobStoreService extends BlobStoreService<
     };
   }
 
+  /**
+   * @description Initializes the IPFS Kubo RPC client and key index
+   * @summary Resolves the config via `getConfigFromArgs` (explicit config,
+   * then the `blobs.ipfs` environment slice). When no config resolves during
+   * a context-bearing auto-boot of an unconfigured provider, returns
+   * `skipInitialization()` so `Service.boot` does not throw; an explicit
+   * `initialize()` with no resolvable config still throws a
+   * `ValidationError`. Connects to the Kubo node at the configured `apiUrl`
+   * (default `http://localhost:5001`) and creates the `IpfsKeyIndex`.
+   * @param {...ContextualArgs<any>} args - An optional `IpfsBlobStoreServiceConfig`, optionally followed by a decaf `Context`
+   * @return {Promise<{config: IpfsBlobStoreServiceConfig, client: KuboRPCClient}>} The resolved config and the Kubo RPC client
+   */
   override async initialize(
     ...args: ContextualArgs<any>
   ): Promise<{

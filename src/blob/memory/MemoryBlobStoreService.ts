@@ -34,11 +34,26 @@ interface MemoryEntry {
   metadata: BlobMetadata;
 }
 
+/**
+ * @description In-memory blob store service registered as `blob-memory`
+ * @summary Stores blobs in a process-local `Map`, so data does not survive
+ * restarts. Intended for tests and examples; supports the full blob CRUD API
+ * without any SDK dependency.
+ * @class MemoryBlobStoreService
+ * @memberOf module:integrations/blob/memory/service
+ */
 @service("blob-memory")
 export class MemoryBlobStoreService extends BlobStoreService<
   Map<string, MemoryEntry>,
   BlobStoreServiceConfig
 > {
+  /**
+   * @description Builds the memory blob config from the environment
+   * @summary Reads the `blobs.memory` environment slice; considered
+   * unconfigured when no `sourceId` is set, which keeps the auto-boot
+   * fallback (see `getConfigFromArgs`) resolving to `undefined`.
+   * @return {BlobStoreServiceConfig | undefined} The environment-derived config, or `undefined` when unconfigured
+   */
   protected override configFromEnvironment(): BlobStoreServiceConfig | undefined {
     const env = MemoryBlobEnvironment.blobs.memory;
     const sourceId = envString(env?.sourceId);
@@ -50,6 +65,18 @@ export class MemoryBlobStoreService extends BlobStoreService<
     };
   }
 
+  /**
+   * @description Initializes the in-memory blob store client
+   * @summary Resolves the config via `getConfigFromArgs` (explicit config,
+   * then the `blobs.memory` environment slice). When no config resolves during
+   * a context-bearing auto-boot of an unconfigured provider, returns
+   * `skipInitialization()` so `Service.boot` does not throw; an explicit
+   * `initialize()` with no resolvable config still throws a
+   * `ValidationError`. On success, stores the config and creates the backing
+   * `Map` client.
+   * @param {...ContextualArgs<any>} args - An optional `BlobStoreServiceConfig`, optionally followed by a decaf `Context`
+   * @return {Promise<{config: BlobStoreServiceConfig, client: Map<string, MemoryEntry>}>} The resolved config and the in-memory client
+   */
   override async initialize(
     ...args: ContextualArgs<any>
   ): Promise<{

@@ -51,10 +51,38 @@ import type {
   S3BlobStoreServiceConfig,
 } from "../core/BlobTypes";
 
+/**
+ * @description Base implementation for S3-compatible blob stores
+ * @summary Implements the full blob CRUD API on top of the AWS SDK v3
+ * `S3Client` and is shared by the S3, MinIO, and Cloudflare R2 provider
+ * services. Deliberately left undecorated: `@service(...)` on a class whose
+ * parent is itself `@service(...)`-decorated breaks that subclass's inherited
+ * field initializers (e.g. `Context` ends up `undefined`). Each concrete
+ * provider extends this class directly and carries its own
+ * `@service("blob-<provider>")` decorator instead of stacking on top of one
+ * another.
+ * @class S3CompatibleBlobStoreService
+ * @memberOf module:integrations/blob/s3/base-service
+ */
 export abstract class S3CompatibleBlobStoreService extends BlobStoreService<
   S3Client,
   S3BlobStoreServiceConfig
 > {
+  /**
+   * @description Initializes the S3 client from config or environment
+   * @summary Resolves the config via `getConfigFromArgs` (explicit config,
+   * then the provider's environment slice). When no config resolves during a
+   * context-bearing auto-boot of an unconfigured provider (e.g. an optional
+   * `blob-minio`/`blob-r2` registered alongside `blob-s3`), returns
+   * `skipInitialization()` so `Service.boot` does not throw; an explicit
+   * `initialize()` with no resolvable config still throws a
+   * `ValidationError`. Requires a `bucket`, builds the `S3Client` (with
+   * optional static credentials), stores config and client, and optionally
+   * creates the bucket when `autoCreateBucket` is set.
+   * @param {...ContextualArgs<any>} args - An optional `S3BlobStoreServiceConfig`, optionally followed by a decaf `Context`
+   * @return {Promise<{config: S3BlobStoreServiceConfig, client: S3Client}>} The resolved config and the constructed `S3Client`
+   * @throws {InternalError} When a resolved config has no `bucket`
+   */
   override async initialize(
     ...args: ContextualArgs<any>
   ): Promise<{

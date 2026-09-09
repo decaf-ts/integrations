@@ -40,11 +40,25 @@ interface LocalFsClient {
   root: string;
 }
 
+/**
+ * @description Local filesystem blob store service registered as `blob-local`
+ * @summary Stores blobs under a configurable root path using `node:fs` with
+ * atomic writes (temp file + rename) and path-traversal protection.
+ * @class LocalBlobStoreService
+ * @memberOf module:integrations/blob/local/service
+ */
 @service("blob-local")
 export class LocalBlobStoreService extends BlobStoreService<
   LocalFsClient,
   LocalBlobStoreServiceConfig
 > {
+  /**
+   * @description Builds the local blob config from the environment
+   * @summary Reads the `blobs.local` environment slice; considered
+   * unconfigured when no `rootPath` is set, which keeps the auto-boot
+   * fallback (see `getConfigFromArgs`) resolving to `undefined`.
+   * @return {LocalBlobStoreServiceConfig | undefined} The environment-derived config, or `undefined` when unconfigured
+   */
   protected override configFromEnvironment():
     | LocalBlobStoreServiceConfig
     | undefined {
@@ -59,6 +73,19 @@ export class LocalBlobStoreService extends BlobStoreService<
     };
   }
 
+  /**
+   * @description Initializes the local filesystem blob store client
+   * @summary Resolves the config via `getConfigFromArgs` (explicit config,
+   * then the `blobs.local` environment slice). When no config resolves during
+   * a context-bearing auto-boot of an unconfigured provider, returns
+   * `skipInitialization()` so `Service.boot` does not throw; an explicit
+   * `initialize()` with no resolvable config still throws a
+   * `ValidationError`. Requires a `rootPath`, creates it recursively, and
+   * stores the resolved absolute root as the client.
+   * @param {...ContextualArgs<any>} args - An optional `LocalBlobStoreServiceConfig`, optionally followed by a decaf `Context`
+   * @return {Promise<{config: LocalBlobStoreServiceConfig, client: LocalFsClient}>} The resolved config and the filesystem client
+   * @throws {InternalError} When a resolved config has no `rootPath`
+   */
   override async initialize(
     ...args: ContextualArgs<any>
   ): Promise<{

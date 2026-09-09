@@ -38,13 +38,34 @@ import type {
   GcsBlobStoreServiceConfig,
 } from "../core/BlobTypes";
 
+/**
+ * @description Google Cloud Storage blob store service registered as `blob-gcs`
+ * @summary Stores blobs in a GCS bucket via `@google-cloud/storage`,
+ * authenticating with optional explicit credentials or the environment's
+ * application default credentials.
+ * @class GcsBlobStoreService
+ * @memberOf module:integrations/blob/gcp/service
+ */
 @service("blob-gcs")
 export class GcsBlobStoreService extends BlobStoreService<
   Bucket,
   GcsBlobStoreServiceConfig
 > {
+  /**
+   * @description The `Storage` client used to resolve the bucket
+   * @summary Built in `initialize()` from the resolved config.
+   * @type {Storage}
+   * @private
+   */
   private storage!: Storage;
 
+  /**
+   * @description Builds the GCS blob config from the environment
+   * @summary Reads the `blobs.gcs` environment slice; considered
+   * unconfigured when no `bucket` is set, which keeps the auto-boot
+   * fallback (see `getConfigFromArgs`) resolving to `undefined`.
+   * @return {GcsBlobStoreServiceConfig | undefined} The environment-derived config, or `undefined` when unconfigured
+   */
   protected override configFromEnvironment():
     | GcsBlobStoreServiceConfig
     | undefined {
@@ -61,6 +82,20 @@ export class GcsBlobStoreService extends BlobStoreService<
     };
   }
 
+  /**
+   * @description Initializes the GCS bucket client
+   * @summary Resolves the config via `getConfigFromArgs` (explicit config,
+   * then the `blobs.gcs` environment slice). When no config resolves during a
+   * context-bearing auto-boot of an unconfigured provider, returns
+   * `skipInitialization()` so `Service.boot` does not throw; an explicit
+   * `initialize()` with no resolvable config still throws a
+   * `ValidationError`. Requires a `bucket`, builds the `Storage` client with
+   * the configured project ID, credentials, and API endpoint, and stores the
+   * bucket client.
+   * @param {...ContextualArgs<any>} args - An optional `GcsBlobStoreServiceConfig`, optionally followed by a decaf `Context`
+   * @return {Promise<{config: GcsBlobStoreServiceConfig, client: Bucket}>} The resolved config and the bucket client
+   * @throws {InternalError} When a resolved config has no `bucket`
+   */
   override async initialize(
     ...args: ContextualArgs<any>
   ): Promise<{
