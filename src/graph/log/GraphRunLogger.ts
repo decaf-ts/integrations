@@ -170,8 +170,15 @@ export class GraphRunLogger implements Logger {
   }
 
   /** @inheritdoc */
-  action(action: string, message: StringLike, code?: number, ...rest: any[]): void {
-    this.inner.action(action, message, code, ...rest);
+  action(action: string, meta?: LogMeta): void;
+  /** @inheritdoc */
+  action(action: string, code: number, meta?: LogMeta): void;
+  action(
+    action: string,
+    codeOrMeta?: number | LogMeta,
+    meta?: LogMeta
+  ): void {
+    (this.inner.action as any)(action, codeOrMeta, meta);
   }
 
   /** @inheritdoc */

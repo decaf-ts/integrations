@@ -69,8 +69,10 @@ export const NOROLE_TOKEN = buildUserToken(NOROLE_USER);
 @service("jwt")
 export class TestJwtService extends JwtService {
   override async initialize(...args: Parameters<JwtService["initialize"]>) {
-    return super.initialize((args[0] ?? {}) as Parameters<
-      JwtService["initialize"]
-    >[0]);
+    const cfg = (args[0] ?? {}) as Parameters<JwtService["initialize"]>[0];
+    return super.initialize({
+      ...cfg,
+      allowDecodeOnly: cfg.allowDecodeOnly ?? true,
+    } as Parameters<JwtService["initialize"]>[0]);
   }
 }
