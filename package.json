@@ -258,6 +258,17 @@
       },
       "default": "./lib/esm/blob/memory/index.js"
     },
+    "./calendar": {
+      "import": {
+        "types": "./lib/types/calendar/index.d.mts",
+        "default": "./lib/esm/calendar/index.js"
+      },
+      "require": {
+        "types": "./lib/types/calendar/index.d.cts",
+        "default": "./lib/cjs/calendar/index.cjs"
+      },
+      "default": "./lib/esm/calendar/index.js"
+    },
     "./graph": {
       "import": {
         "types": "./lib/types/graph/index.d.mts",
@@ -392,7 +403,8 @@
     "@types/supertest": "^6.0.0",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
-    "supertest": "^7.0.0"
+    "supertest": "^7.0.0",
+    "cron-parser": "^5.7.0"
   },
   "peerDependencies": {
     "@decaf-ts/as-zod": "latest",
