@@ -1,7 +1,7 @@
 services:
   # MinIO - S3-compatible object storage (covers s3, minio, and r2 blob providers)
   minio:
-    image: minio/minio:RELEASE.2024-08-29T01-40-52Z
+    image: minio/minio:latest
     container_name: minio-blob-integration
     restart: unless-stopped
     command: server /data --console-address ":9101"

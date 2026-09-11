@@ -12,7 +12,11 @@
  *      fingerprint (filtered delivery),
  *  (c) no header and no auth -> per-connection fingerprint, private mode receives
  *      nothing unless subscribed,
- *  (d) a second SSE opened for the same authenticated user -> 409 ConflictError.
+ *  (d) a second SSE for the same client (user + correlation id) takes over the
+ *      first — a reconnecting client is never rejected,
+ *  (e) the same user on several clients (tabs/devices, one correlation id each)
+ *      keeps one stream and one subscription per client: every subscribed tab
+ *      receives each event exactly once, an unsubscribed tab receives nothing.
  */
 import { jest, describe, beforeAll, afterAll, it, expect } from "@jest/globals";
 
@@ -68,11 +72,13 @@ type ParsedFrame = {
 };
 
 /**
- * Minimal SSE client over global fetch. Captures the HTTP status (needed to assert
- * the 409 conflict) and parses `event:`/`data:` frames from the stream body.
+ * Minimal SSE client over global fetch. Captures the HTTP status, parses
+ * `event:`/`data:` frames from the stream body and records when the server ended
+ * the stream.
  */
 class SseClient {
   readonly frames: ParsedFrame[] = [];
+  ended = false;
   private readonly controller = new AbortController();
   private buffer = "";
   private readonly openPromise: Promise<Response>;
@@ -111,6 +117,7 @@ class SseClient {
       this.buffer += decoder.decode(value, { stream: true });
       this.flushBuffer();
     }
+    this.ended = true;
   }
 
   private flushBuffer(): void {
@@ -261,8 +268,7 @@ describe("SSE fingerprint auth extraction (DECAF-48, Keycloak harness)", () => {
   }
 
   afterEach(async () => {
-    // One SSE connection per fingerprint: every test must release its claims so
-    // the next test can claim the same authenticated identities again.
+    // Close every stream so no test observes another test's connections.
     await closeAllSse();
     await sleep(300);
   });
@@ -421,37 +427,97 @@ describe("SSE fingerprint auth extraction (DECAF-48, Keycloak harness)", () => {
     await c2.expectAbsent(isCreateFor(FakePartner.name, recordId));
   });
 
-  it("(d) a second SSE for the same authenticated user returns 409 ConflictError", async () => {
-    const first = track(
-      new SseClient(`http://${authHost}/events`, {
-        Authorization: `Bearer ${ADMIN_TOKEN}`,
-        "x-correlation-id": "d-owner",
-      })
-    );
+  it("(d) a second SSE for the same client (user + correlation id) takes over the first", async () => {
+    const client = {
+      Authorization: `Bearer ${ADMIN_TOKEN}`,
+      "x-correlation-id": `d-owner-${Math.random().toString(36).slice(2)}`,
+    };
+    const subscribe = await fetch(`http://${authHost}/events/subscribe`, {
+      method: "POST",
+      headers: { ...client, "Content-Type": "application/json" },
+      body: JSON.stringify({ topics: ["FakePartner"] }),
+    });
+    expect(subscribe.status).toBe(201);
+
+    const first = track(new SseClient(`http://${authHost}/events`, client));
     expect((await first.open()).status).toBe(200);
 
-    const second = track(
-      new SseClient(`http://${authHost}/events`, {
-        Authorization: `Bearer ${ADMIN_TOKEN}`,
-        "x-correlation-id": "d-owner",
-      })
-    );
-    const secondResponse = await second.open();
-    expect(secondResponse.status).toBe(409);
-    expect((await secondResponse.json()) as any).toMatchObject({
-      status: 409,
-    });
+    // e.g. the client reconnects before the server noticed the first stream dropped
+    const second = track(new SseClient(`http://${authHost}/events`, client));
+    expect((await second.open()).status).toBe(200);
+    await delayUntil(() => first.ended, 5000);
 
-    // Closing the first stream releases the claim so a reconnect works again.
-    first.close();
-    await sleep(500);
-    const third = track(
-      new SseClient(`http://${authHost}/events`, {
-        Authorization: `Bearer ${ADMIN_TOKEN}`,
-        "x-correlation-id": "d-owner",
-      })
+    const recordId = `dt-${Math.random().toString(36).slice(2)}`;
+    await partnerRepo.create(new FakePartner({ id: recordId, name: "takeover" }));
+    await second.waitForMessage(
+      isCreateFor(FakePartner.name, recordId),
+      20000,
+      "stream that took over (d)"
     );
-    expect((await third.open()).status).toBe(200);
+    expect(first.frames.some((f) => f.event === "error")).toBe(false);
+    expect(
+      first.frames.some((f) => isCreateFor(FakePartner.name, recordId)(f.data))
+    ).toBe(false);
+  });
+
+  it("(e) the same user keeps one stream and one subscription per client (tab/device)", async () => {
+    const tab = (name: string) => ({
+      Authorization: `Bearer ${ADMIN_TOKEN}`,
+      "x-correlation-id": `${name}-${Math.random().toString(36).slice(2)}`,
+    });
+    const tab1 = tab("tab-1");
+    const tab2 = tab("tab-2");
+    const subscribe = await fetch(`http://${authHost}/events/subscribe`, {
+      method: "POST",
+      headers: { ...tab1, "Content-Type": "application/json" },
+      body: JSON.stringify({ topics: ["FakePartner"] }),
+    });
+    expect(subscribe.status).toBe(201);
+
+    const first = track(new SseClient(`http://${authHost}/events`, tab1));
+    const second = track(new SseClient(`http://${authHost}/events`, tab2));
+    expect((await first.open()).status).toBe(200);
+    expect((await second.open()).status).toBe(200);
+
+    const recordId = `et-${Math.random().toString(36).slice(2)}`;
+    await partnerRepo.create(new FakePartner({ id: recordId, name: "per tab" }));
+
+    // tab 1 subscribed and receives; tab 2 (same user, not subscribed) stays silent
+    await first.waitForMessage(isCreateFor(FakePartner.name, recordId), 20000, "tab 1 (e)");
+    await second.expectAbsent(isCreateFor(FakePartner.name, recordId));
+    expect(first.ended).toBe(false);
+    expect(second.ended).toBe(false);
+  });
+
+  it("(e.2) every tab of the same user that subscribed receives the event exactly once", async () => {
+    const tabs = ["tab-a", "tab-b"].map((name) => ({
+      Authorization: `Bearer ${ADMIN_TOKEN}`,
+      "x-correlation-id": `${name}-${Math.random().toString(36).slice(2)}`,
+    }));
+    for (const headers of tabs) {
+      const subscribe = await fetch(`http://${authHost}/events/subscribe`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ topics: ["FakePartner"] }),
+      });
+      expect(subscribe.status).toBe(201);
+    }
+    const clients = tabs.map((headers) =>
+      track(new SseClient(`http://${authHost}/events`, headers))
+    );
+    for (const client of clients) expect((await client.open()).status).toBe(200);
+
+    const recordId = `eb-${Math.random().toString(36).slice(2)}`;
+    await partnerRepo.create(new FakePartner({ id: recordId, name: "both tabs" }));
+
+    for (const client of clients)
+      await client.waitForMessage(isCreateFor(FakePartner.name, recordId), 20000, "subscribed tab (e.2)");
+    await sleep(500); // let any duplicate arrive
+    for (const client of clients) {
+      const copies = client.frames.filter((f) => isCreateFor(FakePartner.name, recordId)(f.data));
+      expect(copies).toHaveLength(1);
+      expect(client.ended).toBe(false);
+    }
   });
 });
 
