@@ -3,13 +3,15 @@
  * @summary Cloudflare R2 blob store service.
  * @description S3-compatible blob store for Cloudflare R2.
  */
-import { service } from "@decaf-ts/core";
 import { S3CompatibleBlobStoreService } from "./S3CompatibleBlobStoreService";
 import { R2BlobEnvironment } from "./R2BlobEnvironment";
-import { envBoolean, envNumber, envString } from "../../shared/environmentValue";
+import {
+  envBoolean,
+  envNumber,
+  envString,
+} from "../../shared/environmentValue";
 import type { S3BlobStoreServiceConfig } from "../core/BlobTypes";
 
-@service("blob-r2")
 export class R2BlobStoreService extends S3CompatibleBlobStoreService {
   protected override configFromEnvironment():
     | S3BlobStoreServiceConfig
@@ -31,7 +33,9 @@ export class R2BlobStoreService extends S3CompatibleBlobStoreService {
       credentials: accessKeyId
         ? {
             accessKeyId,
-            secretAccessKey: envString(env.credentials?.secretAccessKey) as string,
+            secretAccessKey: envString(
+              env.credentials?.secretAccessKey
+            ) as string,
             sessionToken: envString(env.credentials?.sessionToken),
           }
         : undefined,
