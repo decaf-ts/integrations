@@ -1,9 +1,17 @@
 /**
  * @module integrations/tests/unit/graph/GraphPinning.test
- * @summary Unit tests for the pinning policy, dependency resolver, and service.
+ * @summary Engine cache-pinning unit tests (pinning policy, dependency resolver,
+ * and service).
  * @description DECAF-50 §4.9 pinning semantics: fingerprints derive from node
  * kind, parameters, bindings, effective inputs, relevant metadata, and
  * dependency fingerprints; presentation-only UI state is excluded.
+ *
+ * SCOPE (T8 relabel, DECAF-50 §4.24): this suite covers the ENGINE's cache
+ * pinning only (`GraphPinning*`). It is NOT the UI pin-button contract — UI
+ * data pinning (pin writes the canonical document, survives save/load, freezes
+ * parameter values for downstream runs, and renders only when pinnable) is covered
+ * by `for-angular` (`GraphDataPinning.spec.ts` + `tests/playwright/graph/`).
+ * The two must never be conflated (G3-15).
  */
 import { GraphExecutionPlanner } from "../../../src/graph/engine/planning/GraphExecutionPlanner";
 import { GraphPinningDependencyResolver } from "../../../src/graph/engine/pinning/GraphPinningDependencyResolver";

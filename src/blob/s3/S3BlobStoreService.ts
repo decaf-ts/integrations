@@ -48,9 +48,12 @@ export class S3BlobStoreService extends S3CompatibleBlobStoreService {
   override async initialize(
     ...args: ContextualArgs<any>
   ): Promise<{ config: S3BlobStoreServiceConfig; client: S3Client }> {
-    let cfg: any;
-    if (!args[0] || args[0] instanceof Context)
-      cfg = this.configFromEnvironment();
-    return super.initialize(cfg, ...args);
+    if (!args[0] || args[0] instanceof Context) {
+      const cfg = this.configFromEnvironment();
+      return cfg
+        ? super.initialize(cfg, ...args)
+        : super.initialize(...args);
+    }
+    return super.initialize(...args);
   }
 }

@@ -32,6 +32,8 @@ const config = {
   moduleNameMapper: {
     "^\\.\\.\\/\\.\\.\\/lib\\/keycloak(.*)$":
       "<rootDir>/../integrations/src/keycloak\\1",
+    "^@nestjs/(core|common|testing|platform-express)$":
+      "<rootDir>/node_modules/@nestjs/$1",
   },
   extensionsToTreatAsEsm: [".ts"],
   preset: "ts-jest/presets/default-esm",

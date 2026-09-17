@@ -173,6 +173,7 @@ describe("GraphBuiltInRegistrations", () => {
       "Flow Control",
       "Utility",
       "Agent",
+      "Loop",
     ] as const;
     for (const manifest of GRAPH_BUILT_IN_NODE_MANIFESTS) {
       expect(manifest.display.name).toBeTruthy();
@@ -204,6 +205,7 @@ describe("Global built-in exhaustive kind catalogue and visual conformance", () 
       "Flow Control",
       "Utility",
       "Agent",
+      "Loop",
     ] as const;
     for (const manifest of GRAPH_BUILT_IN_NODE_MANIFESTS) {
       const family = manifest.display.category;
@@ -215,7 +217,9 @@ describe("Global built-in exhaustive kind catalogue and visual conformance", () 
             ? "utility"
             : manifest.kind === "core.agent"
               ? "agent"
-              : "flow"
+              : manifest.kind.startsWith("core.loop.")
+                ? "loop"
+                : "flow"
       );
       if (manifest.kind === "core.agent") {
         // the Agent class omits color/icon on @node(); the display is
@@ -223,7 +227,9 @@ describe("Global built-in exhaustive kind catalogue and visual conformance", () 
         expect(manifest.display.color).toBeUndefined();
         expect(manifest.display.icon?.name).toBe("ti-robot");
       } else {
-        expect(manifest.display.color).toMatch(/^#[0-9a-f]{6}$/);
+        // D7/G3-22: the manifest display colour is the category base
+        // colour — same-category nodes never diverge.
+        expect(manifest.display.color).toBe(graphCategoryStyleOf(family).color);
         expect(manifest.display.icon?.type).toBe("catalogue");
         expect(
           (manifest.display.icon as { name?: string }).name?.startsWith("ti")
@@ -327,15 +333,18 @@ describe("Global built-in exhaustive kind catalogue and visual conformance", () 
           )
         ).toBe("ti-robot");
       } else {
-        expect(manifest.display.color).toMatch(/^#[0-9a-f]{6}$/);
+        // D7/G3-22: the manifest display is the single authority for the
+        // category base colour — every node of a category shares it.
+        expect(manifest.display.color).toBe(graphCategoryStyleOf(family).color);
         expect(manifest.display.icon?.type).toBe("catalogue");
         expect(manifest.display.icon?.name).toMatch(/^ti-[a-z0-9-]+$/);
       }
     }
-    // the 23 built-ins present exactly these four families
+    // the 23 built-ins present exactly these five families
     expect([...families].sort()).toEqual([
       "Agent",
       "Flow Control",
+      "Loop",
       "Trigger",
       "Utility",
     ]);

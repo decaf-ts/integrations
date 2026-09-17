@@ -1,7 +1,9 @@
+name: decaf-minio-integration
+
 services:
   # MinIO - S3-compatible object storage (covers s3, minio, and r2 blob providers)
   minio:
-    image: minio/minio:latest
+    image: chainguard/minio:latest
     container_name: minio-blob-integration
     restart: unless-stopped
     command: server /data --console-address ":9101"
@@ -13,12 +15,12 @@ services:
       - MINIO_ROOT_PASSWORD=minioadmin
     volumes:
       - minio-blob-data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/ready"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+#    healthcheck:
+#      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/ready"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
+#      start_period: 10s
 
 volumes:
   minio-blob-data:
