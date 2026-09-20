@@ -8,6 +8,7 @@ import {
   type GraphWorkflowPortInstance,
 } from "@decaf-ts/ui-decorators/graph";
 import type { GraphNodeCatalogue } from "../../graph";
+import { collectLooseNodeIssues } from "../../graph";
 import type {
   GraphValidationIssue,
   GraphWorkflowValidationResult,
@@ -290,6 +291,7 @@ export function validateGraphWorkflowDocumentAtBoundary(
   collectForbiddenFieldIssues(document, issues);
   issues.push(...duplicateIdIssues(document));
   issues.push(...limitIssues(document, limits));
+  collectLooseNodeIssues(document, issues);
 
   try {
     assertGraphWorkflowDocumentValid(document);

@@ -593,7 +593,8 @@ export class GraphExecutionEngine
         planNode.manifest,
         nodePath,
         emitFn,
-        opts.metadata
+        opts.metadata,
+        this
       );
 
       const request: GraphNodeExecutionRequest = {

@@ -17,3 +17,4 @@ export * from "./GraphEdgeInstanceValidator";
 export * from "./GraphConnectionPolicyValidator";
 export * from "./GraphCredentialReferenceValidator";
 export * from "./GraphWorkflowDocumentValidator";
+export * from "./GraphLooseNodeValidation";

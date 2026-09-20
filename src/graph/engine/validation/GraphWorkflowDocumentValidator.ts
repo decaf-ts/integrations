@@ -45,6 +45,7 @@ import type {
   GraphResolvedNodeManifest,
 } from "@decaf-ts/ui-decorators/graph";
 import { GraphNodeInstanceValidator } from "./GraphNodeInstanceValidator";
+import { collectLooseNodeIssues } from "./GraphLooseNodeValidation";
 import { GraphParameterValidator } from "./GraphParameterValidator";
 import { GraphEdgeInstanceValidator } from "./GraphEdgeInstanceValidator";
 import { GraphConnectionPolicyValidator } from "./GraphConnectionPolicyValidator";
@@ -167,6 +168,29 @@ function forbiddenFieldIssues(
 }
 
 /**
+ * Collects, per node id, the input port ids targeted by an incoming data
+ * edge. Used by the stage-3 parameter pass for cross-satisfaction
+ * (§4.4.5 rules 1/5/7): a required parameter whose id matches an
+ * edge-satisfied input port is carried by that edge and needs no redundant
+ * `parameters[id]` entry. This only reads the raw document — edge
+ * existence, direction and type are still validated at stage 5.
+ */
+function collectEdgeSatisfiedInputPorts(
+  document: GraphWorkflowDocument
+): Map<string, Set<string>> {
+  const satisfied = new Map<string, Set<string>>();
+  for (const edge of document.edges ?? []) {
+    if (edge.type !== "data") continue;
+    const target = edge.target;
+    if (target.scope !== "node") continue;
+    const ports = satisfied.get(target.nodeId) ?? new Set<string>();
+    ports.add(target.port);
+    satisfied.set(target.nodeId, ports);
+  }
+  return satisfied;
+}
+
+/**
  * The nine-stage backend validation gate (DECAF-50 §4.8).
  *
  * Usage: `const result = await validator.validate(document);` — inspect
@@ -249,13 +273,21 @@ export class GraphWorkflowDocumentValidator {
     // ------------------------------------------------------------------
     // Stage 3 — parameters (declared-ness, required presence, typing,
     // metadata keys, disabled behavior, binding shapes).
+    //
+    // Cross-satisfaction (§4.4.5 rules 1/5/7): a required parameter whose
+    // id matches an input port may be carried on the input surface instead.
+    // The edge-satisfied port set is derived from the raw document here so
+    // the parameter pass can see an incoming data edge without reordering
+    // the normative stages (edges are still resolved and validated at stage 5).
     // ------------------------------------------------------------------
+    const edgeSatisfiedInputPorts = collectEdgeSatisfiedInputPorts(document);
     for (const node of resolvedNodes) {
       this.parameterValidator.validate(
         node.instance,
         node.manifest,
         issues,
-        `nodes[${node.instance.id}]`
+        `nodes[${node.instance.id}]`,
+        edgeSatisfiedInputPorts.get(node.instance.id)
       );
     }
 
@@ -302,6 +334,7 @@ export class GraphWorkflowDocumentValidator {
     // and are therefore independently acyclic.
     // ------------------------------------------------------------------
     this.validateAcyclicity(resolvedNodes, edges, document, issues);
+    collectLooseNodeIssues(document, issues);
     for (const node of resolvedNodes) {
       this.parameterValidator.validateBindingSatisfaction(
         node.instance,

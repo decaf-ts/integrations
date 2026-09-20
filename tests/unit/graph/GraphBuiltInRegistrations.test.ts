@@ -17,9 +17,8 @@ import {
   resolveEffectiveIcon,
 } from "@decaf-ts/ui-decorators/graph";
 import {
-  CodeGraphNodeExecutor,
-  ForeachGraphNodeExecutor,
   GraphExecutionEngine,
+  GraphExecutionContext,
   GraphNodeCatalogue,
   GraphNodeExecutorRegistry,
   GraphNodeRegistrationError,
@@ -30,39 +29,23 @@ import {
 import {
   AgentNode,
   GRAPH_FLOW_CONTROL_NODES,
+  GRAPH_BUILT_IN_NODE_CLASSES_BY_KIND,
   GRAPH_BUILT_IN_NODE_MANIFESTS,
   GRAPH_BUILT_IN_NODE_MANIFESTS_BY_KIND,
-} from "@decaf-ts/ui-decorators/graph";
+  LogFlowNode,
+} from "../../../src/graph/nodes";
 import { registerEngineBoundGraphNodes } from "../../../src/nest/graph";
-
-/** The built-in kinds whose executors need the engine instance. */
-const ENGINE_BOUND_BUILT_IN_KINDS = [
-  "core.flow.code",
-  "core.flow.log",
-  "core.utility.log",
-  "core.flow.switch",
-  "core.loop.foreach",
-  "core.loop.while",
-  "core.loop.until",
-] as const;
-
-/** Reads the engine binding hidden behind an engine-bound executor. */
-function engineBinderOf(executor: unknown): GraphExecutionEngine | undefined {
-  return (executor as { engine?: GraphExecutionEngine }).engine;
-}
+import { nodeExecutionRequest } from "./fixtures";
 
 jest.setTimeout(30000);
 
 /**
- * Runs {@link registerBuiltInGraphNodes} for a fresh catalogue with a big
- * registry and returns the catalogue.
+ * Runs {@link registerBuiltInGraphNodes} for a fresh catalogue and returns the
+ * catalogue.
  */
 function buildBuiltInCatalogue(): GraphNodeCatalogue {
   const catalogue = new GraphNodeCatalogue();
-  const engine = new GraphExecutionEngine({
-    registry: new GraphNodeExecutorRegistry(catalogue),
-  });
-  registerBuiltInGraphNodes(catalogue, engine);
+  registerBuiltInGraphNodes(catalogue);
   return catalogue;
 }
 
@@ -81,58 +64,78 @@ describe("GraphBuiltInRegistrations", () => {
     expect(catalogue.size).toBe(23);
   });
 
-  it("re-registers engine-bound built-in graph node kinds through registerEngineBoundGraphNodes with an explicit replace:true policy", () => {
+  it("registers every built-in kind through registerBuiltInGraphNodes and re-registers them through registerEngineBoundGraphNodes with replace:true", () => {
     const catalogue = new GraphNodeCatalogue();
-    // registerBuiltInGraphNodes with no engine registers only the engine-free
-    // built-ins: the 7 engine-bound kinds (Code/Log/Switch/loops) stay out.
+    // registerBuiltInGraphNodes registers all 23 built-ins with no engine
+    // argument: each executor is derived from the node class's static execute.
     registerBuiltInGraphNodes(catalogue);
-    expect(catalogue.size).toBe(16);
-    for (const kind of ENGINE_BOUND_BUILT_IN_KINDS) {
-      expect(catalogue.has(kind)).toBe(false);
-    }
-
-    const engine = new GraphExecutionEngine({
-      registry: new GraphNodeExecutorRegistry(catalogue),
-    });
-    registerEngineBoundGraphNodes(catalogue, engine);
     expect(catalogue.size).toBe(23);
-    for (const kind of ENGINE_BOUND_BUILT_IN_KINDS) {
+    for (const kind of Object.keys(GRAPH_BUILT_IN_NODE_CLASSES_BY_KIND)) {
       expect(catalogue.has(kind)).toBe(true);
       expect(catalogue.getManifest(kind).kind).toBe(kind);
       expect(catalogue.getExecutor(kind).execute).toBeInstanceOf(Function);
     }
-    expect(catalogue.getExecutor("core.flow.code")).toBeInstanceOf(
-      CodeGraphNodeExecutor
-    );
-    expect(catalogue.getExecutor("core.loop.foreach")).toBeInstanceOf(
-      ForeachGraphNodeExecutor
-    );
-    const firstForeachExecutor = catalogue.getExecutor("core.loop.foreach");
-    expect(engineBinderOf(firstForeachExecutor)).toBe(engine);
 
-    // a kind registered through the engine-bound sweep still requires the
-    // explicit replacement policy when an authoring registration re-registers it
+    // a built-in kind re-registered without the explicit replacement policy
+    // is rejected
     expect(() =>
       catalogue.register(
         defineGraphNode({
           manifest: catalogue.getManifest("core.loop.foreach"),
-          executor: new ForeachGraphNodeExecutor(engine),
+          executor: { execute: async () => ({}) },
         })
       )
     ).toThrow(GraphNodeRegistrationError);
 
-    // the engine-bound sweep itself re-registers the full engine-bound set with
-    // the explicit replace:true policy, re-binding each executor to a new engine
-    const secondEngine = new GraphExecutionEngine({
+    // registerEngineBoundGraphNodes re-registers the full built-in set with the
+    // explicit replace:true policy (the engine argument is retained for
+    // call-site compatibility; node classes reach the engine via the context)
+    const engine = new GraphExecutionEngine({
       registry: new GraphNodeExecutorRegistry(catalogue),
     });
     expect(() =>
-      registerEngineBoundGraphNodes(catalogue, secondEngine)
+      registerEngineBoundGraphNodes(catalogue, engine)
     ).not.toThrow();
     expect(catalogue.size).toBe(23);
-    const secondForeachExecutor = catalogue.getExecutor("core.loop.foreach");
-    expect(secondForeachExecutor).not.toBe(firstForeachExecutor);
-    expect(engineBinderOf(secondForeachExecutor)).toBe(secondEngine);
+  });
+
+  it("drives a built-in node through its registered executor and the node class's static execute", async () => {
+    const catalogue = buildBuiltInCatalogue();
+    const node = {
+      id: "log-node",
+      kind: "core.flow.log",
+      parameters: { level: "info" },
+    };
+    const document = {
+      id: "wf",
+      name: "wf",
+      inputs: [],
+      outputs: [],
+      nodes: [node],
+      edges: [],
+    };
+    const emitted: unknown[] = [];
+    const context = new GraphExecutionContext(
+      "run-1",
+      undefined,
+      "wf",
+      document,
+      node,
+      catalogue.getManifest("core.flow.log"),
+      ["log-node"],
+      async (event) => {
+        emitted.push(event);
+      }
+    );
+
+    const result = await catalogue
+      .getExecutor("core.flow.log")
+      .execute(nodeExecutionRequest({ value: "hello" }), context);
+
+    expect(result).toEqual({ logged: "hello" });
+    // the registration delegates to the node class's own execute
+    expect(LogFlowNode.execute).toBeInstanceOf(Function);
+    expect(emitted.length).toBeGreaterThan(0);
   });
 
   it("resolves the built-in manifest kinds in the internal catalog inventory", () => {
@@ -189,7 +192,7 @@ describe("GraphBuiltInRegistrations", () => {
 describe("Global built-in exhaustive kind catalogue and visual conformance", () => {
   it("rejects re-registering a built-in kind and replaces the reject path with an explicit replacement policy", () => {
     const registrations = builtInGraphNodeRegistrations();
-    expect(registrations.length).toBe(16);
+    expect(registrations.length).toBe(23);
     const catalogue = buildBuiltInCatalogue();
     expect(() => catalogue.register(registrations[0] as never)).toThrow(
       GraphNodeRegistrationError

@@ -20,9 +20,7 @@ import {
   type GraphResolvedNodeManifest,
 } from "@decaf-ts/ui-decorators/graph";
 import {
-  GraphExecutionEngine,
   GraphNodeCatalogue,
-  GraphNodeExecutorRegistry,
   GraphNodeMethodNotFoundError,
   GraphNodeNotFoundError,
   GraphNodeRegistrationError,
@@ -31,7 +29,7 @@ import {
   type GraphNodeMethod,
   type GraphNodeMethodRequest,
 } from "../../../src/graph";
-import { GRAPH_BUILT_IN_NODE_MANIFESTS } from "@decaf-ts/ui-decorators/graph";
+import { GRAPH_BUILT_IN_NODE_MANIFESTS } from "../../../src/graph/nodes";
 import type { GraphNodeExecutor } from "../../../src/graph/engine/execution/GraphNodeExecutor";
 
 function manifestOf(
@@ -64,10 +62,7 @@ function executorOf(): GraphNodeExecutor {
 describe("GraphNodeCatalogue (unit)", () => {
   it("registers built-in graph node kinds as manifest+executor pairs", () => {
     const catalogue = new GraphNodeCatalogue();
-    const engine = new GraphExecutionEngine({
-      registry: new GraphNodeExecutorRegistry(catalogue),
-    });
-    registerBuiltInGraphNodes(catalogue, engine);
+    registerBuiltInGraphNodes(catalogue);
 
     for (const manifest of GRAPH_BUILT_IN_NODE_MANIFESTS) {
       expect(catalogue.has(manifest.kind)).toBe(true);

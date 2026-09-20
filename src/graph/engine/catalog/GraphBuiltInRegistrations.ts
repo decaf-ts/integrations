@@ -1,133 +1,54 @@
 /**
  * @module integrations/graph/engine/catalog/GraphBuiltInRegistrations
- * @summary Built-in graph node registrations (DECAF-50 §4.12).
- * @description Pairs every built-in manifest from
- * `GRAPH_BUILT_IN_NODE_MANIFESTS_BY_KIND` (shared via
- * `@decaf-ts/ui-decorators/graph`) with its default executor as a
- * {@link GraphNodeRegistration}, and registers the full set into a
- * {@link GraphNodeCatalogue}. Engine-bound executors (loops, switch) are
- * only included when an {@link GraphExecutionEngine} is supplied.
+ * @summary Built-in graph node registrations (DECAF-50 §4.12, §4.26 R2-1).
+ * @description Derives every built-in {@link GraphNodeRegistration} from its
+ * authoritative backend node class: the published manifest comes from
+ * `GRAPH_BUILT_IN_NODE_MANIFESTS_BY_KIND` and the executor is the class's
+ * `execute` static method. Because node classes reach the engine through
+ * `GraphExecutionContext.engine`, no executor needs an engine back-reference and
+ * every built-in kind is registered in a single pass.
  */
-import type {
-  GraphExecutionValues,
-  GraphNodeExecutionRequest,
-} from "../types";
+import type { GraphExecutionValues, GraphNodeExecutionRequest } from "../types";
 import type { GraphNodeExecutor } from "../execution/GraphNodeExecutor";
 import type { GraphExecutionContext } from "../execution/GraphExecutionContext";
-import { GraphExecutionEngine } from "../execution/GraphExecutionEngine";
 import {
-  BreakGraphNodeExecutor,
-  CodeGraphNodeExecutor,
-  LogGraphNodeExecutor,
-  SwitchGraphNodeExecutor,
-} from "../execution";
-import {
-  ForeachGraphNodeExecutor,
-  UntilGraphNodeExecutor,
-  WhileGraphNodeExecutor,
-} from "../loops";
-import { GRAPH_BUILT_IN_NODE_MANIFESTS_BY_KIND } from "@decaf-ts/ui-decorators/graph";
+  GRAPH_BUILT_IN_NODE_CLASSES_BY_KIND,
+  GRAPH_BUILT_IN_NODE_MANIFESTS_BY_KIND,
+} from "../../nodes";
 import { GraphNodeCatalogue } from "./GraphNodeCatalogue";
 import {
   defineGraphNode,
   type GraphNodeRegistration,
 } from "./GraphNodeRegistration";
 
-type ExecutorFn = (
-  request: GraphNodeExecutionRequest,
-  context: GraphExecutionContext
-) => GraphExecutionValues | Promise<GraphExecutionValues>;
-
-function executorOf(fn: ExecutorFn): GraphNodeExecutor {
-  return { execute: fn };
-}
-
-function forwardOutput(
-  outputKey: string,
-  inputKey = "value"
+function executorOf(
+  nodeClass: {
+    execute(
+      request: GraphNodeExecutionRequest,
+      context: GraphExecutionContext
+    ): GraphExecutionValues | Promise<GraphExecutionValues>;
+  }
 ): GraphNodeExecutor {
-  return executorOf((request) => ({
-    [outputKey]: request.inputs[inputKey] ?? request.inputs,
-  }));
-}
-
-function triggerPayloadExecutor(): GraphNodeExecutor {
-  return executorOf((request) => ({ payload: request.inputs["payload"] ?? null }));
-}
-
-function defaultFlowExecutors(): Record<string, GraphNodeExecutor> {
   return {
-    "core.flow.map": executorOf((request) => ({
-      result: { mapped: request.inputs["value"] ?? request.inputs },
-    })),
-    "core.flow.delay": forwardOutput("valueOut"),
-    "core.flow.return": forwardOutput("result"),
-    "core.flow.merge": forwardOutput("merged", "values"),
-    "core.flow.if": forwardOutput("then"),
-    "core.flow.parallel": executorOf((request) => ({
-      branches: [request.inputs["value"] ?? request.inputs],
-    })),
-    "core.flow.errorBoundary": forwardOutput("result"),
-    "core.flow.humanApproval": forwardOutput("approved"),
-    "core.flow.break": new BreakGraphNodeExecutor(),
-    "core.agent": executorOf((request) => ({
-      response: `[Agent response] ${String(request.inputs["prompt"] ?? "")}`,
-      actions: [],
-    })),
-  };
-}
-
-function defaultTriggerExecutors(): Record<string, GraphNodeExecutor> {
-  return {
-    "core.trigger.manual": triggerPayloadExecutor(),
-    "core.trigger.webhook": triggerPayloadExecutor(),
-    "core.trigger.schedule": triggerPayloadExecutor(),
-    "core.trigger.event": triggerPayloadExecutor(),
-    "core.trigger.form": triggerPayloadExecutor(),
-    "core.trigger.chat": executorOf((request) => ({
-      message: request.inputs["message"] ?? null,
-      sessionId: request.inputs["sessionId"] ?? null,
-      userId: request.inputs["userId"] ?? null,
-    })),
-  };
-}
-
-function engineBoundExecutors(
-  engine: GraphExecutionEngine
-): Record<string, GraphNodeExecutor> {
-  return {
-    "core.flow.code": new CodeGraphNodeExecutor(engine),
-    "core.flow.log": new LogGraphNodeExecutor(),
-    "core.utility.log": new LogGraphNodeExecutor(),
-    "core.flow.switch": new SwitchGraphNodeExecutor(engine),
-    "core.loop.foreach": new ForeachGraphNodeExecutor(engine),
-    "core.loop.while": new WhileGraphNodeExecutor(engine),
-    "core.loop.until": new UntilGraphNodeExecutor(engine),
+    execute: (request, context) => nodeClass.execute(request, context),
   };
 }
 
 /**
  * Builds the built-in node registrations (DECAF-50 §4.12): every built-in
- * manifest from {@link GRAPH_BUILT_IN_NODE_MANIFESTS_BY_KIND} that has a
- * default executor, paired with that executor as a
- * {@link GraphNodeRegistration}. Engine-bound executors (loops, switch) are
- * only included when an `engine` is provided.
+ * manifest from {@link GRAPH_BUILT_IN_NODE_MANIFESTS_BY_KIND} paired with the
+ * executor derived from its authoritative backend node class.
  */
-export function builtInGraphNodeRegistrations(
-  engine?: GraphExecutionEngine
-): GraphNodeRegistration[] {
-  const executors: Record<string, GraphNodeExecutor> = {
-    ...defaultTriggerExecutors(),
-    ...defaultFlowExecutors(),
-    ...(engine ? engineBoundExecutors(engine) : {}),
-  };
+export function builtInGraphNodeRegistrations(): GraphNodeRegistration[] {
   const registrations: GraphNodeRegistration[] = [];
   for (const [kind, manifest] of Object.entries(
     GRAPH_BUILT_IN_NODE_MANIFESTS_BY_KIND
   )) {
-    const executor = executors[kind];
-    if (!executor) continue;
-    registrations.push(defineGraphNode({ manifest, executor }));
+    const nodeClass = GRAPH_BUILT_IN_NODE_CLASSES_BY_KIND[kind];
+    if (!nodeClass) continue;
+    registrations.push(
+      defineGraphNode({ manifest, executor: executorOf(nodeClass) })
+    );
   }
   return registrations;
 }
@@ -138,10 +59,9 @@ export function builtInGraphNodeRegistrations(
  * {@link GraphNodeCatalogue} and returns it for chaining.
  */
 export function registerBuiltInGraphNodes(
-  catalogue: GraphNodeCatalogue,
-  engine?: GraphExecutionEngine
+  catalogue: GraphNodeCatalogue
 ): GraphNodeCatalogue {
-  for (const registration of builtInGraphNodeRegistrations(engine)) {
+  for (const registration of builtInGraphNodeRegistrations()) {
     catalogue.register(registration);
   }
   return catalogue;

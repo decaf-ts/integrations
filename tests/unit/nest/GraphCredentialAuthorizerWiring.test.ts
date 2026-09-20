@@ -35,7 +35,7 @@ import {
   type GraphCredentialAuthorizer,
 } from "../../../src/graph";
 import { GraphExecutionModule } from "../../../src/nest/graph";
-import { documentNode } from "../graph/fixtures";
+import { documentEdge, documentNode } from "../graph/fixtures";
 import { TestRequestContextModule } from "./graphRunTestSupport";
 
 jest.setTimeout(60000);
@@ -48,7 +48,7 @@ function registerTestKinds(catalogue: GraphNodeCatalogue): void {
         kind: "test.credauth",
         display: { name: "test.credauth" },
         inputs: [],
-        outputs: [],
+        outputs: [{ id: "out", label: "Out", direction: "output" }],
         parameters: [
           {
             id: "credential",
@@ -62,9 +62,13 @@ function registerTestKinds(catalogue: GraphNodeCatalogue): void {
       executor: { execute: async () => ({}) },
     })
   );
-  // placeholder manifest (lenient): nested parameter values reach the
-  // stage-8 plain-secret scan without undeclared-parameter noise
+  // placeholder manifests (lenient): nested parameter values reach the
+  // stage-8 plain-secret scan without undeclared-parameter noise, and the
+  // sink keeps the credential node connected (DECAF-50 §4.26 R2-3(8))
   catalogue.registerExecutor("test.plainsecret", {
+    execute: async () => ({ out: true }),
+  });
+  catalogue.registerExecutor("test.sink", {
     execute: async () => ({ out: true }),
   });
 }
@@ -83,8 +87,15 @@ function credentialDocument(
       documentNode(`${workflowId}-n1`, "test.credauth", {
         credential: { credentialId, credentialType: "api-token" },
       }),
+      documentNode(`${workflowId}-sink`, "test.sink"),
     ],
-    edges: [],
+    edges: [
+      documentEdge(
+        `${workflowId}-e1`,
+        ["node", `${workflowId}-n1`, "out"],
+        ["node", `${workflowId}-sink`, "in"]
+      ),
+    ],
   };
 }
 
@@ -99,8 +110,15 @@ function nestedSecretDocument(workflowId: string): GraphWorkflowDocument {
       documentNode(`${workflowId}-n1`, "test.plainsecret", {
         auth: { apiKey: "sk-nested-do-not-echo" },
       }),
+      documentNode(`${workflowId}-sink`, "test.sink"),
     ],
-    edges: [],
+    edges: [
+      documentEdge(
+        `${workflowId}-e1`,
+        ["node", `${workflowId}-n1`, "out"],
+        ["node", `${workflowId}-sink`, "in"]
+      ),
+    ],
   };
 }
 

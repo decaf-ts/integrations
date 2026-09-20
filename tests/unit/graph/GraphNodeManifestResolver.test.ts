@@ -23,9 +23,7 @@ import {
   resolveGraphNodeManifest,
   resolveGraphDynamicPorts,
 } from "../../../src/graph";
-import {
-  SWITCH_GRAPH_NODE_MANIFEST,
-} from "@decaf-ts/ui-decorators/graph";
+import { SWITCH_GRAPH_NODE_MANIFEST } from "../../../src/graph/nodes";
 
 function portNode(
   id: string,

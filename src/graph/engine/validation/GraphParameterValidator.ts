@@ -186,14 +186,18 @@ export class GraphParameterValidator {
    * behavior, and binding shapes against the effective manifest.
    *
    * Called at stage 3 (parameters) with the manifest resolved at stage 2.
+   * `edgeSatisfiedInputPorts` carries the input port ids targeted by an
+   * incoming data edge so required parameters can be cross-satisfied by
+   * the matching input surface (§4.4.5 rules 1/5/7).
    */
   validate(
     node: GraphNodeInstance,
     manifest: GraphResolvedNodeManifest,
     issues: GraphValidationIssue[],
-    path: string
+    path: string,
+    edgeSatisfiedInputPorts?: ReadonlySet<string>
   ): void {
-    this.validateParameters(node, manifest, issues, path);
+    this.validateParameters(node, manifest, issues, path, edgeSatisfiedInputPorts);
     this.validateMetadataKeys(node, manifest, issues, path);
     this.validateDisabledBehavior(node, issues, path);
     this.validateBindingShapes(node, manifest, issues, path);
@@ -204,12 +208,22 @@ export class GraphParameterValidator {
    * rules for parameter values. Validation is visibility-invariant: hidden
    * parameters are validated identically (visibility cannot bypass
    * security-sensitive validation).
+   *
+   * Cross-satisfaction (§4.4.5 rules 1/5/7): when the manifest declares
+   * both a parameter and an input port with the same `id`, the single logical
+   * value may be carried on either surface. A required parameter is therefore
+   * satisfied when the instance provides `parameters[id]`, carries an
+   * `inputBindings[id]` (an edge-, literal-, or expression-bound value), or
+   * has an incoming data edge targeting port `id` (passed in via
+   * `edgeSatisfiedInputPorts`, computed from the raw document before the
+   * normative stage order reaches edge resolution).
    */
   private validateParameters(
     node: GraphNodeInstance,
     manifest: GraphResolvedNodeManifest,
     issues: GraphValidationIssue[],
-    path: string
+    path: string,
+    edgeSatisfiedInputPorts?: ReadonlySet<string>
   ): void {
     const allowUndeclared =
       manifest.policies?.allowUndeclaredParameters === true;
@@ -255,6 +269,9 @@ export class GraphParameterValidator {
     for (const parameter of manifest.parameters) {
       const provided = (node.parameters ?? {})[parameter.id];
       if (provided !== undefined) continue;
+      if (this.isParameterSatisfiedByInput(node, parameter.id, edgeSatisfiedInputPorts)) {
+        continue;
+      }
       const isRequired =
         parameter.required === true ||
         (parameter.validation ?? []).some((rule) => rule.kind === "required");
@@ -267,6 +284,21 @@ export class GraphParameterValidator {
         });
       }
     }
+  }
+
+  /**
+   * Cross-satisfaction of a required parameter by the matching input surface
+   * (§4.4.5 rules 1/5/7): an `inputBindings[id]` entry or an incoming
+   * data edge targeting port `id` carries the same logical value, so the
+   * parameter is satisfied without a redundant `parameters[id]` entry.
+   */
+  private isParameterSatisfiedByInput(
+    node: GraphNodeInstance,
+    parameterId: string,
+    edgeSatisfiedInputPorts?: ReadonlySet<string>
+  ): boolean {
+    if ((node.inputBindings ?? {})[parameterId] !== undefined) return true;
+    return edgeSatisfiedInputPorts?.has(parameterId) === true;
   }
 
   /**
@@ -446,6 +478,11 @@ export class GraphParameterValidator {
    * not also carry a literal binding (unless explicitly allowed), and every
    * required effective input port must be satisfiable (incoming edge,
    * literal, or expression binding).
+   *
+   * Cross-satisfaction (§4.4.5 rules 1/5/7): a required input port whose
+   * `id` is also a declared parameter may be satisfied by a provided
+   * `parameters[id]` value, exactly as the parameter pass accepts the
+   * input/binding surface for that same id.
    */
   validateBindingSatisfaction(
     node: GraphNodeInstance,
@@ -483,6 +520,7 @@ export class GraphParameterValidator {
     for (const port of manifest.inputs) {
       if (port.required !== true) continue;
       if (edgePorts.has(port.id) || boundPorts.has(port.id)) continue;
+      if ((node.parameters ?? {})[port.id] !== undefined) continue;
       issues.push({
         code: "topology.required-input-unsatisfiable",
         path: `${path}.parameters`,

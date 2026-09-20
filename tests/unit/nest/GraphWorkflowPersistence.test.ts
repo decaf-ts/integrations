@@ -4,8 +4,8 @@
  * regression tests: saveDocument/getDocument round trip,
  * validate-before-persist, ownership, forbidden fields, duplicate ids,
  * document limits, UI-state preservation, legacy-snapshot rejection
- * (wrapper-only saveSnapshot), persisted-legacy read-path conversion and
- * structured GraphValidationIssue shape.
+ * (wrapper-only saveSnapshot, persisted-legacy read-path rejection with no
+ * conversion) and structured GraphValidationIssue shape.
  */
 import { describe, beforeAll, it, expect } from "@jest/globals";
 import { Context, ForbiddenError, PersistenceService } from "@decaf-ts/core";
@@ -13,7 +13,6 @@ import { NotFoundError, ValidationError } from "@decaf-ts/db-decorators";
 import { RamAdapter } from "@decaf-ts/core/ram";
 import {
   GraphWorkflowDocumentBuilder,
-  GRAPH_WORKFLOW_SNAPSHOT_VERSION,
   type GraphWorkflowDocument,
 } from "@decaf-ts/ui-decorators/graph";
 import { GraphWorkflowService } from "../../../src/nest/graph/GraphWorkflowService";
@@ -57,7 +56,7 @@ function wireDocument(workflowId: string): GraphWorkflowDocument {
 
 function legacySnapshot(): Record<string, unknown> {
   return {
-    version: GRAPH_WORKFLOW_SNAPSHOT_VERSION,
+    version: 1,
     definition: {
       name: "Legacy Workflow",
       tag: "legacy-wf",
@@ -359,7 +358,7 @@ describe("GraphWorkflowPersistence (§4.19 nest row)", () => {
     });
   });
 
-  it("9. P7 cutover regression (§4.11/§4.18): legacy non-wrapper snapshot payloads are rejected with ValidationError; canonical wrapper snapshots round-trip; getDocument prefers document; already-persisted legacy snapshots still convert on read", async () => {
+  it("9. P7 cutover regression (§4.11/§4.18/§4.26 R2-2): legacy non-wrapper snapshot payloads are rejected with ValidationError; canonical wrapper snapshots round-trip; getDocument prefers document; already-persisted legacy snapshots are rejected on read with no conversion", async () => {
     const anonymous = new Context();
 
     // 9a. Legacy definition/state snapshot payloads are REJECTED by default
@@ -403,8 +402,10 @@ describe("GraphWorkflowPersistence (§4.19 nest row)", () => {
     expect(await service.getDocument("legacy-wf", anonymous)).toEqual(doc);
 
     // 9d. Read-path conversion of ALREADY-PERSISTED legacy snapshots is
-    // unchanged (§4.18): models persisted before the cutover (directly, not
-    // through saveSnapshot) still load through lossless conversion.
+    // GONE (DECAF-50 §4.26 R2-2): models persisted before the cutover
+    // (directly, not through saveSnapshot) no longer convert on read —
+    // getDocument throws NotFoundError and never fabricates a document from a
+    // legacy definition/state payload.
     const persistedLegacy = legacySnapshot();
     await service.create(
       new GraphWorkflowModel({
@@ -413,18 +414,14 @@ describe("GraphWorkflowPersistence (§4.19 nest row)", () => {
       }),
       anonymous
     );
-    const converted = await service.getDocument("legacy-read", anonymous);
-    // The conversion is content-derived: the document id comes from the
-    // snapshot's definition tag, not the persistence row key (unchanged
-    // read-path behavior).
-    expect(converted.id).toBe("legacy-wf");
-    expect(converted.name).toBe("Legacy Workflow");
-    expect(converted.nodes[0].inputBindings).toEqual({
-      value: { mode: "edge" },
-      factor: { mode: "literal", value: 3 },
-    });
-    expect(converted.nodes[0].ui).toEqual({ position: { x: 10, y: 20 } });
-    expect(converted.ui).toEqual({ viewport: { x: 5, y: 6, zoom: 0.8 } });
+    const readRejection = await expectRejectsWith(
+      service.getDocument("legacy-read", anonymous),
+      NotFoundError as unknown as new (...args: never[]) => NotFoundError
+    );
+    expect(readRejection.message).toMatch(/legacy definition\/state snapshots are no longer supported/);
+    // the legacy snapshot row itself is untouched
+    const legacyModel = await service.read("legacy-read", anonymous);
+    expect((legacyModel as GraphWorkflowModel).snapshot).toEqual(persistedLegacy);
   });
 
   it("9b. P7 cutover regression: no dual-write — a legacy saveSnapshot after a canonical save is rejected and the canonical document stays authoritative; wrapper snapshots update the document column", async () => {

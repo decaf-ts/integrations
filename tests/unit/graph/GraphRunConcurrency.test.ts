@@ -32,7 +32,7 @@ import {
   type GraphNodeExecutor,
   type GraphRun,
 } from "../../../src/graph";
-import { documentNode } from "./fixtures";
+import { documentEdge, documentNode } from "./fixtures";
 
 jest.setTimeout(30000);
 
@@ -41,15 +41,27 @@ const REPLAY_WINDOW_MS = 100;
 /** Margin waited past {@link REPLAY_WINDOW_MS} for the auto-release timer. */
 const DRAIN_MS = 250;
 
-/** A single-node document whose node blocks until the test releases it. */
+/**
+ * A two-node document: the blocking node feeds a clean sink. The sink keeps the
+ * blocking node connected (DECAF-50 §4.26 R2-3(8) rejects loose nodes).
+ */
 function blockingDocument(workflowId: string): GraphWorkflowDocument {
   return {
     id: workflowId,
     name: workflowId,
     inputs: [],
     outputs: [],
-    nodes: [documentNode(`${workflowId}-n1`, "test.block")],
-    edges: [],
+    nodes: [
+      documentNode(`${workflowId}-n1`, "test.block"),
+      documentNode(`${workflowId}-sink`, "test.sink"),
+    ],
+    edges: [
+      documentEdge(
+        `${workflowId}-e1`,
+        ["node", `${workflowId}-n1`, "out"],
+        ["node", `${workflowId}-sink`, "in"]
+      ),
+    ],
   };
 }
 
@@ -137,6 +149,9 @@ describe("GraphRunConcurrency (SAA-595 per-caller buckets)", () => {
       registry: new GraphNodeExecutorRegistry(catalogue),
     });
     catalogue.registerExecutor("test.block", blockingExecutor);
+    catalogue.registerExecutor("test.sink", {
+      execute: async () => ({ ok: true }),
+    });
     service = new GraphRunService(
       engine,
       new InMemoryGraphRunStore(),

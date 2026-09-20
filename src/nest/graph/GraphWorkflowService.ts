@@ -8,12 +8,10 @@ import {
 } from "@decaf-ts/core";
 import { assertGraphResourceOwnership } from "../../graph";
 import {
-  graphWorkflowSnapshotLikeToCanonical,
   isGraphJsonSafeValue,
   isGraphWorkflowDocumentShape,
   type GraphWorkflowDocument,
   type GraphWorkflowSnapshot,
-  type GraphWorkflowSnapshotLike,
 } from "@decaf-ts/ui-decorators/graph";
 import { GraphNodeCatalogue } from "../../graph";
 import type { GraphWorkflowValidationResult } from "../../graph";
@@ -78,21 +76,6 @@ function cloneWorkflowDocument(
   document: GraphWorkflowDocument
 ): GraphWorkflowDocument {
   return JSON.parse(JSON.stringify(document)) as GraphWorkflowDocument;
-}
-
-function legacyDocumentOf(snapshot: Record<string, unknown>): GraphWorkflowDocument {
-  try {
-    const canonical = graphWorkflowSnapshotLikeToCanonical(
-      snapshot as GraphWorkflowSnapshotLike
-    );
-    return canonical.document;
-  } catch (e: unknown) {
-    throw new ValidationError(
-      `Persisted workflow snapshot could not be converted to a canonical document: ${String(
-        e instanceof Error ? e.message : e
-      )}`
-    );
-  }
 }
 
 @service(GraphWorkflowModel)
@@ -219,11 +202,8 @@ export class GraphWorkflowService extends ModelService<GraphWorkflowModel> {
     if (model.document) {
       return cloneWorkflowDocument(model.document);
     }
-    if (model.snapshot) {
-      return legacyDocumentOf(model.snapshot);
-    }
     throw new NotFoundError(
-      `Graph workflow '${workflowId}' has neither a canonical document nor a legacy snapshot`
+      `Graph workflow '${workflowId}' has no canonical document; legacy definition/state snapshots are no longer supported (DECAF-50 §4.26 R2-2)`
     );
   }
 

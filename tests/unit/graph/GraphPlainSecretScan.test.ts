@@ -37,7 +37,7 @@ import {
   type GraphNodeExecutor,
 } from "../../../src/graph";
 import type { GraphValidationIssue } from "../../../src/graph";
-import { documentNode } from "./fixtures";
+import { documentEdge, documentNode } from "./fixtures";
 
 jest.setTimeout(20000);
 
@@ -59,8 +59,17 @@ function scanDocument(
         parameters,
         metadata ? { metadata } : {}
       ),
+      // a clean sink keeps the scanned node connected: DECAF-50 §4.26
+      // R2-3(8) rejects a node that participates in no edge
+      documentNode(`${workflowId}-sink`, "test.scan", { sink: true }),
     ],
-    edges: [],
+    edges: [
+      documentEdge(
+        `${workflowId}-e1`,
+        ["node", `${workflowId}-n1`, "out"],
+        ["node", `${workflowId}-sink`, "in"]
+      ),
+    ],
   };
 }
 

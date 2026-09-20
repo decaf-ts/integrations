@@ -1,9 +1,9 @@
 /**
- * @module integrations/tests/unit/graph/ForeachGraphNodeExecutor.test
- * @summary Unit tests for the Foreach loop executor (slice + break support).
+ * @module integrations/tests/unit/graph/ForeachLoopNode.test
+ * @summary Unit tests for the Foreach loop node class's static execute
+ * (slice + break support, DECAF-50 §4.26 R2-1).
  */
-import { ForeachGraphNodeExecutor } from "../../../src/graph/engine/loops/ForeachGraphNodeExecutor";
-import { BreakGraphNodeExecutor } from "../../../src/graph/engine/execution/BreakGraphNodeExecutor";
+import { GraphForeachLoopNode, BreakFlowNode } from "../../../src/graph/nodes";
 import { GraphBreakSignal } from "../../../src/graph/engine/errors/GraphBreakSignal";
 import { GraphExecutionContext } from "../../../src/graph/engine/execution/GraphExecutionContext";
 import { GraphInputError } from "../../../src/graph/engine/errors/GraphInputError";
@@ -17,11 +17,14 @@ import { nodeExecutionRequest } from "./fixtures";
 
 /**
  * Builds a minimal {@link GraphExecutionContext} for a Foreach node from a
- * legacy loop-metadata bag: rule-6 configuration fields (itemPort,
- * resultPort, statePort, slice, ...) land in the instance `parameters`;
- * body/maxIterations live on `instance.loop` (DECAF-50 §4.4.5/§4.9).
+ * loop-metadata bag: rule-6 configuration fields (itemPort, resultPort,
+ * statePort, slice, ...) land in the instance `parameters`; body/maxIterations
+ * live on `instance.loop` (DECAF-50 §4.4.5/§4.9).
  */
-function buildContext(loopMeta: Record<string, unknown>): GraphExecutionContext {
+function buildContext(
+  loopMeta: Record<string, unknown>,
+  engine?: GraphExecutionEngine
+): GraphExecutionContext {
   const { body, maxIterations, timeoutMs, concurrency, ...parameters } = loopMeta;
   const node: GraphNodeInstance = {
     id: "ForeachNode",
@@ -54,7 +57,8 @@ function buildContext(loopMeta: Record<string, unknown>): GraphExecutionContext 
     manifest,
     ["ForeachNode"],
     async () => {},
-    {}
+    {},
+    engine
   );
 }
 
@@ -75,10 +79,11 @@ function buildEngine(breakAt: number | null = null): GraphExecutionEngine {
   } as unknown as GraphExecutionEngine;
 }
 
-describe("ForeachGraphNodeExecutor", () => {
+describe("GraphForeachLoopNode.execute", () => {
   it("iterates once per item and collects results", async () => {
-    const executor = new ForeachGraphNodeExecutor(buildEngine());
-    const ctx = buildContext({ body: {}, itemPort: "item", resultPort: "result" });
+    const engine = buildEngine();
+    const executor = GraphForeachLoopNode;
+    const ctx = buildContext({ body: {}, itemPort: "item", resultPort: "result" }, engine);
     const out = await executor.execute(
       nodeExecutionRequest({ items: [1, 2, 3] }),
       ctx
@@ -90,8 +95,8 @@ describe("ForeachGraphNodeExecutor", () => {
   });
 
   it("rejects non-array items", async () => {
-    const executor = new ForeachGraphNodeExecutor(buildEngine());
-    const ctx = buildContext({ body: {} });
+    const executor = GraphForeachLoopNode;
+    const ctx = buildContext({ body: {} }, buildEngine());
     await expect(
       executor.execute(nodeExecutionRequest({ items: "nope" }), ctx)
     ).rejects.toBeInstanceOf(
@@ -100,8 +105,11 @@ describe("ForeachGraphNodeExecutor", () => {
   });
 
   it("groups items into slices and iterates once per slice", async () => {
-    const executor = new ForeachGraphNodeExecutor(buildEngine());
-    const ctx = buildContext({ body: {}, slice: 2, itemPort: "item", resultPort: "result" });
+    const executor = GraphForeachLoopNode;
+    const ctx = buildContext(
+      { body: {}, slice: 2, itemPort: "item", resultPort: "result" },
+      buildEngine()
+    );
     const out = await executor.execute(
       nodeExecutionRequest({ items: [1, 2, 3, 4, 5] }),
       ctx
@@ -113,8 +121,11 @@ describe("ForeachGraphNodeExecutor", () => {
   });
 
   it("stops early when the body throws a GraphBreakSignal", async () => {
-    const executor = new ForeachGraphNodeExecutor(buildEngine(1));
-    const ctx = buildContext({ body: {}, itemPort: "item", resultPort: "result" });
+    const executor = GraphForeachLoopNode;
+    const ctx = buildContext(
+      { body: {}, itemPort: "item", resultPort: "result" },
+      buildEngine(1)
+    );
     const out = await executor.execute(
       nodeExecutionRequest({ items: [1, 2, 3, 4] }),
       ctx
@@ -126,25 +137,36 @@ describe("ForeachGraphNodeExecutor", () => {
   });
 
   it("uses slice from input port over metadata", async () => {
-    const executor = new ForeachGraphNodeExecutor(buildEngine());
-    const ctx = buildContext({ body: {}, slice: 5, itemPort: "item", resultPort: "result" });
+    const executor = GraphForeachLoopNode;
+    const ctx = buildContext(
+      { body: {}, slice: 5, itemPort: "item", resultPort: "result" },
+      buildEngine()
+    );
     const out = await executor.execute(
       nodeExecutionRequest({ items: [1, 2, 3, 4], slice: 2 }),
       ctx
     );
     expect(out.iterations).toBe(2);
   });
+
+  it("throws GRAPH_ENGINE_NOT_AVAILABLE when the context has no engine", async () => {
+    const executor = GraphForeachLoopNode;
+    const ctx = buildContext({ body: {} });
+    await expect(
+      executor.execute(nodeExecutionRequest({ items: [1] }), ctx)
+    ).rejects.toThrow(/requires engine access/i);
+  });
 });
 
-describe("BreakGraphNodeExecutor", () => {
-  it("throws a GraphBreakSignal carrying the input value", async () => {
-    const executor = new BreakGraphNodeExecutor();
+describe("BreakFlowNode.execute", () => {
+  it("throws a GraphBreakSignal carrying the input value", () => {
+    const executor = BreakFlowNode;
     const ctx = buildContext({});
-    await expect(
+    expect(() =>
       executor.execute(nodeExecutionRequest({ value: "stop" }), ctx)
-    ).rejects.toBeInstanceOf(GraphBreakSignal);
+    ).toThrow(GraphBreakSignal);
     try {
-      await executor.execute(nodeExecutionRequest({ value: "stop" }), ctx);
+      executor.execute(nodeExecutionRequest({ value: "stop" }), ctx);
     } catch (err) {
       expect(err).toBeInstanceOf(GraphBreakSignal);
       expect((err as GraphBreakSignal).details).toEqual({ value: "stop" });

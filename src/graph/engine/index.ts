@@ -32,10 +32,6 @@ export * from "./execution/GraphExecutionFrame";
 export * from "./execution/GraphExecutionResult";
 export * from "./execution/GraphExecutionEngine";
 export * from "./execution/CodeSandboxEvaluator";
-export * from "./execution/SwitchGraphNodeExecutor";
-export * from "./execution/CodeGraphNodeExecutor";
-export * from "./execution/LogGraphNodeExecutor";
-export * from "./execution/BreakGraphNodeExecutor";
 export * from "./execution/IsolatedVmCodeSandboxEvaluator";
 
 export * from "./registry/GraphNodeExecutorRegistry";
@@ -63,9 +59,6 @@ export * from "./validation";
 export * from "./loops/GraphConditionEvaluator";
 export * from "./loops/ConditionExpressionEvaluator";
 export * from "./loops/GraphLoopExecutionContext";
-export * from "./loops/ForeachGraphNodeExecutor";
-export * from "./loops/WhileGraphNodeExecutor";
-export * from "./loops/UntilGraphNodeExecutor";
 
 // Pinning (TASK-217/218)
 export * from "./pinning/GraphPinningMetadata";

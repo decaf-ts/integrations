@@ -27,6 +27,7 @@ import type {
 import type {
   GraphRunId,
 } from "../types";
+import type { GraphExecutionEngine } from "./GraphExecutionEngine";
 
 /**
  * Context passed to every graph node executor.
@@ -50,6 +51,9 @@ export class GraphExecutionContext extends Context {
    * @param path - Dotted path from the workflow root to this node.
    * @param emitFn - Callback invoked when an event is emitted from this context.
    * @param metadata - Free-form metadata attached to this context.
+   * @param engine - The owning execution engine, exposed to node classes
+   *   whose `execute` needs engine-level services (nested workflow
+   *   execution, code sandbox evaluation).
    */
   constructor(
     readonly runId: GraphRunId,
@@ -60,7 +64,8 @@ export class GraphExecutionContext extends Context {
     readonly manifest: GraphResolvedNodeManifest,
     readonly path: string[],
     private readonly emitFn: (event: Partial<GraphExecutionEvent>) => Promise<void>,
-    readonly metadata: Record<string, unknown> = {}
+    readonly metadata: Record<string, unknown> = {},
+    readonly engine?: GraphExecutionEngine
   ) {
     super();
     const user = typeof metadata?.["user"] === "string" ? metadata["user"] : null;

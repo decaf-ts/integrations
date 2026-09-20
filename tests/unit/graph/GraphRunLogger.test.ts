@@ -6,7 +6,7 @@
  */
 import { GraphRunLogger } from "../../../src/graph/log/GraphRunLogger";
 import { GraphExecutionContext } from "../../../src/graph/engine/execution/GraphExecutionContext";
-import { LogGraphNodeExecutor } from "../../../src/graph/engine/execution/LogGraphNodeExecutor";
+import { UtilityLogNode } from "../../../src/graph/nodes";
 import { GraphExecutionEventType } from "@decaf-ts/ui-decorators/graph";
 import type {
   GraphNodeInstance,
@@ -128,7 +128,7 @@ describe("GraphRunLogger", () => {
   });
 });
 
-describe("LogGraphNodeExecutor", () => {
+describe("UtilityLogNode.execute", () => {
   it("logs its input through ctx.logger at the configured level", async () => {
     const captured: unknown[] = [];
     const ctx = new GraphExecutionContext(
@@ -147,7 +147,7 @@ describe("LogGraphNodeExecutor", () => {
       { user: "bob" }
     );
 
-    const executor = new LogGraphNodeExecutor();
+    const executor = UtilityLogNode;
     const result = await executor.execute(
       nodeExecutionRequest({ value: "my value" }),
       ctx
@@ -186,7 +186,7 @@ describe("LogGraphNodeExecutor", () => {
       }
     );
 
-    const executor = new LogGraphNodeExecutor();
+    const executor = UtilityLogNode;
     await executor.execute(nodeExecutionRequest({ value: 42 }), ctx);
 
     expect((captured[0] as { level: string }).level).toBe("info");

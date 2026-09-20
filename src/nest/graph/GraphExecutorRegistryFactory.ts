@@ -84,14 +84,16 @@ export function createGraphExecutorRegistry(
  * engine-bound executors.
  *
  * @param catalogue - The catalogue receiving the registrations.
- * @param engine - The engine instance the loop/Code/Switch executors bind to.
- * @returns The catalogue with the engine-bound registrations applied.
+ * @param _engine - Retained for call-site compatibility; node classes now
+ *   reach the engine through `GraphExecutionContext.engine`, so no executor
+ *   needs an engine back-reference.
+ * @returns The catalogue with the built-in registrations applied.
  */
 export function registerEngineBoundGraphNodes(
   catalogue: GraphNodeCatalogue,
-  engine: GraphExecutionEngine
+  _engine: GraphExecutionEngine
 ): GraphNodeCatalogue {
-  for (const registration of builtInGraphNodeRegistrations(engine)) {
+  for (const registration of builtInGraphNodeRegistrations()) {
     catalogue.register(registration, { replace: true });
   }
   return catalogue;
