@@ -504,6 +504,10 @@ export class GraphExecutionEngine
     emitFn: (event: Partial<GraphExecutionEvent>) => Promise<void>
   ): Promise<void> {
     this.assertNotAborted(opts);
+    if (!this.isNodeActivated(frame, plan, planNode)) {
+      await this.skipInactiveNode(frame, plan, planNode, opts);
+      return;
+    }
     if (planNode.instance.disabled === true) {
       await this.executeDisabledNode(frame, plan, planNode, opts);
       return;
@@ -675,6 +679,76 @@ export class GraphExecutionEngine
 
       if (opts.failFast ?? true) throw error;
     }
+  }
+
+  /**
+   * Resolves whether a plan node is activated for execution under the
+   * DECAF-50 §4.9 branch semantics. A node with no incoming data edges is
+   * a root/source node and always runs. A node fed by one or more data
+   * edges runs only when at least one of those edges was activated by a
+   * routed upstream output port — a branch the upstream switch (or any
+   * partial-output node) did not select leaves its downstream edges
+   * unactivated, so the branch is never executed. Workflow-boundary edges
+   * are active from the start because workflow inputs are seeded before
+   * execution begins.
+   */
+  private isNodeActivated(
+    frame: GraphExecutionFrame,
+    plan: GraphExecutionPlan,
+    planNode: GraphExecutionPlanNode
+  ): boolean {
+    const incoming = (plan.incomingByNode.get(planNode.id) ?? []).filter(
+      (edge) => edge.type === "data"
+    );
+    if (incoming.length === 0) return true;
+    return incoming.some(
+      (edge) =>
+        edge.sourceNodeId === GRAPH_WORKFLOW_BOUNDARY ||
+        frame.isDataEdgeActive(edge.id)
+    );
+  }
+
+  /**
+   * Skips a node whose incoming data edges were all left unactivated by an
+   * upstream branch selection. The node is not executed and its outputs are
+   * never routed or collected into workflow outputs (DECAF-50 §4.9).
+   */
+  private async skipInactiveNode(
+    frame: GraphExecutionFrame,
+    plan: GraphExecutionPlan,
+    planNode: GraphExecutionPlanNode,
+    opts: GraphExecutionOptions
+  ): Promise<void> {
+    const startedAt = new Date();
+    const nodePath = [...(opts.path ?? []), planNode.id];
+
+    await this.emitEvent(frame, {
+      type: GraphExecutionEventType.NODE_SKIPPED,
+      runId: frame.runId,
+      workflowId: plan.workflowId,
+      nodeId: planNode.id,
+      path: nodePath,
+      status: GraphExecutionStatus.SKIPPED,
+      payload: { reason: "branchNotSelected" },
+    });
+
+    const result: GraphNodeExecutionResult = {
+      nodeId: planNode.id,
+      status: GraphExecutionStatus.SKIPPED,
+      inputs: {},
+      startedAt,
+      finishedAt: new Date(),
+      events: [],
+    };
+    frame.recordNodeResult(result);
+    this.emitNodeStateChanged(
+      frame,
+      plan,
+      planNode,
+      nodePath,
+      GraphVisualState.SKIPPED,
+      GraphExecutionStatus.SKIPPED
+    );
   }
 
   /**
@@ -1026,6 +1100,15 @@ export class GraphExecutionEngine
   /**
    * Routes a node's outputs to downstream inputs and workflow outputs along
    * data edges (connection edges are structural and never route values).
+   *
+   * An edge is traversed only when the source node actually emitted the
+   * edge's `sourcePort` (DECAF-50 §4.9 branch semantics). A node that
+   * emitted a subset of its declared outputs — e.g. a switch that selected
+   * one case — therefore activates only the downstream branch edges of the
+   * emitted ports; unselected branch edges are left unactivated, so their
+   * downstream nodes are skipped and never contribute to workflow outputs.
+   * Emitting an output port explicitly with `undefined` still counts as
+   * activated (the port was produced by the executor).
    */
   private routeOutgoingEdges(
     frame: GraphExecutionFrame,
@@ -1037,7 +1120,13 @@ export class GraphExecutionEngine
       (edge) => edge.type === "data"
     );
     for (const edge of outgoing) {
+      if (!Object.prototype.hasOwnProperty.call(outputs, edge.sourcePort)) {
+        // The source node did not emit this output port: the edge's branch
+        // was not selected, so no value is routed.
+        continue;
+      }
       const value = outputs[edge.sourcePort];
+      frame.activateDataEdge(edge.id);
       if (edge.targetNodeId === GRAPH_WORKFLOW_BOUNDARY) {
         frame.valueStore.setWorkflowOutput(edge.targetPort, value);
       }

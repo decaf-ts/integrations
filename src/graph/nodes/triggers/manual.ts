@@ -5,7 +5,7 @@
  * `inputSchema`. Triggers are metadata-only entrypoints: they define how a
  * workflow starts and produce a trigger payload on their `@output` ports.
  */
-import { Model, model, required } from "@decaf-ts/decorator-validation";
+import { model, required } from "@decaf-ts/decorator-validation";
 import { uielement } from "@decaf-ts/ui-decorators";
 import { node, output } from "@decaf-ts/ui-decorators/graph";
 import { GraphNode } from "../base";
@@ -13,7 +13,6 @@ import type {
   GraphExecutionValues,
   GraphNodeExecutionRequest,
 } from "../../engine/types";
-
 
 @node("core.trigger.manual", {
   kind: "core.trigger.manual",
@@ -25,7 +24,8 @@ import type {
   labels: ["trigger", "manual", "entrypoint"],
   metadata: {
     title: "Manual trigger",
-    description: "Starts the workflow when the user clicks Run. The input form is generated from the trigger's input schema.",
+    description:
+      "Starts the workflow when the user clicks Run. The input form is generated from the trigger's input schema.",
     trigger: {
       type: "manual",
       inputSchema: {},
@@ -34,14 +34,15 @@ import type {
 })
 @model()
 export class ManualTriggerNode extends GraphNode {
-  static execute(
-    request: GraphNodeExecutionRequest
-  ): GraphExecutionValues {
+  static execute(request: GraphNodeExecutionRequest): GraphExecutionValues {
     return { payload: request.inputs["payload"] ?? null };
   }
 
   @required()
-  @uielement("textarea", { label: "Trigger payload", placeholder: "Manual trigger payload" })
+  @uielement("textarea", {
+    label: "Trigger payload",
+    placeholder: "Manual trigger payload",
+  })
   @output({ handle: "payload" })
   payload!: unknown;
 }

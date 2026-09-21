@@ -7,7 +7,7 @@
  * node's static `execute` throws a `GraphBreakSignal` that the enclosing loop
  * node class catches.
  */
-import { Model, model, required } from "@decaf-ts/decorator-validation";
+import { model, required } from "@decaf-ts/decorator-validation";
 import { uielement } from "@decaf-ts/ui-decorators";
 import { input, node, output } from "@decaf-ts/ui-decorators/graph";
 import { GraphNode } from "../base";
@@ -17,7 +17,6 @@ import type {
   GraphNodeExecutionRequest,
 } from "../../engine/types";
 import { GraphBreakSignal } from "../../engine/errors/GraphBreakSignal";
-
 
 @node("core.flow.break", {
   kind: "core.flow.break",
@@ -29,7 +28,8 @@ import { GraphBreakSignal } from "../../engine/errors/GraphBreakSignal";
   labels: ["flow", "break", "loop", "control"],
   metadata: {
     title: "Break",
-    description: "Breaks out of the enclosing loop. The loop terminates early and returns the results collected so far.",
+    description:
+      "Breaks out of the enclosing loop. The loop terminates early and returns the results collected so far.",
   },
 })
 @model()
@@ -43,7 +43,10 @@ export class BreakFlowNode extends GraphNode {
   }
 
   @required()
-  @uielement("textarea", { label: "Value", placeholder: "Value to forward (collected as the last partial result)" })
+  @uielement("textarea", {
+    label: "Value",
+    placeholder: "Value to forward (collected as the last partial result)",
+  })
   @input({ handle: "value" })
   value!: unknown;
 

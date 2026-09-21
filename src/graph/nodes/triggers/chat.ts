@@ -4,7 +4,7 @@
  * @description Chat trigger — chat message entrypoint; message/sessionId/
  * userId schema.
  */
-import { Model, model, required } from "@decaf-ts/decorator-validation";
+import { model, required } from "@decaf-ts/decorator-validation";
 import { uielement } from "@decaf-ts/ui-decorators";
 import { node, output } from "@decaf-ts/ui-decorators/graph";
 import { GraphNode } from "../base";
@@ -12,7 +12,6 @@ import type {
   GraphExecutionValues,
   GraphNodeExecutionRequest,
 } from "../../engine/types";
-
 
 @node("core.trigger.chat", {
   kind: "core.trigger.chat",
@@ -24,7 +23,8 @@ import type {
   labels: ["trigger", "chat", "entrypoint"],
   metadata: {
     title: "Chat trigger",
-    description: "Starts the workflow when a chat message is received. Emits message, sessionId, and userId.",
+    description:
+      "Starts the workflow when a chat message is received. Emits message, sessionId, and userId.",
     trigger: {
       type: "chat",
     },
@@ -32,9 +32,7 @@ import type {
 })
 @model()
 export class ChatTriggerNode extends GraphNode {
-  static execute(
-    request: GraphNodeExecutionRequest
-  ): GraphExecutionValues {
+  static execute(request: GraphNodeExecutionRequest): GraphExecutionValues {
     return {
       message: request.inputs["message"] ?? null,
       sessionId: request.inputs["sessionId"] ?? null,
@@ -43,12 +41,18 @@ export class ChatTriggerNode extends GraphNode {
   }
 
   @required()
-  @uielement("input", { label: "Message", placeholder: "Incoming chat message" })
+  @uielement("input", {
+    label: "Message",
+    placeholder: "Incoming chat message",
+  })
   @output({ handle: "message" })
   message!: string;
 
   @required()
-  @uielement("input", { label: "Session ID", placeholder: "Chat session identifier" })
+  @uielement("input", {
+    label: "Session ID",
+    placeholder: "Chat session identifier",
+  })
   @output({ handle: "sessionId" })
   sessionId!: string;
 

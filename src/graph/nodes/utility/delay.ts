@@ -3,7 +3,7 @@
  * @summary Delay utility node declaration (DECAF-32 §22.2.2).
  * @description Delay — pauses execution for a configured duration.
  */
-import { Model, model, required } from "@decaf-ts/decorator-validation";
+import { model, required } from "@decaf-ts/decorator-validation";
 import { uielement } from "@decaf-ts/ui-decorators";
 import { input, node, output } from "@decaf-ts/ui-decorators/graph";
 import { GraphNode } from "../base";
@@ -11,7 +11,6 @@ import type {
   GraphExecutionValues,
   GraphNodeExecutionRequest,
 } from "../../engine/types";
-
 
 @node("core.flow.delay", {
   kind: "core.flow.delay",
@@ -23,20 +22,22 @@ import type {
   labels: ["flow", "delay", "wait"],
   metadata: {
     title: "Delay",
-    description: "Pauses execution for the configured duration (in milliseconds), then forwards the input unchanged.",
+    description:
+      "Pauses execution for the configured duration (in milliseconds), then forwards the input unchanged.",
     durationMs: 1000,
   },
 })
 @model()
 export class DelayFlowNode extends GraphNode {
-  static execute(
-    request: GraphNodeExecutionRequest
-  ): GraphExecutionValues {
+  static execute(request: GraphNodeExecutionRequest): GraphExecutionValues {
     return { valueOut: request.inputs["value"] ?? request.inputs };
   }
 
   @required()
-  @uielement("textarea", { label: "Input value", placeholder: "Value to forward after delay" })
+  @uielement("textarea", {
+    label: "Input value",
+    placeholder: "Value to forward after delay",
+  })
   @input({ handle: "value" })
   value!: unknown;
 

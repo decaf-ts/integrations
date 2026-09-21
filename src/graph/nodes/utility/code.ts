@@ -11,7 +11,7 @@
  * `$index`, `$node`, and `$output` as data variables. TypeScript is
  * supported via transpilation.
  *
- * The `@input` on `CodeFlowNode.input` is a schema group — the nested
+ * The `@input` on `CodeNode.input` is a schema group — the nested
  * model's `@input` ports are spliced into the parent unprefixed. `code` has
  * `@input` + `@uielement("code-editor")`, so it appears as a port AND in the
  * CRUD modal (the only visible field). `data` has `@input` + `@hidden()` but
@@ -65,14 +65,14 @@ function readCodeMetadata(context: GraphExecutionContext): CodeNodeMetadata {
   return { ...(metadata ?? {}), ...parameters } as CodeNodeMetadata;
 }
 
-@node("core.flow.code", {
-  kind: "core.flow.code",
+@node("core.utility.code", {
+  kind: "core.utility.code",
   category: "Utility",
   color: "#0d9488",
   icon: "ti-code",
   width: 96,
   height: 96,
-  labels: ["flow", "code", "sandbox", "transform"],
+  labels: ["utility", "code", "sandbox", "transform"],
   metadata: {
     title: "Code",
     description: "Runs user-authored JS/TS in a restricted VM sandbox. Supports placeholder syntax for workflow data references.",
@@ -80,7 +80,7 @@ function readCodeMetadata(context: GraphExecutionContext): CodeNodeMetadata {
   },
 })
 @model()
-export class CodeFlowNode extends GraphNode {
+export class CodeNode extends GraphNode {
   static async execute(
     request: GraphNodeExecutionRequest,
     context: GraphExecutionContext

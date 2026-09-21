@@ -5,7 +5,7 @@
  * `ctx.logger` at a configurable level and forwards it unchanged on the
  * `logged` output port.
  */
-import { Model, model, required } from "@decaf-ts/decorator-validation";
+import { model, required } from "@decaf-ts/decorator-validation";
 import { uielement } from "@decaf-ts/ui-decorators";
 import { input, node, output } from "@decaf-ts/ui-decorators/graph";
 import type { LogNodeLevel } from "@decaf-ts/ui-decorators/graph";
@@ -15,7 +15,6 @@ import type {
   GraphNodeExecutionRequest,
 } from "../../engine/types";
 import { GraphNode } from "../base";
-
 
 @node("core.utility.log", {
   kind: "core.utility.log",
@@ -27,7 +26,8 @@ import { GraphNode } from "../base";
   labels: ["utility", "log", "debug", "observability"],
   metadata: {
     title: "Utility Log",
-    description: "Logs the input value to the run's ctx.logger at a configurable level and forwards it unchanged.",
+    description:
+      "Logs the input value to the run's ctx.logger at a configurable level and forwards it unchanged.",
   },
 })
 @model()
@@ -37,8 +37,13 @@ export class UtilityLogNode extends GraphNode {
     context: GraphExecutionContext
   ): GraphExecutionValues {
     const value = request.inputs["value"];
-    const parameters = (context.node.parameters ?? {}) as Record<string, unknown>;
-    const metadata = context.node.metadata as Record<string, unknown> | undefined;
+    const parameters = (context.node.parameters ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const metadata = context.node.metadata as
+      | Record<string, unknown>
+      | undefined;
     const level =
       ((parameters["level"] ?? metadata?.["level"]) as LogNodeLevel) || "info";
     const logger = context.logger as unknown as Record<
@@ -54,7 +59,10 @@ export class UtilityLogNode extends GraphNode {
   @input({ handle: "value" })
   value!: unknown;
 
-  @uielement("input", { label: "Log level", placeholder: "info, warn, error, ..." })
+  @uielement("input", {
+    label: "Log level",
+    placeholder: "info, warn, error, ...",
+  })
   level!: LogNodeLevel;
 
   @required()

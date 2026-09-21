@@ -4,7 +4,7 @@
  * @description Form trigger — generated public/internal form; field
  * definitions.
  */
-import { Model, model, required } from "@decaf-ts/decorator-validation";
+import { model, required } from "@decaf-ts/decorator-validation";
 import { uielement } from "@decaf-ts/ui-decorators";
 import { node, output } from "@decaf-ts/ui-decorators/graph";
 import { GraphNode } from "../base";
@@ -12,7 +12,6 @@ import type {
   GraphExecutionValues,
   GraphNodeExecutionRequest,
 } from "../../engine/types";
-
 
 @node("core.trigger.form", {
   kind: "core.trigger.form",
@@ -24,7 +23,8 @@ import type {
   labels: ["trigger", "form", "public"],
   metadata: {
     title: "Form trigger",
-    description: "Starts the workflow when a generated form is submitted. Field definitions drive the form schema.",
+    description:
+      "Starts the workflow when a generated form is submitted. Field definitions drive the form schema.",
     trigger: {
       type: "form",
       fields: [],
@@ -33,14 +33,15 @@ import type {
 })
 @model()
 export class FormTriggerNode extends GraphNode {
-  static execute(
-    request: GraphNodeExecutionRequest
-  ): GraphExecutionValues {
+  static execute(request: GraphNodeExecutionRequest): GraphExecutionValues {
     return { payload: request.inputs["payload"] ?? null };
   }
 
   @required()
-  @uielement("textarea", { label: "Form submission", placeholder: "Form submission payload" })
+  @uielement("textarea", {
+    label: "Form submission",
+    placeholder: "Form submission payload",
+  })
   @output({ handle: "payload" })
   payload!: unknown;
 }

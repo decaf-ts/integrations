@@ -46,10 +46,10 @@ import { HumanApprovalFlowNode } from "./flow-control/human-approval";
 import { IfFlowNode } from "./flow-control/if";
 import { ParallelFlowNode } from "./flow-control/parallel";
 import { SwitchFlowNode } from "./flow-control/switch";
-import { CodeFlowNode } from "./utility/code";
+import { CodeNode } from "./utility/code";
 import { DelayFlowNode } from "./utility/delay";
 import { LogFlowNode } from "./utility/log";
-import { MapFlowNode } from "./utility/map";
+import { MapNode } from "./utility/map";
 import { MergeFlowNode } from "./utility/merge";
 import { ReturnFlowNode } from "./utility/return";
 import { UtilityLogNode } from "./utility/utility-log";
@@ -77,22 +77,30 @@ export const GRAPH_TRIGGER_NODES = [
 ] as const;
 
 /**
- * All built-in flow-control node constructors.
+ * All built-in flow-control node constructors (branching/routing/looping/
+ * termination semantics).
  */
 export const GRAPH_FLOW_CONTROL_NODES = [
   IfFlowNode,
   SwitchFlowNode,
   ParallelFlowNode,
   MergeFlowNode,
-  MapFlowNode,
   DelayFlowNode,
   ErrorBoundaryFlowNode,
   HumanApprovalFlowNode,
   ReturnFlowNode,
-  CodeFlowNode,
   LogFlowNode,
-  UtilityLogNode,
   BreakFlowNode,
+] as const;
+
+/**
+ * All built-in utility node constructors (side-effect/data-transformation
+ * semantics — no branching).
+ */
+export const GRAPH_UTILITY_NODES = [
+  CodeNode,
+  MapNode,
+  UtilityLogNode,
 ] as const;
 
 /**
@@ -127,12 +135,12 @@ export const GRAPH_BUILT_IN_NODE_CLASSES_BY_KIND: Record<string, GraphNodeClass>
   "core.flow.switch": SwitchFlowNode,
   "core.flow.parallel": ParallelFlowNode,
   "core.flow.merge": MergeFlowNode,
-  "core.flow.map": MapFlowNode,
+  "core.utility.map": MapNode,
   "core.flow.delay": DelayFlowNode,
   "core.flow.errorBoundary": ErrorBoundaryFlowNode,
   "core.flow.humanApproval": HumanApprovalFlowNode,
   "core.flow.return": ReturnFlowNode,
-  "core.flow.code": CodeFlowNode,
+  "core.utility.code": CodeNode,
   "core.flow.log": LogFlowNode,
   "core.utility.log": UtilityLogNode,
   "core.flow.break": BreakFlowNode,

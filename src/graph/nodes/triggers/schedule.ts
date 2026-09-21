@@ -4,7 +4,7 @@
  * @description Schedule trigger — cron-like schedule; timezone + payload
  * config.
  */
-import { Model, model, required } from "@decaf-ts/decorator-validation";
+import { model, required } from "@decaf-ts/decorator-validation";
 import { uielement } from "@decaf-ts/ui-decorators";
 import { node, output } from "@decaf-ts/ui-decorators/graph";
 import { GraphNode } from "../base";
@@ -12,7 +12,6 @@ import type {
   GraphExecutionValues,
   GraphNodeExecutionRequest,
 } from "../../engine/types";
-
 
 @node("core.trigger.schedule", {
   kind: "core.trigger.schedule",
@@ -24,7 +23,8 @@ import type {
   labels: ["trigger", "schedule", "cron"],
   metadata: {
     title: "Schedule trigger",
-    description: "Starts the workflow on a cron-like schedule with timezone support.",
+    description:
+      "Starts the workflow on a cron-like schedule with timezone support.",
     trigger: {
       type: "schedule",
       schedule: "0 * * * *",
@@ -34,14 +34,15 @@ import type {
 })
 @model()
 export class ScheduleTriggerNode extends GraphNode {
-  static execute(
-    request: GraphNodeExecutionRequest
-  ): GraphExecutionValues {
+  static execute(request: GraphNodeExecutionRequest): GraphExecutionValues {
     return { payload: request.inputs["payload"] ?? null };
   }
 
   @required()
-  @uielement("textarea", { label: "Scheduled payload", placeholder: "Payload for the scheduled run" })
+  @uielement("textarea", {
+    label: "Scheduled payload",
+    placeholder: "Payload for the scheduled run",
+  })
   @output({ handle: "payload" })
   payload!: unknown;
 }

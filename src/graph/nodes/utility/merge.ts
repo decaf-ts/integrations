@@ -4,7 +4,7 @@
  * @description Merge — normalises branch/parallel outputs into a single
  * output.
  */
-import { Model, model, required } from "@decaf-ts/decorator-validation";
+import { model, required } from "@decaf-ts/decorator-validation";
 import { uielement } from "@decaf-ts/ui-decorators";
 import { input, node, output } from "@decaf-ts/ui-decorators/graph";
 import { GraphNode } from "../base";
@@ -12,7 +12,6 @@ import type {
   GraphExecutionValues,
   GraphNodeExecutionRequest,
 } from "../../engine/types";
-
 
 @node("core.flow.merge", {
   kind: "core.flow.merge",
@@ -24,20 +23,22 @@ import type {
   labels: ["flow", "merge", "join"],
   metadata: {
     title: "Merge",
-    description: "Merges multiple branch outputs into a single normalised output object.",
+    description:
+      "Merges multiple branch outputs into a single normalised output object.",
     strategy: "concat",
   },
 })
 @model()
 export class MergeFlowNode extends GraphNode {
-  static execute(
-    request: GraphNodeExecutionRequest
-  ): GraphExecutionValues {
+  static execute(request: GraphNodeExecutionRequest): GraphExecutionValues {
     return { merged: request.inputs["values"] ?? request.inputs };
   }
 
   @required()
-  @uielement("textarea", { label: "Branch outputs", placeholder: "Outputs to merge" })
+  @uielement("textarea", {
+    label: "Branch outputs",
+    placeholder: "Outputs to merge",
+  })
   @input({ handle: "values" })
   values!: unknown[];
 

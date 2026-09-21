@@ -10,7 +10,7 @@
  * content and is not part of the shared declaration — the shared class
  * carries the port/metadata shape only.
  */
-import { Model, model, required } from "@decaf-ts/decorator-validation";
+import { model, required } from "@decaf-ts/decorator-validation";
 import { uielement } from "@decaf-ts/ui-decorators";
 import { connection, input, node, output } from "@decaf-ts/ui-decorators/graph";
 import { GraphNode } from "../base";
@@ -27,29 +27,28 @@ import { extractLoopMetadata } from "./loop-metadata";
 import { GRAPH_DEFAULT_MAX_FOREACH_ITERATIONS } from "../../engine/constants";
 import { GraphBreakSignal } from "../../engine/errors/GraphBreakSignal";
 
-
-@node('graph-foreach-loop-node', {
-  kind: 'core.loop.foreach',
-  category: 'Loop',
-  color: '#eab308',
-  icon: 'ti-repeat',
+@node("graph-foreach-loop-node", {
+  kind: "core.loop.foreach",
+  category: "Loop",
+  color: "#eab308",
+  icon: "ti-repeat",
   width: 120,
   height: 140,
-  labels: ['loop', 'iteration', 'foreach'],
+  labels: ["loop", "iteration", "foreach"],
   metadata: {
-    title: 'Foreach loop',
-    description: 'Iterates over an array input and executes the body once per item (or per slice of items).',
+    title: "Foreach loop",
+    description:
+      "Iterates over an array input and executes the body once per item (or per slice of items).",
     loop: {
       maxIterations: 100,
-      itemPort: 'item',
-      resultPort: 'result',
+      itemPort: "item",
+      resultPort: "result",
       slice: 1,
     },
   },
 })
 @model()
 export class GraphForeachLoopNode extends GraphNode {
-
   static async execute(
     request: GraphNodeExecutionRequest,
     context: GraphExecutionContext
@@ -75,7 +74,8 @@ export class GraphForeachLoopNode extends GraphNode {
     const sliceRaw = Number(input.slice ?? metadata.slice ?? 1);
     const slice =
       Number.isFinite(sliceRaw) && sliceRaw > 0 ? Math.floor(sliceRaw) : 1;
-    const iterations = slice > 1 ? Math.ceil(items.length / slice) : items.length;
+    const iterations =
+      slice > 1 ? Math.ceil(items.length / slice) : items.length;
 
     if (iterations > maxIterations) {
       throw new GraphLoopLimitError(
@@ -122,7 +122,8 @@ export class GraphForeachLoopNode extends GraphNode {
         }
       } catch (err) {
         if (err instanceof GraphBreakSignal) {
-          const carried = (err.details as { value?: unknown } | undefined)?.value;
+          const carried = (err.details as { value?: unknown } | undefined)
+            ?.value;
           if (carried !== undefined) results.push(carried);
           broken = true;
           await context.emit({
@@ -157,24 +158,33 @@ export class GraphForeachLoopNode extends GraphNode {
   }
 
   @required()
-  @uielement('textarea', { label: 'Items', placeholder: 'Array to iterate over' })
-  @input({ handle: 'items' })
+  @uielement("textarea", {
+    label: "Items",
+    placeholder: "Array to iterate over",
+  })
+  @input({ handle: "items" })
   items!: unknown[];
 
   @required()
-  @uielement('input', { label: 'Slice size', placeholder: 'Items per iteration (default 1)' })
-  @input({ handle: 'slice' })
+  @uielement("input", {
+    label: "Slice size",
+    placeholder: "Items per iteration (default 1)",
+  })
+  @input({ handle: "slice" })
   slice!: number;
 
   @required()
-  @output({ handle: 'item' })
+  @output({ handle: "item" })
   item!: unknown;
 
   @required()
-  @connection({ handle: 'loop', connectionRules: { allowSelf: true, maxConnections: 1 } })
+  @connection({
+    handle: "loop",
+    connectionRules: { allowSelf: true, maxConnections: 1 },
+  })
   loop!: unknown;
 
   @required()
-  @output({ handle: 'completed' })
+  @output({ handle: "completed" })
   completed!: unknown[];
 }

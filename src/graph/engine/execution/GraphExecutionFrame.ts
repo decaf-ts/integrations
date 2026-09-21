@@ -25,6 +25,14 @@ export class GraphExecutionFrame {
   readonly startedAt: Date;
   readonly nodeResults: Map<string, GraphNodeExecutionResult> = new Map();
   readonly events: GraphExecutionEvent[] = [];
+  /**
+   * Ids of the data edges activated by a routed upstream output port
+   * (DECAF-50 §4.9 branch semantics). A data edge is activated only when
+   * its source node actually emitted the edge's source port; downstream
+   * nodes with no activated incoming data edge are skipped rather than run
+   * with undefined inputs.
+   */
+  private readonly activeDataEdges: Set<string> = new Set();
 
   finishedAt?: Date;
 
@@ -44,6 +52,16 @@ export class GraphExecutionFrame {
   /** Records a node execution result. */
   recordNodeResult(result: GraphNodeExecutionResult): void {
     this.nodeResults.set(result.nodeId, result);
+  }
+
+  /** Marks a data edge as activated by its routed source output port. */
+  activateDataEdge(edgeId: string): void {
+    this.activeDataEdges.add(edgeId);
+  }
+
+  /** Returns whether a data edge has been activated during this run. */
+  isDataEdgeActive(edgeId: string): boolean {
+    return this.activeDataEdges.has(edgeId);
   }
 
   /** Appends an event to the run's event log. */

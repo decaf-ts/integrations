@@ -47,13 +47,11 @@ const SORTED_CATALOGUE_KINDS = [
   "api.service",
   "core.agent",
   "core.flow.break",
-  "core.flow.code",
   "core.flow.delay",
   "core.flow.errorBoundary",
   "core.flow.humanApproval",
   "core.flow.if",
   "core.flow.log",
-  "core.flow.map",
   "core.flow.merge",
   "core.flow.parallel",
   "core.flow.return",
@@ -67,7 +65,9 @@ const SORTED_CATALOGUE_KINDS = [
   "core.trigger.manual",
   "core.trigger.schedule",
   "core.trigger.webhook",
+  "core.utility.code",
   "core.utility.log",
+  "core.utility.map",
 ];
 
 type TestResponse = {

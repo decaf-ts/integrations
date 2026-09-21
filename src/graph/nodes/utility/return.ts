@@ -3,7 +3,7 @@
  * @summary Return utility node declaration (DECAF-32 §22.2.2).
  * @description Return — defines and normalises the final workflow output.
  */
-import { Model, model, required } from "@decaf-ts/decorator-validation";
+import { model, required } from "@decaf-ts/decorator-validation";
 import { uielement } from "@decaf-ts/ui-decorators";
 import { input, node, output } from "@decaf-ts/ui-decorators/graph";
 import { GraphNode } from "../base";
@@ -11,7 +11,6 @@ import type {
   GraphExecutionValues,
   GraphNodeExecutionRequest,
 } from "../../engine/types";
-
 
 @node("core.flow.return", {
   kind: "core.flow.return",
@@ -29,19 +28,23 @@ import type {
 })
 @model()
 export class ReturnFlowNode extends GraphNode {
-  static execute(
-    request: GraphNodeExecutionRequest
-  ): GraphExecutionValues {
+  static execute(request: GraphNodeExecutionRequest): GraphExecutionValues {
     return { result: request.inputs["value"] ?? request.inputs };
   }
 
   @required()
-  @uielement("textarea", { label: "Input value", placeholder: "Value to normalise" })
+  @uielement("textarea", {
+    label: "Input value",
+    placeholder: "Value to normalise",
+  })
   @input({ handle: "value" })
   value!: unknown;
 
   @required()
-  @uielement("input", { label: "Returned output", placeholder: "Normalised output" })
+  @uielement("input", {
+    label: "Returned output",
+    placeholder: "Normalised output",
+  })
   @output({ handle: "result" })
   result!: unknown;
 }

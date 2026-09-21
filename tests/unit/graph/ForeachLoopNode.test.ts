@@ -6,14 +6,23 @@
 import { GraphForeachLoopNode, BreakFlowNode } from "../../../src/graph/nodes";
 import { GraphBreakSignal } from "../../../src/graph/engine/errors/GraphBreakSignal";
 import { GraphExecutionContext } from "../../../src/graph/engine/execution/GraphExecutionContext";
+import { GraphExecutionEngine } from "../../../src/graph/engine/execution/GraphExecutionEngine";
+import { GraphNodeExecutorRegistry } from "../../../src/graph/engine/registry/GraphNodeExecutorRegistry";
+import { GraphNodeCatalogue } from "../../../src/graph/engine/catalog/GraphNodeCatalogue";
+import { defineGraphNode } from "../../../src/graph/engine/catalog/GraphNodeRegistration";
+import { registerBuiltInGraphNodes } from "../../../src/graph/engine/catalog/GraphBuiltInRegistrations";
 import { GraphInputError } from "../../../src/graph/engine/errors/GraphInputError";
-import type { GraphExecutionEngine } from "../../../src/graph/engine/execution/GraphExecutionEngine";
 import type {
   GraphNodeInstance,
   GraphWorkflowDocument,
 } from "@decaf-ts/ui-decorators/graph";
 import type { GraphResolvedNodeManifest } from "@decaf-ts/ui-decorators/graph";
-import { nodeExecutionRequest } from "./fixtures";
+import {
+  documentEdge,
+  documentNode,
+  documentPort,
+  nodeExecutionRequest,
+} from "./fixtures";
 
 /**
  * Builds a minimal {@link GraphExecutionContext} for a Foreach node from a
@@ -171,5 +180,152 @@ describe("BreakFlowNode.execute", () => {
       expect(err).toBeInstanceOf(GraphBreakSignal);
       expect((err as GraphBreakSignal).details).toEqual({ value: "stop" });
     }
+  });
+});
+
+describe("GraphForeachLoopNode.execute — real engine with a switch body (DECAF-50 §4.9 regression)", () => {
+  /**
+   * Builds a real engine over the built-in registrations plus two branch
+   * executors that record their invocation and return the item label.
+   */
+  function buildBranchEngine(
+    onBranch: (branch: string, value: unknown) => void
+  ): GraphExecutionEngine {
+    const catalogue = new GraphNodeCatalogue();
+    const engine = new GraphExecutionEngine({
+      registry: new GraphNodeExecutorRegistry(catalogue),
+    });
+    registerBuiltInGraphNodes(catalogue, engine);
+    const registerBranch = (kind: string, branch: string) =>
+      catalogue.register(
+        defineGraphNode({
+          manifest: {
+            kind,
+            display: { name: kind },
+            inputs: [{ id: "value", label: "value", direction: "input" }],
+            outputs: [{ id: "result", label: "result", direction: "output" }],
+            parameters: [],
+          },
+          executor: {
+            execute: (request: { inputs: Record<string, unknown> }) => {
+              onBranch(branch, request.inputs.value);
+              return {
+                result: (request.inputs.value as { label: string }).label,
+              };
+            },
+          } as never,
+        })
+      );
+    registerBranch("sample.foreach-even", "even");
+    registerBranch("sample.foreach-odd", "odd");
+    return engine;
+  }
+
+  it("collects exactly one non-null result per item when each body iteration routes through a switch branch", async () => {
+    const invocations: Array<{ branch: string; value: unknown }> = [];
+    const engine = buildBranchEngine((branch, value) =>
+      invocations.push({ branch, value })
+    );
+
+    const bodyDocument: GraphWorkflowDocument = {
+      id: "foreach-switch-body",
+      name: "foreach-switch-body",
+      inputs: [documentPort("item")],
+      outputs: [documentPort("result")],
+      nodes: [
+        documentNode(
+          "sw",
+          "core.flow.switch",
+          {
+            cases: [
+              {
+                id: "even",
+                label: "Even",
+                outputPort: "even",
+                condition: {
+                  op: "eq",
+                  left: { path: "even" },
+                  right: { const: true },
+                },
+              },
+            ],
+            hasDefault: true,
+          },
+          {
+            metadata: {
+              switch: {
+                cases: [
+                  {
+                    id: "even",
+                    label: "Even",
+                    outputPort: "even",
+                    condition: {
+                      op: "eq",
+                      left: { path: "even" },
+                      right: { const: true },
+                    },
+                  },
+                ],
+                defaultPort: "default",
+                hasDefault: true,
+              },
+            },
+          }
+        ),
+        documentNode("evenBranch", "sample.foreach-even"),
+        documentNode("oddBranch", "sample.foreach-odd"),
+      ],
+      edges: [
+        documentEdge("be_in", ["workflow", "item"], ["node", "sw", "value"]),
+        documentEdge(
+          "be_even",
+          ["node", "sw", "even"],
+          ["node", "evenBranch", "value"]
+        ),
+        documentEdge(
+          "be_odd",
+          ["node", "sw", "default"],
+          ["node", "oddBranch", "value"]
+        ),
+        documentEdge(
+          "be_out_even",
+          ["node", "evenBranch", "result"],
+          ["workflow", "result"]
+        ),
+        documentEdge(
+          "be_out_odd",
+          ["node", "oddBranch", "result"],
+          ["workflow", "result"]
+        ),
+      ],
+    };
+
+    const items = [
+      { even: true, label: "Hello" },
+      { even: false, label: "World" },
+      { even: true, label: "Foo" },
+      { even: false, label: "Bar" },
+      { even: true, label: "Baz" },
+    ];
+
+    const ctx = buildContext(
+      { body: bodyDocument, itemPort: "item", resultPort: "result" },
+      engine
+    );
+    const out = await GraphForeachLoopNode.execute(
+      nodeExecutionRequest({ items }),
+      ctx
+    );
+
+    expect(out.completed).toEqual(["Hello", "World", "Foo", "Bar", "Baz"]);
+    expect(out.results).toEqual(["Hello", "World", "Foo", "Bar", "Baz"]);
+    expect(out.iterations).toBe(5);
+    expect(invocations.map((entry) => entry.branch)).toEqual([
+      "even",
+      "odd",
+      "even",
+      "odd",
+      "even",
+    ]);
   });
 });

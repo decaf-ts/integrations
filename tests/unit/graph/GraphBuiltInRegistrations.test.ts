@@ -29,6 +29,7 @@ import {
 import {
   AgentNode,
   GRAPH_FLOW_CONTROL_NODES,
+  GRAPH_UTILITY_NODES,
   GRAPH_BUILT_IN_NODE_CLASSES_BY_KIND,
   GRAPH_BUILT_IN_NODE_MANIFESTS,
   GRAPH_BUILT_IN_NODE_MANIFESTS_BY_KIND,
@@ -151,12 +152,12 @@ describe("GraphBuiltInRegistrations", () => {
       "core.flow.switch",
       "core.flow.parallel",
       "core.flow.merge",
-      "core.flow.map",
+      "core.utility.map",
       "core.flow.delay",
       "core.flow.errorBoundary",
       "core.flow.humanApproval",
       "core.flow.return",
-      "core.flow.code",
+      "core.utility.code",
       "core.flow.log",
       "core.utility.log",
       "core.flow.break",
@@ -243,7 +244,10 @@ describe("Global built-in exhaustive kind catalogue and visual conformance", () 
 
   it("asserts the ALFRED-5 taxonomy's visual family conformance across the built-in types", () => {
     const builtInKinds = Object.keys(GRAPH_BUILT_IN_NODE_MANIFESTS_BY_KIND);
-    for (const ctor of GRAPH_FLOW_CONTROL_NODES) {
+    for (const ctor of [
+      ...GRAPH_FLOW_CONTROL_NODES,
+      ...GRAPH_UTILITY_NODES,
+    ]) {
       const definition = graphDefinitionOf(ctor as never);
       const kind = definition.kind;
       if (!kind) continue; // some classes have no compiled kind

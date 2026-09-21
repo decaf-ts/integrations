@@ -3,7 +3,7 @@
  * @summary Error-boundary flow-control node declaration (DECAF-32 §22.2.2).
  * @description Error boundary — try/catch/finally workflow behaviour.
  */
-import { Model, model, required } from "@decaf-ts/decorator-validation";
+import { model, required } from "@decaf-ts/decorator-validation";
 import { uielement } from "@decaf-ts/ui-decorators";
 import { input, node, output } from "@decaf-ts/ui-decorators/graph";
 import { GraphNode } from "../base";
@@ -11,7 +11,6 @@ import type {
   GraphExecutionValues,
   GraphNodeExecutionRequest,
 } from "../../engine/types";
-
 
 @node("core.flow.errorBoundary", {
   kind: "core.flow.errorBoundary",
@@ -23,20 +22,22 @@ import type {
   labels: ["flow", "error", "try-catch"],
   metadata: {
     title: "Error boundary",
-    description: "Wraps the input in a try/catch/finally. Emits the result on success, or the error on failure.",
+    description:
+      "Wraps the input in a try/catch/finally. Emits the result on success, or the error on failure.",
     finally: false,
   },
 })
 @model()
 export class ErrorBoundaryFlowNode extends GraphNode {
-  static execute(
-    request: GraphNodeExecutionRequest
-  ): GraphExecutionValues {
+  static execute(request: GraphNodeExecutionRequest): GraphExecutionValues {
     return { result: request.inputs["value"] ?? request.inputs };
   }
 
   @required()
-  @uielement("textarea", { label: "Input value", placeholder: "Value to guard" })
+  @uielement("textarea", {
+    label: "Input value",
+    placeholder: "Value to guard",
+  })
   @input({ handle: "value" })
   value!: unknown;
 

@@ -891,6 +891,131 @@ describe("DECAF-50 §4.19 planner/engine — engine resolution", () => {
     ).toBe(true);
   });
 
+  it("routes only the selected switch branch: an unselected branch is skipped and never contributes to workflow outputs (DECAF-50 §4.9)", async () => {
+    const catalogue = new GraphNodeCatalogue();
+    const { engine } = namedTestEngine(catalogue);
+    registerBuiltInGraphNodes(catalogue, engine);
+
+    const evenInvocations: unknown[] = [];
+    const oddInvocations: unknown[] = [];
+    registerNamedTestKind(catalogue, {
+      kind: "sample.branch-even",
+      inputs: [{ id: "value" }],
+      outputs: [{ id: "result" }],
+      executor: {
+        execute: (request: GraphNodeExecutionRequest) => {
+          evenInvocations.push(request.inputs.value);
+          return { result: request.inputs.value };
+        },
+      },
+    });
+    registerNamedTestKind(catalogue, {
+      kind: "sample.branch-odd",
+      inputs: [{ id: "value" }],
+      outputs: [{ id: "result" }],
+      executor: {
+        execute: (request: GraphNodeExecutionRequest) => {
+          oddInvocations.push(request.inputs.value);
+          return { result: request.inputs.value };
+        },
+      },
+    });
+
+    const branchDocument: GraphWorkflowDocument = {
+      id: "switch-branch-wf",
+      name: "switch-branch-wf",
+      inputs: [documentPort("payload")],
+      outputs: [documentPort("result")],
+      nodes: [
+        documentNode(
+          "sw",
+          "core.flow.switch",
+          {
+            cases: [
+              {
+                id: "even",
+                label: "Even",
+                outputPort: "even",
+                condition: {
+                  op: "eq",
+                  left: { path: "n" },
+                  right: { const: 2 },
+                },
+              },
+            ],
+            hasDefault: true,
+          },
+          {
+            metadata: {
+              switch: {
+                cases: [
+                  {
+                    id: "even",
+                    label: "Even",
+                    outputPort: "even",
+                    condition: {
+                      op: "eq",
+                      left: { path: "n" },
+                      right: { const: 2 },
+                    },
+                  },
+                ],
+                defaultPort: "default",
+                hasDefault: true,
+              },
+            },
+          }
+        ),
+        documentNode("evenBranch", "sample.branch-even"),
+        documentNode("oddBranch", "sample.branch-odd"),
+      ],
+      edges: [
+        documentEdge("e_in", ["workflow", "payload"], ["node", "sw", "value"]),
+        documentEdge(
+          "e_even",
+          ["node", "sw", "even"],
+          ["node", "evenBranch", "value"]
+        ),
+        documentEdge(
+          "e_odd",
+          ["node", "sw", "default"],
+          ["node", "oddBranch", "value"]
+        ),
+        documentEdge(
+          "e_out_even",
+          ["node", "evenBranch", "result"],
+          ["workflow", "result"]
+        ),
+        documentEdge(
+          "e_out_odd",
+          ["node", "oddBranch", "result"],
+          ["workflow", "result"]
+        ),
+      ],
+    };
+
+    const evenResult = await engine.execute(branchDocument, {
+      payload: { n: 2 },
+    });
+    expect(evenResult.status).toBe("succeeded");
+    expect(evenResult.outputs.result).toEqual({ n: 2 });
+    expect(evenInvocations).toEqual([{ n: 2 }]);
+    expect(oddInvocations).toEqual([]);
+    expect(evenResult.nodeResults.evenBranch.status).toBe("succeeded");
+    expect(evenResult.nodeResults.oddBranch.status).toBe("skipped");
+    expect(evenResult.nodeResults.oddBranch.outputs).toBeUndefined();
+
+    const oddResult = await engine.execute(branchDocument, {
+      payload: { n: 3 },
+    });
+    expect(oddResult.status).toBe("succeeded");
+    expect(oddResult.outputs.result).toEqual({ n: 3 });
+    expect(oddInvocations).toEqual([{ n: 3 }]);
+    expect(evenInvocations).toEqual([{ n: 2 }]);
+    expect(oddResult.nodeResults.oddBranch.status).toBe("succeeded");
+    expect(oddResult.nodeResults.evenBranch.status).toBe("skipped");
+  });
+
   it("nested loop bodies are validated recursively and merged issue paths announce the owning loop node", async () => {
     const catalogue = new GraphNodeCatalogue();
     const { engine } = namedTestEngine(catalogue);

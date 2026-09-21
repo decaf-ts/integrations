@@ -1,13 +1,13 @@
 /**
  * @module integrations/tests/unit/graph/GraphPortManifestElement.test
  * @summary SAA-1649 evidence: backend `GraphPortManifest` carries the
- * serialized `@uielement` shape on `core.flow.code` so `GET /graph/node-types`
+ * serialized `@uielement` shape on `core.utility.code` so `GET /graph/node-types`
  * serves a port `element` field.
  * @description Asserts the exact `element` shape on the `code` input port of the
  * `CODE_GRAPH_NODE_MANIFEST` (`data`/`result` stay element-free), that the
  * catalogue listing and controller `GET /graph/node-types` serving paths preserve
  * it, that `resolveGraphNodeManifest`/`catalogue.resolveManifest` keep it and
- * stay JSON-safe, and that the live `core.flow.code` input element deep-equals
+ * stay JSON-safe, and that the live `core.utility.code` input element deep-equals
  * the `for-angular` fixture snapshot entry.
  */
 import { describe, it, expect, beforeAll, afterAll } from "@jest/globals";
@@ -50,7 +50,7 @@ function portOf(
 }
 
 describe("GraphPortManifest element serialization (unit)", () => {
-  it("emits the exact element on the core.flow.code input port and none on data/result", () => {
+  it("emits the exact element on the core.utility.code input port and none on data/result", () => {
     const code = portOf(CODE_GRAPH_NODE_MANIFEST, "code", "inputs");
     expect(code?.element).toEqual(EXPECTED_ELEMENT);
     expect(portOf(CODE_GRAPH_NODE_MANIFEST, "data", "inputs")).not.toHaveProperty(
@@ -68,7 +68,7 @@ describe("GraphPortManifest element serialization (unit)", () => {
     });
     registerBuiltInGraphNodes(catalogue, engine);
 
-    const listed = catalogue.listManifests().find((m) => m.kind === "core.flow.code");
+    const listed = catalogue.listManifests().find((m) => m.kind === "core.utility.code");
     expect(listed?.inputs.find((port) => port.id === "code")?.element).toEqual(
       EXPECTED_ELEMENT
     );
@@ -87,9 +87,9 @@ describe("GraphPortManifest element serialization (unit)", () => {
     );
     expect(isGraphJsonSafeValue(direct)).toBe(true);
 
-    const resolved = await catalogue.resolveManifest("core.flow.code", {
+    const resolved = await catalogue.resolveManifest("core.utility.code", {
       id: "code-node",
-      kind: "core.flow.code",
+      kind: "core.utility.code",
       parameters: {},
     });
     expect(resolved.inputs.find((port) => port.id === "code")?.element).toEqual(
@@ -98,9 +98,9 @@ describe("GraphPortManifest element serialization (unit)", () => {
     expect(isGraphJsonSafeValue(resolved)).toBe(true);
   });
 
-  it("deep-equals the for-angular fixture core.flow.code input element", () => {
+  it("deep-equals the for-angular fixture core.utility.code input element", () => {
     const fixture = GRAPH_BUILT_IN_NODE_MANIFEST_SNAPSHOT.find(
-      (manifest) => manifest.kind === "core.flow.code"
+      (manifest) => manifest.kind === "core.utility.code"
     );
     expect(fixture).toBeDefined();
     expect(portOf(fixture as GraphNodeManifest, "code", "inputs")?.element).toEqual(
@@ -144,11 +144,11 @@ describe("GraphNodeCatalogueController GET /graph/node-types (unit)", () => {
     }
   }, 20000);
 
-  it("serves the element on the core.flow.code port through the HTTP listing", async () => {
+  it("serves the element on the core.utility.code port through the HTTP listing", async () => {
     const res = await request(app.getHttpServer()).get("/graph/node-types");
     expect(res.status).toBe(200);
     const manifests = res.body as GraphNodeManifest[];
-    const codeManifest = manifests.find((m) => m.kind === "core.flow.code");
+    const codeManifest = manifests.find((m) => m.kind === "core.utility.code");
     expect(codeManifest).toBeDefined();
     expect(
       codeManifest?.inputs.find((port) => port.id === "code")?.element

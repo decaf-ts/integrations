@@ -3,7 +3,7 @@
  * @summary Parallel flow-control node declaration (DECAF-32 §22.2.2).
  * @description Parallel — splits execution into concurrent branches.
  */
-import { Model, model, required } from "@decaf-ts/decorator-validation";
+import { model, required } from "@decaf-ts/decorator-validation";
 import { uielement } from "@decaf-ts/ui-decorators";
 import { input, node, output } from "@decaf-ts/ui-decorators/graph";
 import { GraphNode } from "../base";
@@ -11,7 +11,6 @@ import type {
   GraphExecutionValues,
   GraphNodeExecutionRequest,
 } from "../../engine/types";
-
 
 @node("core.flow.parallel", {
   kind: "core.flow.parallel",
@@ -23,25 +22,30 @@ import type {
   labels: ["flow", "parallel", "concurrent"],
   metadata: {
     title: "Parallel",
-    description: "Splits execution into concurrent branches. All branches run in parallel and outputs are collected.",
+    description:
+      "Splits execution into concurrent branches. All branches run in parallel and outputs are collected.",
     branchCount: 2,
   },
 })
 @model()
 export class ParallelFlowNode extends GraphNode {
-  static execute(
-    request: GraphNodeExecutionRequest
-  ): GraphExecutionValues {
+  static execute(request: GraphNodeExecutionRequest): GraphExecutionValues {
     return { branches: [request.inputs["value"] ?? request.inputs] };
   }
 
   @required()
-  @uielement("textarea", { label: "Input value", placeholder: "Value to fan out" })
+  @uielement("textarea", {
+    label: "Input value",
+    placeholder: "Value to fan out",
+  })
   @input({ handle: "value" })
   value!: unknown;
 
   @required()
-  @uielement("input", { label: "Branches", placeholder: "Collected branch outputs" })
+  @uielement("input", {
+    label: "Branches",
+    placeholder: "Collected branch outputs",
+  })
   @output({ handle: "branches" })
   branches!: unknown[];
 }

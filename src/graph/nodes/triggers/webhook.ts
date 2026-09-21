@@ -4,7 +4,7 @@
  * @description Webhook trigger — HTTP request received; path/method/auth/
  * responseMode config.
  */
-import { Model, model, required } from "@decaf-ts/decorator-validation";
+import { model, required } from "@decaf-ts/decorator-validation";
 import { uielement } from "@decaf-ts/ui-decorators";
 import { node, output } from "@decaf-ts/ui-decorators/graph";
 import { GraphNode } from "../base";
@@ -12,7 +12,6 @@ import type {
   GraphExecutionValues,
   GraphNodeExecutionRequest,
 } from "../../engine/types";
-
 
 @node("core.trigger.webhook", {
   kind: "core.trigger.webhook",
@@ -24,7 +23,8 @@ import type {
   labels: ["trigger", "webhook", "http"],
   metadata: {
     title: "Webhook trigger",
-    description: "Starts the workflow when an HTTP request is received on the configured path and method.",
+    description:
+      "Starts the workflow when an HTTP request is received on the configured path and method.",
     trigger: {
       type: "webhook",
       path: "/webhook",
@@ -36,14 +36,15 @@ import type {
 })
 @model()
 export class WebhookTriggerNode extends GraphNode {
-  static execute(
-    request: GraphNodeExecutionRequest
-  ): GraphExecutionValues {
+  static execute(request: GraphNodeExecutionRequest): GraphExecutionValues {
     return { payload: request.inputs["payload"] ?? null };
   }
 
   @required()
-  @uielement("textarea", { label: "Request payload", placeholder: "Webhook request body" })
+  @uielement("textarea", {
+    label: "Request payload",
+    placeholder: "Webhook request body",
+  })
   @output({ handle: "payload" })
   payload!: unknown;
 }

@@ -22,10 +22,10 @@ import { HumanApprovalFlowNode } from "./flow-control/human-approval";
 import { IfFlowNode } from "./flow-control/if";
 import { ParallelFlowNode } from "./flow-control/parallel";
 import { SwitchFlowNode } from "./flow-control/switch";
-import { CodeFlowNode } from "./utility/code";
+import { CodeNode } from "./utility/code";
 import { DelayFlowNode } from "./utility/delay";
 import { LogFlowNode } from "./utility/log";
-import { MapFlowNode } from "./utility/map";
+import { MapNode } from "./utility/map";
 import { MergeFlowNode } from "./utility/merge";
 import { ReturnFlowNode } from "./utility/return";
 import { UtilityLogNode } from "./utility/utility-log";
@@ -329,7 +329,7 @@ export const PARALLEL_GRAPH_NODE_MANIFEST = compile(ParallelFlowNode, "Parallel"
 export const MERGE_GRAPH_NODE_MANIFEST = compile(MergeFlowNode, "Merge");
 
 /** Manifest for the map node (transforms each input item). */
-export const MAP_GRAPH_NODE_MANIFEST = compile(MapFlowNode, "Map");
+export const MAP_GRAPH_NODE_MANIFEST = compile(MapNode, "Map");
 
 /** Manifest for the delay node (pauses execution for a duration). */
 export const DELAY_GRAPH_NODE_MANIFEST = compile(DelayFlowNode, "Delay");
@@ -344,7 +344,7 @@ export const HUMAN_APPROVAL_GRAPH_NODE_MANIFEST = compile(HumanApprovalFlowNode,
 export const RETURN_GRAPH_NODE_MANIFEST = compile(ReturnFlowNode, "Return");
 
 /** Manifest for the code node (executes user code). */
-export const CODE_GRAPH_NODE_MANIFEST = compile(CodeFlowNode, "Code");
+export const CODE_GRAPH_NODE_MANIFEST = compile(CodeNode, "Code");
 
 /** Manifest for the log node (logs its input). */
 export const LOG_GRAPH_NODE_MANIFEST = compile(LogFlowNode, "Log");

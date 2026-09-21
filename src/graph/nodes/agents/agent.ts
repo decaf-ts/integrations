@@ -12,7 +12,7 @@
  * `{{ $input.brief }}` or `{{ $node["Research"].output.summary }}` that are
  * resolved at execution time by the placeholder compiler.
  */
-import { Model, model, required } from "@decaf-ts/decorator-validation";
+import { model, required } from "@decaf-ts/decorator-validation";
 import { uielement } from "@decaf-ts/ui-decorators";
 import { connection, input, node, output } from "@decaf-ts/ui-decorators/graph";
 import { GraphNode } from "../base";
@@ -20,7 +20,6 @@ import type {
   GraphExecutionValues,
   GraphNodeExecutionRequest,
 } from "../../engine/types";
-
 
 /**
  * Agent node — an AI agent that orchestrates a model, memory, and workspace.
@@ -54,9 +53,7 @@ import type {
 })
 @model()
 export class AgentNode extends GraphNode {
-  static execute(
-    request: GraphNodeExecutionRequest
-  ): GraphExecutionValues {
+  static execute(request: GraphNodeExecutionRequest): GraphExecutionValues {
     return {
       response: `[Agent response] ${String(request.inputs["prompt"] ?? "")}`,
       actions: [],
@@ -68,7 +65,8 @@ export class AgentNode extends GraphNode {
   @required()
   @uielement("textarea", {
     label: "Prompt",
-    placeholder: "Enter task prompt. Supports placeholders like {{ $input.brief }} or {{ $node[\"Research\"].output.summary }}",
+    placeholder:
+      'Enter task prompt. Supports placeholders like {{ $input.brief }} or {{ $node["Research"].output.summary }}',
   })
   @input({ handle: "prompt" })
   prompt!: string;
@@ -81,7 +79,10 @@ export class AgentNode extends GraphNode {
   response!: string;
 
   @required()
-  @uielement("textarea", { label: "Actions", placeholder: "Actions taken by the agent" })
+  @uielement("textarea", {
+    label: "Actions",
+    placeholder: "Actions taken by the agent",
+  })
   @output({ handle: "actions" })
   actions!: unknown[];
 

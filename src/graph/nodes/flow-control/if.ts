@@ -7,7 +7,7 @@
  * (§5.7) but it has no built-in executor — downstream projects register
  * custom executors or compile it into composition APIs (§22.2.2).
  */
-import { Model, model, required } from "@decaf-ts/decorator-validation";
+import { model, required } from "@decaf-ts/decorator-validation";
 import { uielement } from "@decaf-ts/ui-decorators";
 import { input, node, output } from "@decaf-ts/ui-decorators/graph";
 import { GraphNode } from "../base";
@@ -15,7 +15,6 @@ import type {
   GraphExecutionValues,
   GraphNodeExecutionRequest,
 } from "../../engine/types";
-
 
 @node("core.flow.if", {
   kind: "core.flow.if",
@@ -27,30 +26,38 @@ import type {
   labels: ["flow", "conditional", "branch"],
   metadata: {
     title: "If",
-    description: "Conditional branch. Evaluates the configured condition and routes the input to the matching output.",
+    description:
+      "Conditional branch. Evaluates the configured condition and routes the input to the matching output.",
     condition: { op: "eq", left: { const: true }, right: { const: true } },
   },
 })
 @model()
 export class IfFlowNode extends GraphNode {
-  static execute(
-    request: GraphNodeExecutionRequest
-  ): GraphExecutionValues {
+  static execute(request: GraphNodeExecutionRequest): GraphExecutionValues {
     return { then: request.inputs["value"] ?? request.inputs };
   }
 
   @required()
-  @uielement("textarea", { label: "Input value", placeholder: "Value to evaluate" })
+  @uielement("textarea", {
+    label: "Input value",
+    placeholder: "Value to evaluate",
+  })
   @input({ handle: "value" })
   value!: unknown;
 
   @required()
-  @uielement("input", { label: "Then", placeholder: "Output when condition is true" })
+  @uielement("input", {
+    label: "Then",
+    placeholder: "Output when condition is true",
+  })
   @output({ handle: "then" })
   then!: unknown;
 
   @required()
-  @uielement("input", { label: "Else", placeholder: "Output when condition is false" })
+  @uielement("input", {
+    label: "Else",
+    placeholder: "Output when condition is false",
+  })
   @output({ handle: "else" })
   else!: unknown;
 }

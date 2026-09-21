@@ -48,9 +48,11 @@ export class GraphNode extends Model {
    * @returns The node's output values keyed by port name.
    * @throws {GraphExecutionError} when the kind does not implement `execute`.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   static execute(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _request: GraphNodeExecutionRequest,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _context: GraphExecutionContext
   ): GraphExecutionValues | Promise<GraphExecutionValues> {
     throw new GraphExecutionError(

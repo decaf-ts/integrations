@@ -91,6 +91,7 @@ export function createGraphExecutorRegistry(
  */
 export function registerEngineBoundGraphNodes(
   catalogue: GraphNodeCatalogue,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _engine: GraphExecutionEngine
 ): GraphNodeCatalogue {
   for (const registration of builtInGraphNodeRegistrations()) {
