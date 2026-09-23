@@ -188,6 +188,16 @@ describe("GraphBuiltInRegistrations", () => {
       expect(isGraphJsonSafeValue(manifest)).toBe(true);
     }
   });
+
+  it("declares the switch block parameter on core.flow.switch so UI-authored dual-shape documents validate (DECAF-50 §4.26 R4-4)", () => {
+    const manifest = GRAPH_BUILT_IN_NODE_MANIFESTS_BY_KIND["core.flow.switch"];
+    const ids = manifest.parameters.map((parameter) => parameter.id);
+    expect(ids).toEqual(expect.arrayContaining(["cases", "hasDefault", "switch"]));
+    const switchParameter = manifest.parameters.find(
+      (parameter) => parameter.id === "switch"
+    );
+    expect(switchParameter?.type).toBe("object");
+  });
 });
 
 describe("Global built-in exhaustive kind catalogue and visual conformance", () => {

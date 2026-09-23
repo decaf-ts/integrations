@@ -409,4 +409,120 @@ describe("SwitchFlowNode.execute", () => {
       expect(result).toEqual({ c: 1 });
     });
   });
+
+  describe("UI-authored switch documents (DECAF-50 §4.26 R4-4)", () => {
+    const executor = SwitchFlowNode;
+
+    /**
+     * Builds a context whose node instance carries `parameters` (the surface
+     * the Angular node template writes) rather than `metadata.switch`.
+     */
+    function buildParameterContext(
+      parameters: Record<string, unknown>
+    ): GraphExecutionContext {
+      const node: GraphNodeInstance = {
+        id: "SwitchNode",
+        kind: "core.flow.switch",
+        parameters: parameters as never,
+      };
+      const document: GraphWorkflowDocument = {
+        id: "wf",
+        name: "wf",
+        inputs: [],
+        outputs: [],
+        nodes: [],
+        edges: [],
+      };
+      const manifest: GraphResolvedNodeManifest = {
+        kind: "core.flow.switch",
+        display: { name: "Switch" },
+        inputs: [],
+        outputs: [],
+        parameters: [],
+      };
+      return new GraphExecutionContext(
+        "run-1",
+        undefined,
+        "wf",
+        document,
+        node,
+        manifest,
+        ["SwitchNode"],
+        async () => {},
+        {},
+        undefined
+      );
+    }
+
+    it("resolves the graphical condition path (the `value` input port name) against the switch input", async () => {
+      const cases = [
+        {
+          id: "c1",
+          label: "Is 1",
+          outputPort: "case_1",
+          condition: {
+            op: "eq",
+            left: { path: "value" },
+            right: { const: 1 },
+          },
+        },
+      ];
+      const ctx = buildParameterContext({
+        cases,
+        hasDefault: true,
+        switch: { cases, defaultPort: "default", hasDefault: true },
+      });
+      expect(await executor.execute(nodeExecutionRequest({ value: 1 }), ctx)).toEqual({
+        case_1: 1,
+      });
+      expect(await executor.execute(nodeExecutionRequest({ value: 2 }), ctx)).toEqual({
+        default: 2,
+      });
+    });
+
+    it("reads the declared top-level parameters.cases/hasDefault surface when no switch block is present", async () => {
+      const cases = [
+        {
+          id: "c1",
+          label: "Is 1",
+          outputPort: "case_1",
+          condition: {
+            op: "eq",
+            left: { path: "value" },
+            right: { const: 1 },
+          },
+        },
+      ];
+      const ctx = buildParameterContext({ cases, hasDefault: true });
+      expect(await executor.execute(nodeExecutionRequest({ value: 1 }), ctx)).toEqual({
+        case_1: 1,
+      });
+      expect(await executor.execute(nodeExecutionRequest({ value: 5 }), ctx)).toEqual({
+        default: 5,
+      });
+    });
+
+    it("still resolves a nested field path against the primary value", async () => {
+      const cases = [
+        {
+          id: "c1",
+          label: "Is 2",
+          outputPort: "case_1",
+          condition: {
+            op: "eq",
+            left: { path: "n" },
+            right: { const: 2 },
+          },
+        },
+      ];
+      const ctx = buildParameterContext({
+        cases,
+        hasDefault: true,
+        switch: { cases, defaultPort: "default", hasDefault: true },
+      });
+      expect(
+        await executor.execute(nodeExecutionRequest({ value: { n: 2 } }), ctx)
+      ).toEqual({ case_1: { n: 2 } });
+    });
+  });
 });

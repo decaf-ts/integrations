@@ -198,7 +198,7 @@ describe("GraphNodeManifestResolver", () => {
     ).toEqual(["default"]);
   });
 
-  it("expands the built-in switch's cases and hasDefault parameters into their resolved ports", () => {
+  it("expands the built-in switch's cases, hasDefault and switch parameters into their resolved ports", () => {
     const resolved = resolveGraphNodeManifest(SWITCH_GRAPH_NODE_MANIFEST, {
       cases: [
         { outputPort: "caseA", label: "Case A" },
@@ -220,6 +220,7 @@ describe("GraphNodeManifestResolver", () => {
       "value",
       "cases",
       "hasDefault",
+      "switch",
     ]);
     expect(resolved.dynamicPorts).toEqual(SWITCH_GRAPH_NODE_MANIFEST.dynamicPorts);
   });

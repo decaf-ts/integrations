@@ -29,12 +29,18 @@ import {
   GraphExecutionEventType,
   isGraphRunTerminalEventType,
 } from "@decaf-ts/ui-decorators/graph";
+import type { GraphWorkflowDocument } from "@decaf-ts/ui-decorators/graph";
 import {
   GraphNodeCatalogue,
   GraphRunEventPublisher,
   GraphRunService,
   InMemoryGraphRunEventStore,
 } from "../../../src/graph";
+import {
+  documentEdge,
+  documentNode,
+  documentPort,
+} from "../graph/fixtures";
 import {
   GateCenter,
   TEST_USER_HEADER,
@@ -346,5 +352,49 @@ describe("GraphRunSse (§4.19 nest row, SAA-516)", () => {
     const negative = await api()
       .get(`/graph/runs/${runId}/events?afterSequence=-1`);
     expect(negative.status).toBe(400);
+  });
+
+  it("7. every log record of a run is delivered over SSE — one discrete event per log node, in order, no batching loss (DECAF-50 §4.26 R4-2 backend)", async () => {
+    const doc: GraphWorkflowDocument = {
+      id: "sse-logs",
+      name: "sse-logs",
+      inputs: [documentPort("count")],
+      outputs: [],
+      nodes: [
+        documentNode("l1", "core.flow.log"),
+        documentNode("l2", "core.flow.log"),
+        documentNode("l3", "core.flow.log"),
+      ],
+      edges: [
+        documentEdge("e0", ["workflow", "count"], ["node", "l1", "value"]),
+        documentEdge("e1", ["node", "l1", "logged"], ["node", "l2", "value"]),
+        documentEdge("e2", ["node", "l2", "logged"], ["node", "l3", "value"]),
+      ],
+    };
+    const res = await api()
+      .post("/graph/runs")
+      .send({ workflow: doc, inputs: { count: 7 } });
+    expect(res.status).toBe(202);
+    const runId = res.body.runId as string;
+    const run = await runService.waitForRun(runId, null);
+    expect(run.status).toBe("succeeded");
+
+    const stream = openRunEventsStream(port, runId, { afterSequence: 0 });
+    expect(await stream.closed).toBe(true);
+    const logs = stream.events.filter(
+      (event) => event.type === GraphExecutionEventType.GRAPH_RUN_LOG
+    );
+    // one discrete log event per log node: no batching, no drop
+    expect(logs).toHaveLength(3);
+    const entries = logs.map(
+      (event) =>
+        event.payload as { message?: string; nodeId?: string; level?: string }
+    );
+    expect(entries.map((entry) => entry.nodeId)).toEqual(["l1", "l2", "l3"]);
+    expect(entries.map((entry) => entry.level)).toEqual([
+      "info",
+      "info",
+      "info",
+    ]);
   });
 });

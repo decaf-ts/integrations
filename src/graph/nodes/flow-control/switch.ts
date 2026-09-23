@@ -47,16 +47,49 @@ import { ConditionExpressionEvaluator } from "../../engine/loops/ConditionExpres
 function readSwitchMetadata(context: GraphExecutionContext): SwitchNodeMetadata {
   const parameters = (context.node.parameters ?? {}) as Record<string, unknown>;
   const metadata = context.node.metadata as Record<string, unknown> | undefined;
+  const declared: SwitchNodeMetadata = {
+    cases: Array.isArray(parameters["cases"])
+      ? (parameters["cases"] as SwitchNodeMetadata["cases"])
+      : [],
+    defaultPort: "default",
+    hasDefault: parameters["hasDefault"] === true,
+  };
   const raw = parameters["switch"] ?? metadata?.["switch"];
   const switchMeta = raw as SwitchNodeMetadata | undefined;
   if (!switchMeta || !Array.isArray(switchMeta.cases)) {
-    return { cases: [], defaultPort: "default", hasDefault: false };
+    return declared;
   }
   return {
     cases: switchMeta.cases,
-    defaultPort: switchMeta.defaultPort ?? "default",
-    hasDefault: switchMeta.hasDefault === true,
+    defaultPort: switchMeta.defaultPort ?? declared.defaultPort,
+    hasDefault: switchMeta.hasDefault === true || declared.hasDefault,
   };
+}
+
+/**
+ * Builds the state a graphical `ConditionExpression` is resolved against.
+ *
+ * The switch exposes a single `value` input port, and the Angular condition
+ * editor lets the author pick that port name as the `left.path` (e.g.
+ * `{ op: "eq", left: { path: "value" }, right: { const: 1 } }`). The raw
+ * input value is therefore unwrapped from the port, but the full input map is
+ * merged over it so a path can reference either an input port name or a field of
+ * the primary value. Scalar inputs resolve against the input map so the port-name
+ * path is honoured.
+ */
+function switchConditionState(
+  input: GraphExecutionValues,
+  inputValue: unknown
+): unknown {
+  if (inputValue === input) return input;
+  if (
+    typeof inputValue === "object" &&
+    inputValue !== null &&
+    !Array.isArray(inputValue)
+  ) {
+    return { ...(inputValue as Record<string, unknown>), ...input };
+  }
+  return input;
 }
 
 function isCodeCondition(cond: SwitchCaseCondition): cond is CodeCondition {
@@ -75,7 +108,7 @@ function isConditionExpression(
 
 async function evaluateSwitchCondition(
   condition: SwitchCaseCondition,
-  inputValue: unknown,
+  conditionState: unknown,
   fullInput: GraphExecutionValues,
   context: GraphExecutionContext
 ): Promise<boolean> {
@@ -109,7 +142,7 @@ async function evaluateSwitchCondition(
     return !!result;
   }
   if (isConditionExpression(condition)) {
-    return new ConditionExpressionEvaluator().evaluate(condition, inputValue);
+    return new ConditionExpressionEvaluator().evaluate(condition, conditionState);
   }
   throw new GraphExecutionError(
     "Unknown switch case condition type — must be ConditionExpression (op) or CodeCondition (type: 'code')",
@@ -153,11 +186,12 @@ export class SwitchFlowNode extends GraphNode {
     const meta = readSwitchMetadata(context);
     const input = request.inputs;
     const inputValue = input["value"] ?? input;
+    const conditionState = switchConditionState(input, inputValue);
 
     for (const switchCase of meta.cases) {
       const matches = await evaluateSwitchCondition(
         switchCase.condition,
-        inputValue,
+        conditionState,
         input,
         context
       );

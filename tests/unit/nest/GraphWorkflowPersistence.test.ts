@@ -20,6 +20,11 @@ import { GraphWorkflowModel } from "../../../src/nest/graph/GraphWorkflowModel";
 import { GraphWorkflowDocumentRejectedError } from "../../../src/nest/graph/GraphWorkflowErrors";
 import { validateGraphWorkflowDocumentAtBoundary } from "../../../src/nest/graph/GraphWorkflowBoundaryValidation";
 import type { GraphValidationIssue } from "../../../src/graph";
+import {
+  documentEdge,
+  documentNode,
+  documentPort,
+} from "../graph/fixtures";
 
 RamAdapter.decoration();
 
@@ -494,6 +499,54 @@ describe("GraphWorkflowPersistence (§4.19 nest row)", () => {
     expect(wireResult.issues).toEqual([]);
     // Wire clone is semantically equivalent to the raw output.
     expect(wire).toEqual(raw);
+  });
+
+  it("11. UI-authored switch+log addition (parameters.switch + top-level cases) saves and reloads intact (DECAF-50 §4.26 R4-4)", async () => {
+    const cases = [
+      {
+        id: "case-1",
+        label: "Case 1",
+        outputPort: "case_1",
+        condition: {
+          op: "eq",
+          left: { path: "value" },
+          right: { const: 1 },
+        },
+      },
+    ];
+    const doc: GraphWorkflowDocument = {
+      id: "ui-switch",
+      name: "ui-switch",
+      inputs: [documentPort("count")],
+      outputs: [documentPort("result")],
+      nodes: [
+        documentNode("sw", "core.flow.switch", {
+          cases,
+          hasDefault: true,
+          switch: { cases, defaultPort: "default", hasDefault: true },
+        }),
+        documentNode("log", "core.flow.log"),
+      ],
+      edges: [
+        documentEdge("e_in", ["workflow", "count"], ["node", "sw", "value"]),
+        documentEdge("e_case", ["node", "sw", "case_1"], ["node", "log", "value"]),
+        documentEdge("e_out", ["node", "log", "logged"], ["workflow", "result"]),
+      ],
+    };
+    const anonymous = new Context();
+    const saved = await service.saveDocument("ui-switch", doc, anonymous);
+    expect(saved.workflowId).toBe("ui-switch");
+    const loaded = await service.getDocument("ui-switch", anonymous);
+    expect(loaded).toEqual(doc);
+    expect(loaded.nodes.map((node) => node.kind)).toEqual([
+      "core.flow.switch",
+      "core.flow.log",
+    ]);
+    expect(loaded.edges.map((edge) => edge.id)).toEqual([
+      "e_in",
+      "e_case",
+      "e_out",
+    ]);
   });
 
   it("unknown workflowId on GET → NotFoundError", async () => {

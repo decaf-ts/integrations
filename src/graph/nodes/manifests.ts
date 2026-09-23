@@ -271,6 +271,12 @@ export const SWITCH_GRAPH_NODE_MANIFEST: GraphNodeManifest = {
       label: "Has default",
       defaultValue: false,
     },
+    {
+      type: "object",
+      id: "switch",
+      label: "Switch",
+      required: false,
+    },
   ],
   dynamicPorts: [
     {

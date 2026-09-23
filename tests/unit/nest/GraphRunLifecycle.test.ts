@@ -227,6 +227,58 @@ describe("GraphRunLifecycle (§4.19 nest row, SAA-516)", () => {
     expect(run.documentFingerprint).toBe(graphRunDocumentFingerprint(doc));
   });
 
+  it("4b. UI-authored switch+log addition survives save and executes from the persisted document (DECAF-50 §4.26 R4-4)", async () => {
+    const cases = [
+      {
+        id: "case-1",
+        label: "Case 1",
+        outputPort: "case_1",
+        condition: {
+          op: "eq",
+          left: { path: "value" },
+          right: { const: 1 },
+        },
+      },
+    ];
+    const doc: GraphWorkflowDocument = {
+      id: "life-ui-switch",
+      name: "life-ui-switch",
+      inputs: [documentPort("count")],
+      outputs: [documentPort("result")],
+      nodes: [
+        documentNode("sw", "core.flow.switch", {
+          cases,
+          hasDefault: true,
+          switch: { cases, defaultPort: "default", hasDefault: true },
+        }),
+        documentNode("log", "core.flow.log"),
+      ],
+      edges: [
+        documentEdge("e_in", ["workflow", "count"], ["node", "sw", "value"]),
+        documentEdge("e_case", ["node", "sw", "case_1"], ["node", "log", "value"]),
+        documentEdge("e_out", ["node", "log", "logged"], ["workflow", "result"]),
+      ],
+    };
+
+    const saveRes = await api()
+      .put("/graph/workflows/life-ui-switch")
+      .send(doc);
+    expect(saveRes.status).toBe(200);
+    expect(saveRes.body.workflowId).toBe("life-ui-switch");
+
+    const res = await api()
+      .post("/graph/runs")
+      .send({ workflowId: "life-ui-switch", inputs: { count: 1 } });
+    expect(res.status).toBe(202);
+
+    const run = await runService.waitForRun(res.body.runId, null);
+    expect(run.status).toBe("succeeded");
+    // the log node after case_1 executed: a non-match would skip it and the
+    // default branch (absent) would fail the run instead.
+    expect(run.result?.outputs.result).toBe(1);
+    expect(run.documentFingerprint).toBe(graphRunDocumentFingerprint(doc));
+  });
+
   it("5. validation failures surface as failed runs with structured error payloads (202 first, then failed)", async () => {
     // 5a. a cyclic canonical document fails the engine validation gate
     const cyclicRes = await api()
