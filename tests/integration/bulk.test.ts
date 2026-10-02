@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, jest } from "@jest/globals";
-import { BaseModel, pk } from "@decaf-ts/core";
+import { BaseModel, pk, Repository } from "@decaf-ts/core";
 import { uses } from "@decaf-ts/decoration";
 import {
   minlength,
@@ -9,7 +9,7 @@ import {
   required,
 } from "@decaf-ts/decorator-validation";
 import { NotFoundError } from "@decaf-ts/db-decorators";
-import { RedisFlavour, RedisRepository } from "../../src/redis";
+import { RedisAdapter, RedisFlavour } from "../../src/redis";
 import {
   cleanupRedisTestResources,
   setupRedisAdapter,
@@ -37,11 +37,11 @@ class BulkRedisModel extends BaseModel {
 
 describe("Redis bulk operations", () => {
   let resources: RedisTestResources;
-  let repo: RedisRepository<BulkRedisModel>;
+  let repo: Repository<BulkRedisModel, RedisAdapter>;
 
   beforeAll(async () => {
     resources = await setupRedisAdapter("bulk");
-    repo = new RedisRepository(resources.adapter, BulkRedisModel);
+    repo = new Repository(resources.adapter, BulkRedisModel);
   });
 
   afterAll(async () => {

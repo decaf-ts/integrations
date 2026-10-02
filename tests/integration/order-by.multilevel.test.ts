@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, jest } from "@jest/globals";
-import { Condition, OrderDirection } from "@decaf-ts/core";
+import { Condition, OrderDirection, Repository } from "@decaf-ts/core";
 import { Model } from "@decaf-ts/decorator-validation";
-import { RedisRepository } from "../../src/redis";
+import { RedisAdapter } from "../../src/redis";
 import {
   cleanupRedisTestResources,
   setupRedisAdapter,
@@ -15,11 +15,11 @@ jest.setTimeout(60000);
 
 describe("Redis multi-level sorting", () => {
   let resources: RedisTestResources;
-  let repo: RedisRepository<RedisOrderedModel>;
+  let repo: Repository<RedisOrderedModel, RedisAdapter>;
 
   beforeAll(async () => {
     resources = await setupRedisAdapter("order_by");
-    repo = new RedisRepository(resources.adapter, RedisOrderedModel);
+    repo = new Repository(resources.adapter, RedisOrderedModel);
     await repo.createAll(ordered());
   });
 

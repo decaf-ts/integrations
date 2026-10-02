@@ -6,6 +6,7 @@ import {
   Context,
   OrderDirection,
   pk,
+  Repository,
   UnsupportedError,
 } from "@decaf-ts/core";
 import {
@@ -28,7 +29,6 @@ import {
   RedisDefaultPrefix,
   RedisDispatch,
   RedisFlavour,
-  RedisRepository,
   serialize,
 } from "../../src/redis";
 import { createFakeRedisClient } from "../helpers/redisFakeClient";
@@ -128,7 +128,7 @@ describe("RedisAdapter unit behaviour", () => {
 
   it("creates a record with HSETNX and rejects duplicates", async () => {
     const { adapter, client } = makeAdapter();
-    const repo = new RedisRepository(adapter, UnitModel, true);
+    const repo = new Repository(adapter, UnitModel, true);
     const created = await repo.create(
       new UnitModel({ id: 1, name: "one", age: 20 })
     );
@@ -141,7 +141,7 @@ describe("RedisAdapter unit behaviour", () => {
 
   it("reads, updates and deletes a record", async () => {
     const { adapter } = makeAdapter();
-    const repo = new RedisRepository(adapter, UnitModel, true);
+    const repo = new Repository(adapter, UnitModel, true);
     await repo.create(new UnitModel({ id: 2, name: "two", age: 30 }));
 
     const read = await repo.read(2);
@@ -160,7 +160,7 @@ describe("RedisAdapter unit behaviour", () => {
 
   it("raises NotFoundError for missing reads, updates and deletes", async () => {
     const { adapter } = makeAdapter();
-    const repo = new RedisRepository(adapter, UnitModel, true);
+    const repo = new Repository(adapter, UnitModel, true);
     await expect(repo.read(99)).rejects.toThrow(NotFoundError);
     await expect(
       repo.update(new UnitModel({ id: 99, name: "x", age: 1 }))
@@ -185,7 +185,7 @@ describe("RedisAdapter unit behaviour", () => {
 
   it("raw applies where/sort/limit/skip and select", async () => {
     const { adapter } = makeAdapter();
-    const repo = new RedisRepository(adapter, UnitModel, true);
+    const repo = new Repository(adapter, UnitModel, true);
     await repo.createAll([
       new UnitModel({ id: 1, name: "a", age: 30 }),
       new UnitModel({ id: 2, name: "b", age: 20 }),
@@ -217,7 +217,7 @@ describe("RedisAdapter unit behaviour", () => {
 
   it("raw supports count, min, max, sum, avg and distinct", async () => {
     const { adapter } = makeAdapter();
-    const repo = new RedisRepository(adapter, UnitModel, true);
+    const repo = new Repository(adapter, UnitModel, true);
     await repo.createAll([
       new UnitModel({ id: 1, name: "a", age: 10 }),
       new UnitModel({ id: 2, name: "a", age: 20 }),

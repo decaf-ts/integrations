@@ -8,7 +8,6 @@ import {
   MaybeContextualArg,
   PersistenceKeys,
   RawResult,
-  Repository,
   Sequence,
 } from "@decaf-ts/core";
 import { createClient, type RedisClientType } from "redis";
@@ -37,7 +36,6 @@ import { RedisDefaultPrefix, RedisFlavour } from "./constants";
 import { RedisStatement } from "./RedisStatement";
 import { RedisPaginator } from "./RedisPaginator";
 import { RedisDispatch } from "./RedisDispatch";
-import { RedisRepository } from "./RedisRepository";
 import { RedisContextLock } from "./RedisContextLock";
 import { createdByOnRedisCreateUpdate } from "./handlers";
 import { deserialize, serialize } from "./serialization";
@@ -72,19 +70,6 @@ export class RedisAdapter extends Adapter<
 
   constructor(conf: RedisConfig = {}, alias?: string) {
     super(conf, RedisFlavour, alias);
-  }
-
-  /**
-   * @description Gets the repository constructor for a model
-   * @summary Returns the Redis repository constructor used to create repositories
-   * bound to this adapter.
-   * @template R - The repository type
-   * @return {Constructor<R>} A constructor for creating Redis repositories
-   */
-  override repository<
-    R extends Repository<any, Adapter<any, any, any, any>>,
-  >(): Constructor<R> {
-    return RedisRepository as unknown as Constructor<R>;
   }
 
   /**

@@ -6,7 +6,13 @@
  * from all levels.
  */
 import { describe, it, expect, beforeAll, afterAll, jest } from "@jest/globals";
-import { BaseModel, pk, table, transactional } from "@decaf-ts/core";
+import {
+  BaseModel,
+  pk,
+  Repository,
+  table,
+  transactional,
+} from "@decaf-ts/core";
 import { uses } from "@decaf-ts/decoration";
 import { NotFoundError } from "@decaf-ts/db-decorators";
 import {
@@ -15,7 +21,7 @@ import {
   type ModelArg,
   required,
 } from "@decaf-ts/decorator-validation";
-import { RedisAdapter, RedisFlavour, RedisRepository } from "../../src/redis";
+import { RedisAdapter, RedisFlavour } from "../../src/redis";
 import {
   cleanupRedisTestResources,
   setupRedisAdapter,
@@ -41,7 +47,7 @@ class NestedTxModel extends BaseModel {
   }
 }
 
-class NestedTxRepository extends RedisRepository<NestedTxModel> {
+class NestedTxRepository extends Repository<NestedTxModel, RedisAdapter> {
   constructor(adapter: RedisAdapter, force = false) {
     super(adapter, NestedTxModel, force);
   }
@@ -110,7 +116,7 @@ describe("nested @transactional calls against live DragonflyDB", () => {
     expect(result.outer.name).toBe("outer");
     expect(result.inner.name).toBe("inner");
 
-    const verifyRepo = new RedisRepository(
+    const verifyRepo = new Repository(
       verify.adapter,
       NestedTxModel,
       true
@@ -120,7 +126,7 @@ describe("nested @transactional calls against live DragonflyDB", () => {
   });
 
   it("rolls back every level when the outer frame fails", async () => {
-    const verifyRepo = new RedisRepository(
+    const verifyRepo = new Repository(
       verify.adapter,
       NestedTxModel,
       true

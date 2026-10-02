@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, jest } from "@jest/globals";
+import { Repository } from "@decaf-ts/core";
 import { NotFoundError } from "@decaf-ts/db-decorators";
 import { Model } from "@decaf-ts/decorator-validation";
-import { RedisRepository } from "../../src/redis";
+import { RedisAdapter } from "../../src/redis";
 import {
   cleanupRedisTestResources,
   setupRedisAdapter,
@@ -16,14 +17,14 @@ jest.setTimeout(60000);
 describe("multiple Redis adapters", () => {
   let first: RedisTestResources;
   let second: RedisTestResources;
-  let repoA: RedisRepository<RedisCountryModel>;
-  let repoB: RedisRepository<RedisCountryModel>;
+  let repoA: Repository<RedisCountryModel, RedisAdapter>;
+  let repoB: Repository<RedisCountryModel, RedisAdapter>;
 
   beforeAll(async () => {
     first = await setupRedisAdapter("multi-a", "redis-multi-a");
     second = await setupRedisAdapter("multi-b", "redis-multi-b");
-    repoA = new RedisRepository(first.adapter, RedisCountryModel, true);
-    repoB = new RedisRepository(second.adapter, RedisCountryModel, true);
+    repoA = new Repository(first.adapter, RedisCountryModel, true);
+    repoB = new Repository(second.adapter, RedisCountryModel, true);
   });
 
   afterAll(async () => {

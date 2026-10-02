@@ -26,7 +26,7 @@
 - Nest-style JWT helpers for extracting Keycloak roles, namespace scopes, and user context from access tokens, plus the `namespace(...)` model decorator for auth-scoped metadata.
 - Org-based authorization scaffolds for tenants, org units, principals, roles, permissions, grants, effective permissions, storage bindings, and authorization payload filters.
 - Dynamic object-loading helpers for models, adapters, repositories, services, controllers, environment objects, Angular components, and graph nodes.
-- Redis (and Redis-compatible, e.g. DragonflyDB) persistence adapter: `RedisAdapter`, `RedisRepository`, query statement/paginator, pub/sub event dispatch, and a `RedisContextLock` backing `@transactional()`.
+- Redis (and Redis-compatible, e.g. DragonflyDB) persistence adapter: `RedisAdapter`, query statement/paginator, pub/sub event dispatch, and a `RedisContextLock` backing `@transactional()`.
 - BI dashboard embed plugins (Kibana + Superset) with a shared DOM-free `DashboardEmbedPlugin` contract. The Kibana plugin is generated source + installer; the Superset plugin is a patch-and-build strategy that modifies Superset's internal embedded frontend and SDK source. Both expose the exact same API and are org-agnostic (no space switching).
 
 ## Redis adapter

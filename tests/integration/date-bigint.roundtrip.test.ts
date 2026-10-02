@@ -1,11 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, jest } from "@jest/globals";
-import { Condition, OrderDirection } from "@decaf-ts/core";
+import { Condition, OrderDirection, Repository } from "@decaf-ts/core";
 import { Model } from "@decaf-ts/decorator-validation";
-import {
-  deserialize,
-  RedisRepository,
-  serialize,
-} from "../../src/redis";
+import { deserialize, RedisAdapter, serialize } from "../../src/redis";
 import {
   cleanupRedisTestResources,
   setupRedisAdapter,
@@ -19,7 +15,7 @@ jest.setTimeout(60000);
 
 describe("Redis Date/bigint round-trip", () => {
   let resources: RedisTestResources;
-  let repo: RedisRepository<RedisTemporalModel>;
+  let repo: Repository<RedisTemporalModel, RedisAdapter>;
 
   const records = [
     new RedisTemporalModel({
@@ -44,7 +40,7 @@ describe("Redis Date/bigint round-trip", () => {
 
   beforeAll(async () => {
     resources = await setupRedisAdapter("date-bigint");
-    repo = new RedisRepository(resources.adapter, RedisTemporalModel);
+    repo = new Repository(resources.adapter, RedisTemporalModel);
     await repo.createAll(records);
   });
 

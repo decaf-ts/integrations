@@ -15,7 +15,7 @@
 - Keycloak provisioning helpers for realms, users, roles, identity providers, and clients.
 - Kibana provisioning helpers for spaces, data views, dashboards, and role/user setup.
 - Nest-style auth helpers for decoding Keycloak JWTs and extracting roles and user context.
-- Redis (and Redis-compatible, e.g. DragonflyDB) persistence adapter: `RedisAdapter`, `RedisRepository`, query statement/paginator, pub/sub event dispatch, and a `RedisContextLock` backing `@transactional()`.
+- Redis (and Redis-compatible, e.g. DragonflyDB) persistence adapter: `RedisAdapter`, query statement/paginator, pub/sub event dispatch, and a `RedisContextLock` backing `@transactional()`.
 - Docker Compose orchestration for local containerized environments.
 - Secret service abstractions and provider implementations for model-backed storage, AWS, Azure, GCP, Vault, and 1Password.
 

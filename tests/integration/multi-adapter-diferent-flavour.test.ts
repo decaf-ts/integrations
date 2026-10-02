@@ -8,7 +8,7 @@ import {
   type ModelArg,
   required,
 } from "@decaf-ts/decorator-validation";
-import { RedisFlavour, RedisRepository } from "../../src/redis";
+import { RedisAdapter, RedisFlavour } from "../../src/redis";
 import {
   cleanupRedisTestResources,
   setupRedisAdapter,
@@ -78,7 +78,7 @@ describe("Redis and RAM adapters coexist", () => {
     const redisRepo = Repository.forModel(
       RedisModel,
       resources.adapter.alias
-    ) as RedisRepository<RedisModel>;
+    ) as Repository<RedisModel, RedisAdapter>;
     expect(redisRepo.adapter.flavour).toBe(RedisFlavour);
     expect(redisRepo.adapter).not.toBeInstanceOf(RamAdapter);
   });
@@ -88,7 +88,7 @@ describe("Redis and RAM adapters coexist", () => {
     const redisRepo = Repository.forModel(
       RedisModel,
       resources.adapter.alias
-    ) as RedisRepository<RedisModel>;
+    ) as Repository<RedisModel, RedisAdapter>;
 
     const createdRam = await ramRepo.create(
       new RamModel({ id: 1, name: "ram-record" })

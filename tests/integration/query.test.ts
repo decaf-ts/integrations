@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll, jest } from "@jest/globals";
-import { BaseModel, Condition, column, pk, table } from "@decaf-ts/core";
+import {
+  BaseModel,
+  Condition,
+  column,
+  pk,
+  Repository,
+  table,
+} from "@decaf-ts/core";
 import {
   Model,
   model,
@@ -7,7 +14,7 @@ import {
   required,
 } from "@decaf-ts/decorator-validation";
 import { uses } from "@decaf-ts/decoration";
-import { RedisFlavour, RedisRepository } from "../../src/redis";
+import { RedisAdapter, RedisFlavour } from "../../src/redis";
 import {
   cleanupRedisTestResources,
   setupRedisAdapter,
@@ -39,11 +46,11 @@ class RedisExistsPersonModel extends BaseModel {
 
 describe("Redis query", () => {
   let resources: RedisTestResources;
-  let repo: RedisRepository<RedisPersonModel>;
+  let repo: Repository<RedisPersonModel, RedisAdapter>;
 
   beforeAll(async () => {
     resources = await setupRedisAdapter("query");
-    repo = new RedisRepository(resources.adapter, RedisPersonModel);
+    repo = new Repository(resources.adapter, RedisPersonModel);
     await repo.createAll(people());
   });
 
@@ -190,14 +197,14 @@ describe("Redis query", () => {
 
   describe("EXISTS mixed dataset", () => {
     let existsResources: RedisTestResources;
-    let existsRepo: RedisRepository<RedisExistsPersonModel>;
+    let existsRepo: Repository<RedisExistsPersonModel, RedisAdapter>;
 
     const WITH_NICKNAME = [1, 2, 3, 4, 5, 6];
     const WITHOUT_NICKNAME = [11, 12, 13, 14];
 
     beforeAll(async () => {
       existsResources = await setupRedisAdapter("query-exists", "query-exists");
-      existsRepo = new RedisRepository(
+      existsRepo = new Repository(
         existsResources.adapter,
         RedisExistsPersonModel
       );

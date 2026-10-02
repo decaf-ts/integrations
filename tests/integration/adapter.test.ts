@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, jest } from "@jest/globals";
+import { Repository } from "@decaf-ts/core";
 import { Model } from "@decaf-ts/decorator-validation";
 import { NotFoundError } from "@decaf-ts/db-decorators";
-import { RedisRepository } from "../../src/redis";
+import { RedisAdapter } from "../../src/redis";
 import {
   cleanupRedisTestResources,
   redisRepository,
@@ -16,7 +17,7 @@ jest.setTimeout(60000);
 
 describe("Redis adapter integration", () => {
   let resources: RedisTestResources;
-  let repo: RedisRepository<TestModel>;
+  let repo: Repository<TestModel, RedisAdapter>;
 
   beforeAll(async () => {
     resources = await setupRedisAdapter("adapter");

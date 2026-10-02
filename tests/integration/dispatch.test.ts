@@ -1,12 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, jest } from "@jest/globals";
-import { BaseModel, Observer, pk } from "@decaf-ts/core";
+import { BaseModel, Observer, pk, Repository } from "@decaf-ts/core";
 import { uses } from "@decaf-ts/decoration";
 import { Model, model, type ModelArg } from "@decaf-ts/decorator-validation";
-import {
-  RedisDispatch,
-  RedisFlavour,
-  RedisRepository,
-} from "../../src/redis";
+import { RedisAdapter, RedisDispatch, RedisFlavour } from "../../src/redis";
 import {
   cleanupRedisTestResources,
   setupRedisAdapter,
@@ -50,14 +46,14 @@ function waitFor(
 describe("RedisDispatch integration", () => {
   let resources: RedisTestResources;
   let remote: RedisTestResources;
-  let repo: RedisRepository<DispatchRedisModel>;
-  let remoteRepo: RedisRepository<DispatchRedisModel>;
+  let repo: Repository<DispatchRedisModel, RedisAdapter>;
+  let remoteRepo: Repository<DispatchRedisModel, RedisAdapter>;
 
   beforeAll(async () => {
     resources = await setupRedisAdapter("dispatch", "redis-dispatch-a");
     remote = await setupRedisAdapter("dispatch-remote", "redis-dispatch-b");
-    repo = new RedisRepository(resources.adapter, DispatchRedisModel, true);
-    remoteRepo = new RedisRepository(
+    repo = new Repository(resources.adapter, DispatchRedisModel, true);
+    remoteRepo = new Repository(
       remote.adapter,
       DispatchRedisModel,
       true

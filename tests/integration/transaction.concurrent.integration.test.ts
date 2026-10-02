@@ -9,7 +9,14 @@
  * "blocks until commit" - it asserts optimistic conflict detection.
  */
 import { describe, it, expect, beforeAll, afterAll, jest } from "@jest/globals";
-import { BaseModel, Context, pk, table, transactional } from "@decaf-ts/core";
+import {
+  BaseModel,
+  Context,
+  pk,
+  Repository,
+  table,
+  transactional,
+} from "@decaf-ts/core";
 import { Logging } from "@decaf-ts/logging";
 import { uses } from "@decaf-ts/decoration";
 import {
@@ -23,7 +30,7 @@ import {
   type ModelArg,
   required,
 } from "@decaf-ts/decorator-validation";
-import { RedisAdapter, RedisFlavour, RedisRepository } from "../../src/redis";
+import { RedisAdapter, RedisFlavour } from "../../src/redis";
 import {
   cleanupRedisTestResources,
   setupRedisAdapter,
@@ -49,7 +56,10 @@ class ConcurrentTxModel extends BaseModel {
   }
 }
 
-class ConcurrentTxRepository extends RedisRepository<ConcurrentTxModel> {
+class ConcurrentTxRepository extends Repository<
+  ConcurrentTxModel,
+  RedisAdapter
+> {
   onHeld?: () => void;
   gate?: Promise<void>;
 
@@ -114,7 +124,7 @@ describe("simultaneous transactions against live DragonflyDB", () => {
 
     await held.promise;
 
-    const verifyRepo = new RedisRepository(
+    const verifyRepo = new Repository(
       verify.adapter,
       ConcurrentTxModel,
       true
@@ -155,9 +165,9 @@ async function prepareConflict(
 ): Promise<{
   lock: any;
   ctx: Context;
-  repo: RedisRepository<ConcurrentTxModel>;
+  repo: Repository<ConcurrentTxModel, RedisAdapter>;
 }> {
-  const setupRepo = new RedisRepository(
+  const setupRepo = new Repository(
     resources.adapter,
     ConcurrentTxModel,
     true
@@ -179,7 +189,7 @@ async function prepareConflict(
     ctx
   );
 
-  const externalRepo = new RedisRepository(
+  const externalRepo = new Repository(
     verify.adapter,
     ConcurrentTxModel,
     true

@@ -2,7 +2,8 @@ import net from "node:net";
 import { readFileSync } from "node:fs";
 import { Constructor } from "@decaf-ts/decoration";
 import { Model } from "@decaf-ts/decorator-validation";
-import { RedisAdapter, RedisDefaultPrefix, RedisRepository } from "../../src/redis";
+import { Repository } from "@decaf-ts/core";
+import { RedisAdapter, RedisDefaultPrefix } from "../../src/redis";
 
 export type RedisTestResources = {
   adapter: RedisAdapter;
@@ -111,8 +112,8 @@ export function redisRepository<M extends Model>(
   adapter: RedisAdapter,
   model: Constructor<M>,
   force = true
-): RedisRepository<M> {
-  return new RedisRepository(adapter, model, force);
+): Repository<M, RedisAdapter> {
+  return new Repository(adapter, model, force);
 }
 
 export async function cleanupRedisTestResources(

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, jest } from "@jest/globals";
 import { repository, Repository } from "@decaf-ts/core";
 import { Model } from "@decaf-ts/decorator-validation";
-import { RedisRepository } from "../../src/redis";
+import { RedisAdapter } from "../../src/redis";
 import {
   cleanupRedisTestResources,
   setupRedisAdapter,
@@ -25,9 +25,9 @@ describe("Redis repositories", () => {
   });
 
   it("instantiates via constructor", () => {
-    const repo = new RedisRepository(resources.adapter, RedisCountryModel);
+    const repo = new Repository(resources.adapter, RedisCountryModel);
     expect(repo).toBeDefined();
-    expect(repo).toBeInstanceOf(RedisRepository);
+    expect(repo).toBeInstanceOf(Repository);
   });
 
   it("instantiates via Repository.forModel with @uses decorator on the model", () => {
@@ -39,7 +39,7 @@ describe("Redis repositories", () => {
   it("gets injected when using @repository", () => {
     class TestClass {
       @repository(RedisCountryModel)
-      repo!: RedisRepository<RedisCountryModel>;
+      repo!: Repository<RedisCountryModel, RedisAdapter>;
     }
 
     const testClass = new TestClass();
@@ -52,7 +52,7 @@ describe("Redis repositories", () => {
     const repo = Repository.forModel(
       RedisCountryModel,
       resources.adapter.alias
-    ) as RedisRepository<RedisCountryModel>;
+    ) as Repository<RedisCountryModel, RedisAdapter>;
     expect(repo.adapter).toBe(resources.adapter);
   });
 });

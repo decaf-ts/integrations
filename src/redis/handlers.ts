@@ -1,7 +1,7 @@
 import { Model } from "@decaf-ts/decorator-validation";
 import { RelationsMetadata } from "@decaf-ts/core";
-import { ContextOf, UnsupportedError } from "@decaf-ts/core";
-import type { RedisRepository } from "./RedisRepository";
+import { ContextOf, Repository, UnsupportedError } from "@decaf-ts/core";
+import type { RedisAdapter } from "./adapter";
 
 /**
  * @description Sets the created by field on a model during Redis create/update operations
@@ -20,7 +20,7 @@ import type { RedisRepository } from "./RedisRepository";
  */
 export async function createdByOnRedisCreateUpdate<
   M extends Model,
-  R extends RedisRepository<M>,
+  R extends Repository<M, RedisAdapter>,
 >(
   this: R,
   context: ContextOf<R>,

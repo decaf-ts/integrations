@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, jest } from "@jest/globals";
-import { OrderDirection, Paginator } from "@decaf-ts/core";
+import { OrderDirection, Paginator, Repository } from "@decaf-ts/core";
 import { Model } from "@decaf-ts/decorator-validation";
-import { RedisRepository } from "../../src/redis";
+import { RedisAdapter } from "../../src/redis";
 import {
   cleanupRedisTestResources,
   setupRedisAdapter,
@@ -15,13 +15,13 @@ jest.setTimeout(60000);
 
 describe("Redis pagination", () => {
   let resources: RedisTestResources;
-  let repo: RedisRepository<RedisCountryModel>;
+  let repo: Repository<RedisCountryModel, RedisAdapter>;
 
   const size = 25;
 
   beforeAll(async () => {
     resources = await setupRedisAdapter("pagination");
-    repo = new RedisRepository(resources.adapter, RedisCountryModel);
+    repo = new Repository(resources.adapter, RedisCountryModel);
     const created = await repo.createAll(countries(10));
     expect(created).toHaveLength(10);
   });

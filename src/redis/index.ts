@@ -11,7 +11,6 @@ export * from "./types";
 export * from "./serialization";
 export * from "./RedisContextLock";
 export * from "./RedisDispatch";
-export * from "./RedisRepository";
 export * from "./RedisStatement";
 export * from "./RedisPaginator";
 export * from "./handlers";
