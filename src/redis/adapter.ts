@@ -32,12 +32,7 @@ import {
   Metadata,
   propMetadata,
 } from "@decaf-ts/decoration";
-import {
-  RawRedisQuery,
-  RedisConfig,
-  RedisContext,
-  RedisFlags,
-} from "./types";
+import { RawRedisQuery, RedisConfig, RedisContext, RedisFlags } from "./types";
 import { RedisDefaultPrefix, RedisFlavour } from "./constants";
 import { RedisStatement } from "./RedisStatement";
 import { RedisPaginator } from "./RedisPaginator";
@@ -179,7 +174,7 @@ export class RedisAdapter extends Adapter<
       await client.quit();
     } catch {
       try {
-        await client.disconnect();
+        client.destroy();
       } catch {
         // the connection is already closed; nothing left to release
       }
@@ -886,11 +881,7 @@ export class RedisAdapter extends Adapter<
    * @param {string} context - The aggregation context used in error messages
    * @return {number} The numeric value
    */
-  private toNumericValue(
-    value: any,
-    field: string,
-    context: string
-  ): number {
+  private toNumericValue(value: any, field: string, context: string): number {
     if (typeof value === "number") return value;
     if (typeof value === "bigint") return Number(value);
     throw new QueryError(
