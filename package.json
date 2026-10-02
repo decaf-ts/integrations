@@ -291,6 +291,17 @@
       },
       "default": "./lib/esm/sftp/index.js"
     },
+    "./redis": {
+      "import": {
+        "types": "./lib/types/redis/index.d.mts",
+        "default": "./lib/esm/redis/index.js"
+      },
+      "require": {
+        "types": "./lib/types/redis/index.d.cts",
+        "default": "./lib/cjs/redis/index.cjs"
+      },
+      "default": "./lib/esm/redis/index.js"
+    },
     "./plugins": {
       "import": {
         "types": "./lib/types/plugins/index.d.mts",
@@ -362,7 +373,7 @@
     "repo:setup": "codex exec \"$(cat ./.codex/prompts/repo-setup.md)\nbase_path is ./\"",
     "repo:doc": "codex exec \"$(cat ./.codex/prompts/doc.md) $(cat ./.codex/prompts/bulk-docs.md)\nbase_path is ./\"",
     "repo:tests": "codex exec \"$(cat ./.codex/prompts/bulk-tests.md)\nbase_path is ./ and coverage is 95%\" -s workspace-write",
-    "prepare-it-tests": "echo \"prepare-it-tests: no infra to boot\"",
+    "prepare-it-tests": "docker compose -f docker/dragonfly-compose.yml up -d --wait",
     "repo:readme": "codex exec \"$(cat ./.codex/prompts/update-readme.md)\nbase_path is ./\"",
     "repo:pr": "npm run repo:doc && npm run repo:tests && npm run repo:readme",
     "clean": "rimraf ./lib ./workdocs/coverage"
@@ -382,6 +393,7 @@
     "axios": "^1.7.9",
     "isolated-vm": "^6.1.2",
     "node-fetch": "^3.3.2",
+    "redis": "^6.3.0",
     "tslib": "^2.8.1",
     "typescript": "^5.9.3",
     "uuid": "^11.1.1"
@@ -401,10 +413,10 @@
     "@playwright/test": "^1.61.1",
     "@types/jest": "^30.0.0",
     "@types/supertest": "^6.0.0",
+    "cron-parser": "^5.7.0",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
-    "supertest": "^7.0.0",
-    "cron-parser": "^5.7.0"
+    "supertest": "^7.0.0"
   },
   "peerDependencies": {
     "@decaf-ts/as-zod": "latest",
