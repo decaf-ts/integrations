@@ -7,6 +7,9 @@
  * {@link GraphRunService}; only canonical documents are accepted (inline
  * node/definition/executor/ports/component fields are rejected at the
  * boundary) and the global stream is disabled unless explicitly enabled.
+ * Unmapped errors reaching the catch-all error mapper
+ * ({@link graphExecutionHttpErrorOf}) are served as a constant generic `500`
+ * body and logged server-side only (SAA-123).
  */
 import {
   Controller,
@@ -42,6 +45,11 @@ import { DecafRequestContext } from "@decaf-ts/for-nest";
 
 import { GraphResultService } from "./GraphResultService";
 import { GraphWorkflowService, graphWorkflowOwnerOf } from "./GraphWorkflowService";
+import {
+  GRAPH_SERVING_INTERNAL_ERROR_MESSAGE,
+  logUnmappedGraphServingError,
+  type GraphServingErrorCorrelation,
+} from "./servingErrors";
 
 /** DI token for {@link GraphExecutionControllerOptions}. */
 export const GRAPH_EXECUTION_OPTIONS = "GRAPH_EXECUTION_OPTIONS";
@@ -246,7 +254,7 @@ export class GraphExecutionController {
     try {
       await this.runService.getRun(runId, owner, this.requestContext);
     } catch (e: unknown) {
-      throw graphExecutionHttpErrorOf(e, runId);
+      throw graphExecutionHttpErrorOf(e, { runId });
     }
     const model = await this.resultService.findByRunId(runId, this.requestContext);
     if (!model) {
@@ -290,14 +298,24 @@ export class GraphExecutionController {
 /**
  * Maps a thrown Decaf error to the Nest HTTP equivalent for the execution
  * surface: ownership/authorization failures become `403` (naming the run),
- * missing resources `404`, validation failures `400`, and anything else
- * surfaces as `500` with its message. Nest {@link HttpException}s pass
- * through unchanged.
+ * missing resources `404`, validation failures `400`, and any unmapped error
+ * surfaces as the constant generic `500` (SAA-123). The underlying error is
+ * logged server-side only via {@link logUnmappedGraphServingError}; Nest
+ * {@link HttpException}s pass through unchanged.
+ *
+ * @param {unknown} e - The caught error from the service call.
+ * @param {GraphServingErrorCorrelation} [correlation] - Request/run correlation ids attached to the server-side log.
+ * @return {HttpException} The HTTP-mapped error to rethrow.
  */
-function graphExecutionHttpErrorOf(e: unknown, runId?: string): HttpException {
+function graphExecutionHttpErrorOf(
+  e: unknown,
+  correlation: GraphServingErrorCorrelation = {}
+): HttpException {
   if (e instanceof ForbiddenError || e instanceof AuthorizationError) {
     return new HttpException(
-      runId ? `Graph run '${runId}' is owned by another user` : e.message,
+      correlation.runId
+        ? `Graph run '${correlation.runId}' is owned by another user`
+        : e.message,
       HttpStatus.FORBIDDEN
     );
   }
@@ -308,6 +326,9 @@ function graphExecutionHttpErrorOf(e: unknown, runId?: string): HttpException {
     return new HttpException(e.message, HttpStatus.BAD_REQUEST);
   }
   if (e instanceof HttpException) return e;
-  const message = e instanceof Error ? e.message : String(e);
-  return new HttpException(message, HttpStatus.INTERNAL_SERVER_ERROR);
+  logUnmappedGraphServingError("GraphExecutionController", e, correlation);
+  return new HttpException(
+    GRAPH_SERVING_INTERNAL_ERROR_MESSAGE,
+    HttpStatus.INTERNAL_SERVER_ERROR
+  );
 }

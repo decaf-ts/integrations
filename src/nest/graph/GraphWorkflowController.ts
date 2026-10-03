@@ -1,3 +1,13 @@
+/**
+ * @module integrations/nest/graph/GraphWorkflowController
+ * @summary Canonical workflow document persistence HTTP API (DECAF-50 §4.10).
+ * @description Serves `PUT`/`GET /graph/workflows/:workflowId` and
+ * `POST /graph/workflows/validate` on top of {@link GraphWorkflowService},
+ * enforcing the configured authentication mode, boundary validation, document
+ * resource limits, and fail-closed per-user ownership; engine errors surface
+ * as mapped {@link HttpException}s, with any unmapped error served as a
+ * constant generic `500` and logged server-side only.
+ */
 import {
   Body,
   Controller,
@@ -19,6 +29,11 @@ import type { GraphWorkflowValidationResult } from "../../graph";
 import { GraphWorkflowService, GRAPH_WORKFLOW_OPTIONS } from "./GraphWorkflowService";
 import { GraphWorkflowDocumentRejectedError } from "./GraphWorkflowErrors";
 import type { GraphWorkflowDocumentLimits } from "./GraphWorkflowDocumentLimits";
+import {
+  GRAPH_SERVING_INTERNAL_ERROR_MESSAGE,
+  logUnmappedGraphServingError,
+  type GraphServingErrorCorrelation,
+} from "./servingErrors";
 
 /** Options for the workflow persistence HTTP API (DECAF-50 §4.10): authentication mode and document resource limits. */
 export interface GraphWorkflowControllerOptions {
@@ -47,7 +62,23 @@ export interface GraphWorkflowSaveResponse {
   savedAt: string;
 }
 
-function graphWorkflowHttpErrorOf(e: unknown, workflowId?: string): HttpException {
+/**
+ * Maps a thrown Decaf error to the Nest HTTP equivalent for the workflow
+ * persistence API: boundary rejection becomes `422` with structured issues,
+ * ownership/authorization failures `403` (naming the workflow when known),
+ * missing workflows `404`, validation failures `400`, and any unmapped error
+ * surfaces as a constant generic `500` — the underlying error message/stack
+ * is logged server-side only (SAA-116). Nest {@link HttpException}s pass
+ * through unchanged.
+ *
+ * @param {unknown} e - The caught error from the service call.
+ * @param {GraphServingErrorCorrelation} [correlation] - Request/workflow correlation ids attached to the server-side log.
+ * @return {HttpException} The HTTP-mapped error to rethrow.
+ */
+function graphWorkflowHttpErrorOf(
+  e: unknown,
+  correlation: GraphServingErrorCorrelation = {}
+): HttpException {
   if (e instanceof GraphWorkflowDocumentRejectedError) {
     return new HttpException(
       {
@@ -59,8 +90,8 @@ function graphWorkflowHttpErrorOf(e: unknown, workflowId?: string): HttpExceptio
   }
   if (e instanceof ForbiddenError || e instanceof AuthorizationError) {
     return new HttpException(
-      workflowId
-        ? `Graph workflow '${workflowId}' is owned by another user`
+      correlation.workflowId
+        ? `Graph workflow '${correlation.workflowId}' is owned by another user`
         : e.message,
       HttpStatus.FORBIDDEN
     );
@@ -72,8 +103,11 @@ function graphWorkflowHttpErrorOf(e: unknown, workflowId?: string): HttpExceptio
     return new HttpException(e.message, HttpStatus.BAD_REQUEST);
   }
   if (e instanceof HttpException) return e;
-  const message = e instanceof Error ? e.message : String(e);
-  return new HttpException(message, HttpStatus.INTERNAL_SERVER_ERROR);
+  logUnmappedGraphServingError("GraphWorkflowController", e, correlation);
+  return new HttpException(
+    GRAPH_SERVING_INTERNAL_ERROR_MESSAGE,
+    HttpStatus.INTERNAL_SERVER_ERROR
+  );
 }
 
 /**
@@ -143,7 +177,7 @@ export class GraphWorkflowController {
         savedAt: model.updatedAt.toISOString(),
       };
     } catch (e: unknown) {
-      throw graphWorkflowHttpErrorOf(e, workflowId);
+      throw graphWorkflowHttpErrorOf(e, { workflowId });
     }
   }
 
@@ -155,7 +189,7 @@ export class GraphWorkflowController {
     try {
       return await this.workflowService.getDocument(workflowId, context);
     } catch (e: unknown) {
-      throw graphWorkflowHttpErrorOf(e, workflowId);
+      throw graphWorkflowHttpErrorOf(e, { workflowId });
     }
   }
 
