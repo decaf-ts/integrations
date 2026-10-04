@@ -12,6 +12,7 @@
 - `@decaf-ts/integrations/kibana`
 - `@decaf-ts/integrations/nest`
 - `@decaf-ts/integrations/namespaces`
+- `@decaf-ts/integrations/feature-flags`
 - `@decaf-ts/integrations/redis`
 - `@decaf-ts/integrations/loader`
 - `@decaf-ts/integrations/plugins`
@@ -25,6 +26,7 @@
 - Kibana provisioning helpers for spaces, data views, dashboards, and realm-specific access control, including a fluent `KibanaIndexBuilder` (Builder Pattern) for constructing index pattern configurations with exact match, prefix/glob, and logger-generated matching modes.
 - Nest-style JWT helpers for extracting Keycloak roles, namespace scopes, and user context from access tokens, plus the `namespace(...)` model decorator for auth-scoped metadata.
 - Org-based authorization scaffolds for tenants, org units, principals, roles, permissions, grants, effective permissions, storage bindings, and authorization payload filters.
+- Feature-flag models, readers, services, decorators, and environment helpers, including the engine-capability-derived `EngineCapabilityFeatureFlagService` (see [Feature flags](#feature-flags)).
 - Dynamic object-loading helpers for models, adapters, repositories, services, controllers, environment objects, Angular components, and graph nodes.
 - Redis (and Redis-compatible, e.g. DragonflyDB) persistence adapter: `RedisAdapter`, query statement/paginator, pub/sub event dispatch, and a `RedisContextLock` backing `@transactional()`.
 - BI dashboard embed plugins (Kibana + Superset) with a shared DOM-free `DashboardEmbedPlugin` contract. The Kibana plugin is generated source + installer; the Superset plugin is a patch-and-build strategy that modifies Superset's internal embedded frontend and SDK source. Both expose the exact same API and are org-agnostic (no space switching).
@@ -55,6 +57,51 @@ await repo.create(new User({ name: "John" }));
 - `@transactional()` is backed by `RedisContextLock`, which buffers writes on a dedicated connection and commits them atomically with `WATCH`/`MULTI`/`EXEC` optimistic locking.
 - `createdBy`/`updatedBy` stamps require a user identity: pass `user` in the adapter config (or an explicit `UUID` flag), otherwise user identification throws `UnsupportedError`.
 - Observer events are broadcast on the `decaf:redis:events` pub/sub channel so every process sharing the database refreshes its observers.
+
+## Feature flags
+
+The `./feature-flags` export (also re-exported from the package root) provides feature-flag models, readers, a repository/environment-backed `FeatureFlagService`, access-control decorators, and the capability-derived `EngineCapabilityFeatureFlagService`.
+
+`EngineCapabilityFeatureFlagService` is a `FeatureFlagService` subclass whose flag values are derived exclusively from a served graph-engine capability manifest — the same shape the as-graph server serves at `GET /graph/engines` (per engine: `engineId` plus `capabilities: [{ feature, verdict }]`, and `defaultEngineId`). Flags are never read from the environment and never from the persistence repository: `syncFromEnvironment()` fails closed with an `InternalError` instead of reading the environment.
+
+Resolution is fail-closed:
+
+- An engine key (`engine<Pascal(engineId)>`) is enabled when the engine appears in the manifest.
+- A feature key (`engine<Pascal(engineId)><Pascal(feature)>`) is enabled **only** when the manifest declares that feature `SUPPORTED`. `NOT_SUPPORTED` and `EXTENSION_POINT` verdicts, and features absent from the manifest, resolve to disabled.
+- Build keys with the `engineCapabilityFlagKey(engineId, feature?)` helper rather than assembling them by hand, or derive a whole registry from a manifest with `engineCapabilityFlagRegistry(manifest)`.
+
+```ts
+import { EngineCapabilityFeatureFlagService } from "@decaf-ts/integrations/feature-flags";
+
+const flags = new EngineCapabilityFeatureFlagService();
+await flags.initialize({
+  manifest: {
+    engines: [
+      {
+        engineId: "local",
+        capabilities: [
+          { feature: "codeMode", verdict: "SUPPORTED" },
+          { feature: "workflowList", verdict: "SUPPORTED" },
+          { feature: "workflowLookup", verdict: "SUPPORTED" },
+        ],
+      },
+      {
+        engineId: "dagster",
+        capabilities: [{ feature: "suspendResume", verdict: "NOT_SUPPORTED" }],
+      },
+    ],
+    defaultEngineId: "local",
+  },
+});
+
+flags.isEngineEnabled("local");                        // true
+flags.isEngineFeatureEnabled("local", "codeMode");     // true
+flags.isEngineFeatureEnabled("dagster", "suspendResume"); // false (fail closed)
+flags.isEngineFeatureEnabled("mastra", "pinning");     // false (undeclared engine)
+flags.isEnabled("engineLocalWorkflowList");            // true
+```
+
+The manifest input is a structural subset of the as-graph manifest, so no import of the as-graph package is required and the dependency direction is preserved. All read paths (`isEnabled`, `resolveFeatureFlags`, `isEnabledForSubject`, `resolveFeatureFlagsForSubject`) resolve against the derived registry only, and `listEnabled()` returns the enabled flags as `FeatureFlag` models without touching a repository.
 
 ## Notes
 

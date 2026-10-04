@@ -11,4 +11,5 @@ export * from "./models/FeatureFlag.model";
 export * from "./models/FeatureFlagAccess.model";
 export * from "./readers";
 export * from "./services/FeatureFlag.service";
+export * from "./EngineCapabilityFeatureFlag.service";
 export * from "./decorators";
