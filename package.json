@@ -60,17 +60,6 @@
       },
       "default": "./lib/esm/nest/index.js"
     },
-    "./nest/graph": {
-      "import": {
-        "types": "./lib/types/nest/graph/index.d.mts",
-        "default": "./lib/esm/nest/graph/index.js"
-      },
-      "require": {
-        "types": "./lib/types/nest/graph/index.d.cts",
-        "default": "./lib/cjs/nest/graph/index.cjs"
-      },
-      "default": "./lib/esm/nest/graph/index.js"
-    },
     "./loader": {
       "import": {
         "types": "./lib/types/loader/index.d.mts",
@@ -268,17 +257,6 @@
         "default": "./lib/cjs/calendar/index.cjs"
       },
       "default": "./lib/esm/calendar/index.js"
-    },
-    "./graph": {
-      "import": {
-        "types": "./lib/types/graph/index.d.mts",
-        "default": "./lib/esm/graph/index.js"
-      },
-      "require": {
-        "types": "./lib/types/graph/index.d.cts",
-        "default": "./lib/cjs/graph/index.cjs"
-      },
-      "default": "./lib/esm/graph/index.js"
     },
     "./sftp": {
       "import": {

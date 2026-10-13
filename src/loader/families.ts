@@ -102,17 +102,3 @@ export class AngularComponentObjectLoader extends ObjectLoader {
     return this.loadExport<T>(source, exportName, options);
   }
 }
-
-export class GraphNodeObjectLoader extends ObjectLoader {
-  public constructor(options: ObjectLoaderOptions = {}) {
-    super({ ...options, family: "node" });
-  }
-
-  public async loadNode<T = unknown>(
-    source: ObjectLoaderSource,
-    exportName: string = this.defaultExportName,
-    options: ObjectLoaderLoadOptions = {}
-  ): Promise<T> {
-    return this.loadExport<T>(source, exportName, options);
-  }
-}

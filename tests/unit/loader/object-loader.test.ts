@@ -8,7 +8,6 @@ import {
   AngularComponentObjectLoader,
   ControllerObjectLoader,
   EnvironmentObjectLoader,
-  GraphNodeObjectLoader,
   ModelObjectLoader,
   ObjectLoader,
   RepositoryObjectLoader,
@@ -110,7 +109,6 @@ describe("ObjectLoader", () => {
     [ControllerObjectLoader, "controller", "loadController"],
     [EnvironmentObjectLoader, "environment", "loadEnvironment"],
     [AngularComponentObjectLoader, "component", "loadComponent"],
-    [GraphNodeObjectLoader, "node", "loadNode"],
   ] as const)(
     "configures %s as a %s loader",
     async (LoaderClass, family, methodName) => {
