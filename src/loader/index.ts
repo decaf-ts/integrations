@@ -8,3 +8,6 @@
 export * from "./types";
 export * from "./ObjectLoader";
 export * from "./families";
+export * from "./assets";
+export * from "./nest";
+export * from "./config";

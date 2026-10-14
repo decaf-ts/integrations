@@ -12,13 +12,10 @@ import { R2BlobStoreService } from "../s3/R2BlobStoreService";
 import { AzureBlobStoreService } from "../azure/AzureBlobStoreService";
 import { GcsBlobStoreService } from "../gcp/GcsBlobStoreService";
 import { LocalBlobStoreService } from "../local/LocalBlobStoreService";
-import { IpfsBlobStoreService } from "../ipfs/IpfsBlobStoreService";
 import { MemoryBlobStoreService } from "../memory/MemoryBlobStoreService";
 
 export class BlobStoreFactory {
-  create<T extends BlobStoreServiceConfig>(
-    config: T
-  ): BlobStoreService {
+  create<T extends BlobStoreServiceConfig>(config: T): BlobStoreService {
     let service: BlobStoreService;
     switch (config.provider) {
       case "s3":
@@ -38,9 +35,6 @@ export class BlobStoreFactory {
         break;
       case "local":
         service = new LocalBlobStoreService() as unknown as BlobStoreService;
-        break;
-      case "ipfs":
-        service = new IpfsBlobStoreService() as unknown as BlobStoreService;
         break;
       case "memory":
         service = new MemoryBlobStoreService() as unknown as BlobStoreService;

@@ -18,10 +18,6 @@
  * value === "string"` (see `envString`) rather than a bare truthiness check: unset
  * paths resolve to a Proxy object (for env-key composition), not `undefined`.
  *
- * Run with `NODE_OPTIONS="--experimental-vm-modules"` (as `npm run test:unit` etc.
- * already do) — that's what makes Jest resolve `kubo-rpc-client` (an ESM-only
- * package) for `IpfsBlobStoreService`. Without it, Jest's CJS-style resolver can't
- * find a package that only declares `import`/`module-sync` export conditions.
  */
 import os from "os";
 import path from "path";
@@ -34,7 +30,6 @@ import { S3BlobStoreService } from "../../../src/blob/s3/S3BlobStoreService";
 import { MinioBlobStoreService } from "../../../src/blob/s3/MinioBlobStoreService";
 import { R2BlobStoreService } from "../../../src/blob/s3/R2BlobStoreService";
 import { GcsBlobStoreService } from "../../../src/blob/gcp/GcsBlobStoreService";
-import { IpfsBlobStoreService } from "../../../src/blob/ipfs/IpfsBlobStoreService";
 
 const azuriteConnectionString =
   "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://localhost:10000/devstoreaccount1;";
@@ -60,7 +55,6 @@ const ENV_KEYS = [
   "BLOBS__GCS__SOURCE_ID",
   "BLOBS__GCS__BUCKET",
   "BLOBS__GCS__PROJECT_ID",
-  "BLOBS__IPFS__SOURCE_ID",
 ];
 
 function clearEnv(): void {
@@ -115,11 +109,6 @@ describe("Blob environment fallback", () => {
       );
     });
 
-    it("IpfsBlobStoreService", async () => {
-      await expect(new IpfsBlobStoreService().initialize()).rejects.toThrow(
-        ValidationError
-      );
-    });
   });
 
   describe("Memory: full CRUD via environment-sourced config", () => {
@@ -243,13 +232,5 @@ describe("Blob environment fallback", () => {
       expect(store.provider).toBe("gcs");
     });
 
-    it("IpfsBlobStoreService initializes without an explicit config", async () => {
-      process.env.BLOBS__IPFS__SOURCE_ID = "ipfs-env-test";
-
-      const store = new IpfsBlobStoreService();
-      await store.initialize();
-      expect(store.sourceId).toBe("ipfs-env-test");
-      expect(store.provider).toBe("ipfs");
-    });
   });
 });

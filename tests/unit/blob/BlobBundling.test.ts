@@ -22,7 +22,6 @@ describe("Blob bundling boundaries", () => {
       "AzureBlobStoreService",
       "GcsBlobStoreService",
       "LocalBlobStoreService",
-      "IpfsBlobStoreService",
       "MemoryBlobStoreService",
     ];
     for (const symbol of providerSymbols) {

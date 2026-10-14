@@ -414,12 +414,7 @@
     }
   },
   "overrides": {
-    "multer": "^2.1.2",
-    "fast-uri": "^3.1.4",
-    "fast-xml-parser": "^5.10.1",
-    "test-exclude": "^7.0.2",
-    "js-yaml": "^5.2.2",
-    "brace-expansion": "^5.0.8"
+    "js-yaml": "^5.2.2"
   },
   "optionalDependencies": {
     "@aws-sdk/client-s3": "^3.1075.0",
@@ -432,7 +427,6 @@
     "@google-cloud/storage": "^7.21.0",
     "hashicorp-vault": "^0.1.0",
     "keycloak-admin": "^24.0.5",
-    "kubo-rpc-client": "^7.1.0",
     "onelogin-node": "^0.1.0",
     "ssh2": "^1.16.0"
   }

@@ -10,7 +10,6 @@ export type BlobProvider =
   | "azure-blob"
   | "gcs"
   | "local"
-  | "ipfs"
   | "memory";
 
 export type BlobKey = string;
@@ -132,19 +131,4 @@ export interface GcsBlobStoreServiceConfig extends BlobStoreServiceConfig {
 export interface LocalBlobStoreServiceConfig extends BlobStoreServiceConfig {
   provider: "local";
   rootPath: string;
-}
-
-export interface IpfsKeyIndexConfig {
-  provider: "memory" | "postgres" | "local-json";
-  connectionRef?: string;
-  path?: string;
-}
-
-export interface IpfsBlobStoreServiceConfig extends BlobStoreServiceConfig {
-  provider: "ipfs";
-  apiUrl?: string;
-  gatewayUrl?: string;
-  pinByDefault?: boolean;
-  encryptedOnly?: boolean;
-  keyIndex: IpfsKeyIndexConfig;
 }
