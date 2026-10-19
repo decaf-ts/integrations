@@ -11,6 +11,11 @@
 - `@decaf-ts/integrations/namespaces`
 - `@decaf-ts/integrations/feature-flags`
 - `@decaf-ts/integrations/redis`
+- `@decaf-ts/integrations/sftp`
+- `@decaf-ts/integrations/comms` (+ `comms/{email,gmail,slack,teams,telegram}`)
+- `@decaf-ts/integrations/devops` (+ `devops/{github,gitlab}`)
+- `@decaf-ts/integrations/io` (+ `io/{airtable,google-sheets,graphql,spreadsheet}`)
+- `@decaf-ts/integrations/shared/http`
 - `@decaf-ts/integrations/loader`
 - `@decaf-ts/integrations/plugins`
 - `@decaf-ts/integrations/plugins/kibana`
@@ -25,7 +30,26 @@
 - Feature-flag models, readers, services, decorators, and environment helpers, including the engine-capability-derived `EngineCapabilityFeatureFlagService` (see [Feature flags](#feature-flags)).
 - Dynamic object-loading helpers for models, adapters, repositories, services, controllers, environment objects, and Angular components.
 - Redis (and Redis-compatible, e.g. DragonflyDB) persistence adapter: `RedisAdapter`, query statement/paginator, pub/sub event dispatch, and a `RedisContextLock` backing `@transactional()`.
+- SFTP client helpers for list/download/delete over an SSH connection (used by the `core.devops.ftp` graph node).
 - BI dashboard embed plugins (Kibana + Superset) with a shared DOM-free `DashboardEmbedPlugin` contract. The Kibana plugin is generated source + installer; the Superset plugin is a patch-and-build strategy that modifies Superset's internal embedded frontend and SDK source. Both expose the exact same API and are org-agnostic (no space switching).
+
+## Communication, DevOps, and IO services
+
+The graph node families added in SAA-1027 stage 3b wrap these service classes. Every service extends `HttpApiService` (Axios transport, decaf errors) except `SpreadsheetService`, which is local computation. Config resolves from explicit `initialize({...})` arguments, then from the matching `CommsEnvironment`/`DevopsEnvironment`/`IoEnvironment` slice; secrets are read from the environment or supplied by the caller and are never embedded in a graph document.
+
+| Export | Service | Config environment | Operations |
+| --- | --- | --- | --- |
+| `comms/slack` | `SlackService` | `COMMS_SLACK_TOKEN`, `COMMS_SLACK_BASE_URL`, `COMMS_SLACK_TIMEOUT` | post message, list/get conversations, get user |
+| `comms/telegram` | `TelegramService` | `COMMS_TELEGRAM_TOKEN`, `COMMS_TELEGRAM_BASE_URL`, `COMMS_TELEGRAM_TIMEOUT` | send message, get metadata, get updates, chat action |
+| `comms/teams` | `TeamsService` | `COMMS_TEAMS_TOKEN`, `COMMS_TEAMS_WEBHOOK_URL`, `COMMS_TEAMS_BASE_URL`, `COMMS_TEAMS_TIMEOUT` | webhook post, channel message, list teams/channels |
+| `comms/gmail` | `GmailService` | `COMMS_GMAIL_TOKEN`, `COMMS_GMAIL_USER_ID`, `COMMS_GMAIL_BASE_URL`, `COMMS_GMAIL_TIMEOUT` | send, list/get messages, list labels |
+| `comms/email` | `EmailService` | `COMMS_EMAIL_*` (provider, host, port, secure, username, password, from, token, graph base URL) | SMTP send, Graph send/list inbox, IMAP list (optional `imapflow`) |
+| `devops/github` | `GithubService` | `DEVOPS_GITHUB_*` (token, base URL, owner, repo) | repository, issues, comments, pull requests |
+| `devops/gitlab` | `GitlabService` | `DEVOPS_GITLAB_*` (token, base URL, project ID) | project, issues, comments, merge requests |
+| `io/google-sheets` | `GoogleSheetsService` | `IO_GOOGLE_SHEETS_*` (token/api key, base URL) | get/update/append/clear values, create spreadsheet |
+| `io/airtable` | `AirtableService` | `IO_AIRTABLE_*` (token, base URL, base ID) | list/get/create/update/delete records |
+| `io/graphql` | `GraphqlService` | `IO_GRAPHQL_*` (endpoint, token) | query/mutation request |
+| `io/spreadsheet` | `SpreadsheetService` | none (local) | parse/serialize CSV, TSV, and JSON |
 
 ## Redis adapter
 

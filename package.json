@@ -280,6 +280,171 @@
       },
       "default": "./lib/esm/redis/index.js"
     },
+    "./shared/http": {
+      "import": {
+        "types": "./lib/types/shared/http/index.d.mts",
+        "default": "./lib/esm/shared/http/index.js"
+      },
+      "require": {
+        "types": "./lib/types/shared/http/index.d.cts",
+        "default": "./lib/cjs/shared/http/index.cjs"
+      },
+      "default": "./lib/esm/shared/http/index.js"
+    },
+    "./comms": {
+      "import": {
+        "types": "./lib/types/comms/index.d.mts",
+        "default": "./lib/esm/comms/index.js"
+      },
+      "require": {
+        "types": "./lib/types/comms/index.d.cts",
+        "default": "./lib/cjs/comms/index.cjs"
+      },
+      "default": "./lib/esm/comms/index.js"
+    },
+    "./comms/email": {
+      "import": {
+        "types": "./lib/types/comms/email/index.d.mts",
+        "default": "./lib/esm/comms/email/index.js"
+      },
+      "require": {
+        "types": "./lib/types/comms/email/index.d.cts",
+        "default": "./lib/cjs/comms/email/index.cjs"
+      },
+      "default": "./lib/esm/comms/email/index.js"
+    },
+    "./comms/gmail": {
+      "import": {
+        "types": "./lib/types/comms/gmail/index.d.mts",
+        "default": "./lib/esm/comms/gmail/index.js"
+      },
+      "require": {
+        "types": "./lib/types/comms/gmail/index.d.cts",
+        "default": "./lib/cjs/comms/gmail/index.cjs"
+      },
+      "default": "./lib/esm/comms/gmail/index.js"
+    },
+    "./comms/slack": {
+      "import": {
+        "types": "./lib/types/comms/slack/index.d.mts",
+        "default": "./lib/esm/comms/slack/index.js"
+      },
+      "require": {
+        "types": "./lib/types/comms/slack/index.d.cts",
+        "default": "./lib/cjs/comms/slack/index.cjs"
+      },
+      "default": "./lib/esm/comms/slack/index.js"
+    },
+    "./comms/teams": {
+      "import": {
+        "types": "./lib/types/comms/teams/index.d.mts",
+        "default": "./lib/esm/comms/teams/index.js"
+      },
+      "require": {
+        "types": "./lib/types/comms/teams/index.d.cts",
+        "default": "./lib/cjs/comms/teams/index.cjs"
+      },
+      "default": "./lib/esm/comms/teams/index.js"
+    },
+    "./comms/telegram": {
+      "import": {
+        "types": "./lib/types/comms/telegram/index.d.mts",
+        "default": "./lib/esm/comms/telegram/index.js"
+      },
+      "require": {
+        "types": "./lib/types/comms/telegram/index.d.cts",
+        "default": "./lib/cjs/comms/telegram/index.cjs"
+      },
+      "default": "./lib/esm/comms/telegram/index.js"
+    },
+    "./devops": {
+      "import": {
+        "types": "./lib/types/devops/index.d.mts",
+        "default": "./lib/esm/devops/index.js"
+      },
+      "require": {
+        "types": "./lib/types/devops/index.d.cts",
+        "default": "./lib/cjs/devops/index.cjs"
+      },
+      "default": "./lib/esm/devops/index.js"
+    },
+    "./devops/github": {
+      "import": {
+        "types": "./lib/types/devops/github/index.d.mts",
+        "default": "./lib/esm/devops/github/index.js"
+      },
+      "require": {
+        "types": "./lib/types/devops/github/index.d.cts",
+        "default": "./lib/cjs/devops/github/index.cjs"
+      },
+      "default": "./lib/esm/devops/github/index.js"
+    },
+    "./devops/gitlab": {
+      "import": {
+        "types": "./lib/types/devops/gitlab/index.d.mts",
+        "default": "./lib/esm/devops/gitlab/index.js"
+      },
+      "require": {
+        "types": "./lib/types/devops/gitlab/index.d.cts",
+        "default": "./lib/cjs/devops/gitlab/index.cjs"
+      },
+      "default": "./lib/esm/devops/gitlab/index.js"
+    },
+    "./io": {
+      "import": {
+        "types": "./lib/types/io/index.d.mts",
+        "default": "./lib/esm/io/index.js"
+      },
+      "require": {
+        "types": "./lib/types/io/index.d.cts",
+        "default": "./lib/cjs/io/index.cjs"
+      },
+      "default": "./lib/esm/io/index.js"
+    },
+    "./io/airtable": {
+      "import": {
+        "types": "./lib/types/io/airtable/index.d.mts",
+        "default": "./lib/esm/io/airtable/index.js"
+      },
+      "require": {
+        "types": "./lib/types/io/airtable/index.d.cts",
+        "default": "./lib/cjs/io/airtable/index.cjs"
+      },
+      "default": "./lib/esm/io/airtable/index.js"
+    },
+    "./io/google-sheets": {
+      "import": {
+        "types": "./lib/types/io/google-sheets/index.d.mts",
+        "default": "./lib/esm/io/google-sheets/index.js"
+      },
+      "require": {
+        "types": "./lib/types/io/google-sheets/index.d.cts",
+        "default": "./lib/cjs/io/google-sheets/index.cjs"
+      },
+      "default": "./lib/esm/io/google-sheets/index.js"
+    },
+    "./io/graphql": {
+      "import": {
+        "types": "./lib/types/io/graphql/index.d.mts",
+        "default": "./lib/esm/io/graphql/index.js"
+      },
+      "require": {
+        "types": "./lib/types/io/graphql/index.d.cts",
+        "default": "./lib/cjs/io/graphql/index.cjs"
+      },
+      "default": "./lib/esm/io/graphql/index.js"
+    },
+    "./io/spreadsheet": {
+      "import": {
+        "types": "./lib/types/io/spreadsheet/index.d.mts",
+        "default": "./lib/esm/io/spreadsheet/index.js"
+      },
+      "require": {
+        "types": "./lib/types/io/spreadsheet/index.d.cts",
+        "default": "./lib/cjs/io/spreadsheet/index.cjs"
+      },
+      "default": "./lib/esm/io/spreadsheet/index.js"
+    },
     "./plugins": {
       "import": {
         "types": "./lib/types/plugins/index.d.mts",

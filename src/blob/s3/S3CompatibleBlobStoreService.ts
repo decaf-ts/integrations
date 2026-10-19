@@ -329,7 +329,9 @@ export abstract class S3CompatibleBlobStoreService extends BlobStoreService<
   ): Promise<BlobListResult> {
     const { log } = (await this.logCtx(args, "list", true)).for(this.list);
     log.verbose("Listing blobs");
-    const prefix = this.physicalKey(options.prefix ?? "");
+    const prefix = options.prefix
+      ? this.physicalKey(options.prefix)
+      : this.config.prefix?.replace(/^\/+|\/+$/g, "") || undefined;
     try {
       const response = await this.client.send(
         new ListObjectsV2Command({
