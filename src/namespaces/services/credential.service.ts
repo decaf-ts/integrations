@@ -31,7 +31,7 @@ import {
   CredentialSummary,
   RotateCredentialInput,
 } from "../types";
-import { BaseModelService, relationId } from "../utils";
+import { BaseModelService, relationId, transactional } from "../utils";
 import { Credential } from "../models/credential.model";
 
 /**
@@ -266,6 +266,7 @@ export class CredentialService extends BaseModelService<Credential> {
    * @param {any[]} args - Optional trailing decaf `Context` forwarded to the repository.
    * @returns {Promise<Credential>} The credential row.
    */
+  @transactional()
   async getCredential(
     credentialId: string,
     ...args: any[]
@@ -299,6 +300,7 @@ export class CredentialService extends BaseModelService<Credential> {
    * @param {any[]} args - Optional trailing decaf `Context` forwarded to the repository.
    * @returns {Promise<Credential>} The updated credential row.
    */
+  @transactional()
   async markCredentialUsed(
     credentialId: string,
     ...args: any[]

@@ -880,15 +880,21 @@ export class RedisAdapter extends Adapter<
    * through a `for()` configuration-scoped proxy, whose own `_client` slot would
    * otherwise be empty and build a fresh unconnected client). Otherwise builds a
    * node-redis client from the configured URL or discrete host/port/credentials.
+   * When `tls` is set, `tls: true` plus any supplied `tls.connect` options are
+   * merged into the socket options (a `rediss://` URL is passed through as-is).
    * The client is created lazily and connected by {@link initialize}.
    * @return {RedisClientType} The Redis client
    */
   protected getClient(): RedisClientType {
     if (this._redisClient) return this._redisClient;
-    const { url, host, port, username, password, database } = this.config;
+    const { url, host, port, username, password, database, tls } = this.config;
     const options: Record<string, any> = url
       ? { url }
       : { socket: { host: host ?? "localhost", port: port ?? 6379 } };
+    if (tls) {
+      const tlsOptions = typeof tls === "object" ? tls : {};
+      options.socket = { ...(options.socket ?? {}), tls: true, ...tlsOptions };
+    }
     if (username) options.username = username;
     if (password) options.password = password;
     if (typeof database === "number") options.database = database;

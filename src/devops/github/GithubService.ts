@@ -118,16 +118,11 @@ export interface GithubIssue extends GithubRepositoryRef {
   updatedAt?: string;
 }
 
-/**
- * Undocumented duplicate of {@link GithubListOptions} below; identical members
- * merge silently. Flagged for removal by the delivery owner.
+/*
+ * Marker (SAA-1039 F2 / SAA-1044 F8): the undocumented duplicate
+ * `GithubListOptions` declaration that used to sit here has been removed. The
+ * documented declaration below is the single authoritative shape.
  */
-export interface GithubListOptions extends GithubRepositoryRef {
-  state?: "open" | "closed" | "all";
-  limit?: number;
-  page?: number;
-  labels?: string;
-}
 
 /**
  * @description Options for listing GitHub issues or pull requests

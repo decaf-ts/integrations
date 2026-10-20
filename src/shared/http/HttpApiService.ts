@@ -69,18 +69,11 @@ export interface HttpApiServiceConfig {
   headers?: Record<string, string>;
 }
 
-/**
- * Undocumented duplicate of {@link HttpApiServiceConfig} above; identical
- * members merge silently. Flagged for removal by the delivery owner.
+/*
+ * Marker (SAA-1039 F2 / SAA-1044 F8): the undocumented duplicate
+ * `HttpApiServiceConfig` declaration that used to sit here has been removed.
+ * The documented declaration above is the single authoritative shape.
  */
-export interface HttpApiServiceConfig {
-  baseUrl?: string;
-  token?: string;
-  username?: string;
-  password?: string;
-  timeout?: number;
-  headers?: Record<string, string>;
-}
 
 /**
  * @description Maps a transport or provider failure to a decaf error

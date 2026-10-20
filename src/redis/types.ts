@@ -3,12 +3,38 @@ import { Constructor } from "@decaf-ts/decoration";
 import { AdapterFlags, Context } from "@decaf-ts/core";
 
 /**
+ * @description TLS settings accepted by {@link RedisAdapter}
+ * @summary `true` enables TLS with Node's default verification (server
+ * certificate checked). An object enables TLS and forwards the standard Node
+ * `tls.connect` options (`rejectUnauthorized`, `ca`, `cert`, `key`,
+ * `servername`); set `rejectUnauthorized: false` only for a known development
+ * server with a self-signed certificate.
+ * @typedef {boolean | object} RedisTlsConfig
+ * @memberOf module:redis
+ */
+export type RedisTlsConfig =
+  | boolean
+  | {
+      rejectUnauthorized?: boolean;
+      ca?: string | Buffer;
+      cert?: string | Buffer;
+      key?: string | Buffer;
+      servername?: string;
+      [key: string]: unknown;
+    };
+
+/**
  * @description Connection configuration accepted by {@link RedisAdapter}
  * @summary Supports both a full connection URL and the individual host/port/
  * credential fields. When `url` is provided it takes precedence over the
- * discrete fields.
+ * discrete fields. Set `tls` (or use a `rediss://` URL) to encrypt the
+ * connection.
+ *
+ * Note on `KEYS`: Redis `KEYS` walks the whole keyspace and blocks the server
+ * while it runs. Prefer `SCAN`/`scanIterator` (or a maintained index) in
+ * production; the adapter's key listing is intended for small namespaces.
  * @typedef {object} RedisConfig
- * @property {string} [url] Full redis:// connection string
+ * @property {string} [url] Full redis:// (or rediss://) connection string
  * @property {string} [host] Server host (defaults to localhost)
  * @property {number} [port] Server port (defaults to 6379)
  * @property {string} [username] ACL username
@@ -16,6 +42,7 @@ import { AdapterFlags, Context } from "@decaf-ts/core";
  * @property {number} [database] Logical database index
  * @property {string} [prefix] Key namespace (defaults to decaf:redis)
  * @property {string} [user] Identity reported on created/updated records
+ * @property {RedisTlsConfig} [tls] Enable TLS and optionally supply verification options
  * @memberOf module:redis
  */
 export type RedisConfig = {
@@ -27,6 +54,7 @@ export type RedisConfig = {
   database?: number;
   prefix?: string;
   user?: string;
+  tls?: RedisTlsConfig;
 };
 
 /**

@@ -34,9 +34,12 @@ import {
 } from "../core";
 import { Secret } from "./Secret";
 import {
+  Context,
+  ContextLock,
   ContextualArgs,
   MaybeContextualArg,
   Repository,
+  resolveTransactionLock,
   service,
 } from "@decaf-ts/core";
 import { ModelSecretServiceConfig } from "./ModelSecretServiceConfig";
@@ -250,9 +253,9 @@ export class ModelSecretService extends ClientBasedSecretService<
     options: RetrieveSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<T> {
-    const { log, ctxArgs } = (await this.logCtx(args, "retrieve", true)).for(
-      this.retrieve
-    );
+    const { log, ctx, ctxArgs } = (
+      await this.logCtx(args, "retrieve", true)
+    ).for(this.retrieve);
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Retrieving secret ${nameStr}`);
 
@@ -283,11 +286,14 @@ export class ModelSecretService extends ClientBasedSecretService<
 
     condition = condition.and(Condition.attr<Secret>("enabled").eq(true));
 
-    const results = await this.client
-      .select()
-      .where(condition)
-      .orderBy(["updatedAt", OrderDirection.DSC])
-      .execute(...ctxArgs);
+    const results = await this.withinPrincipalTransaction(ctx, (lock) =>
+      this.client
+        .override({ transactionLock: lock })
+        .select()
+        .where(condition)
+        .orderBy(["updatedAt", OrderDirection.DSC])
+        .execute(...ctxArgs)
+    );
     const existing = results[0];
 
     if (!existing) {
@@ -320,6 +326,45 @@ export class ModelSecretService extends ClientBasedSecretService<
     }
 
     return deserializeSecretPayload(payload) as T;
+  }
+
+  private async withinPrincipalTransaction<R>(
+    context: Context<any>,
+    operation: (lock: ContextLock) => Promise<R>
+  ): Promise<R> {
+    const existing = context.getOrUndefined("transactionLock") as
+      | ContextLock
+      | undefined;
+    const lock = existing ?? resolveTransactionLock(this.client);
+    lock.depth++;
+    if (!existing) {
+      await lock.begin(context);
+      context.cache.put("transactionLock", lock);
+    }
+    let result: R;
+    try {
+      result = await operation(lock);
+    } catch (error: unknown) {
+      const alreadyEnded = lock.depth === 0;
+      lock.depth = 0;
+      if (!alreadyEnded) {
+        try {
+          await lock.rollback(error as Error, context);
+        } catch (rollbackError: unknown) {
+          void rollbackError;
+        }
+      }
+      throw error;
+    }
+    lock.depth--;
+    if (lock.depth === 0) {
+      try {
+        await lock.commit(context);
+      } catch (error: unknown) {
+        throw new InternalError(`Failed to commit transaction: ${error}`);
+      }
+    }
+    return result;
   }
 
   /**

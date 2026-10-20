@@ -6,3 +6,4 @@ export * from "./rls.constants";
 export * from "./rls.types";
 export * from "./rls.template";
 export * from "./rls-bootstrap.service";
+export * from "./principal-resolver";

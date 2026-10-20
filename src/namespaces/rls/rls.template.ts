@@ -41,6 +41,22 @@ AS $fn$
   FROM principals p
   WHERE p.id = app_rls_principal_id()
 $fn$;`,
+  `CREATE OR REPLACE FUNCTION app_rls_principal_for_subject(
+  p_subject text,
+  p_tenant uuid DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+${FUNCTION_SEARCH_PATH}
+AS $fn$
+  SELECT CASE WHEN COUNT(*) = 1 THEN (MIN(p.id::text))::uuid ELSE NULL END
+  FROM principals p
+  WHERE p.subject_id = NULLIF(p_subject, '')
+    AND (p_tenant IS NULL OR p.tenant_id = p_tenant)
+$fn$;`,
+  `REVOKE ALL ON FUNCTION app_rls_principal_for_subject(text, uuid) FROM PUBLIC;`,
   `CREATE OR REPLACE FUNCTION app_rls_org_unit_tenant(p_org_unit uuid)
 RETURNS uuid
 LANGUAGE sql
