@@ -1,3 +1,4 @@
+import { description } from "@decaf-ts/decoration";
 import { column, createdAt, manyToOne, oneToMany, pk, table, updatedAt, uuid } from "@decaf-ts/core";
 import { model, required, type as typeOf } from "@decaf-ts/decorator-validation";
 import { REL_NULLIFY, REL_RESTRICT } from "../utils";
@@ -6,6 +7,7 @@ import { Tenant } from "./tenant.model";
 import { RolePermission } from "./role-permission.model";
 import { RoleAssignment } from "./role-assignment.model";
 
+@description("Named role grouping permissions")
 @table("roles")
 @model()
 export class Role extends AuthorizationModel {

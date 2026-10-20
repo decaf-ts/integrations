@@ -62,6 +62,7 @@ function isValidProvider(provider: string): provider is SecretProvider {
   const validProviders: SecretProvider[] = [
     "model",
     "memory",
+    "filesystem",
     "hashicorp-vault",
     "aws-secrets-manager",
     "azure-key-vault",

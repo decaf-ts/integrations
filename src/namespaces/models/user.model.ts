@@ -1,3 +1,4 @@
+import { description } from "@decaf-ts/decoration";
 import {
   column,
   createdAt,
@@ -14,6 +15,7 @@ import { AuthorizationModel } from "./authorization-model";
 import { TenantMembership } from "./tenant-membership.model";
 import { OrgUnitMembership } from "./org-unit-membership.model";
 
+@description("User identity within the authorization namespace")
 @table("users")
 @model()
 export class User extends AuthorizationModel {

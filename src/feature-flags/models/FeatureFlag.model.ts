@@ -1,3 +1,4 @@
+import { description } from "@decaf-ts/decoration";
 import { BaseModel } from "@decaf-ts/core";
 import {
   column,
@@ -11,6 +12,7 @@ import {
 import { model, required } from "@decaf-ts/decorator-validation";
 import type { FeatureFlagConfig } from "../types";
 
+@description("Persisted feature flag definition used for runtime evaluation")
 @table("feature_flags")
 @model()
 export class FeatureFlag extends BaseModel {

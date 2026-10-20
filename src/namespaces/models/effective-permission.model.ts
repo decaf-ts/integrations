@@ -1,3 +1,4 @@
+import { description } from "@decaf-ts/decoration";
 import { column, createdAt, manyToOne, pk, table, uuid } from "@decaf-ts/core";
 import { model, option, required, type as typeOf } from "@decaf-ts/decorator-validation";
 import { ScopeKind, ScopeKindOptions } from "../types";
@@ -6,6 +7,7 @@ import { AuthorizationModel } from "./authorization-model";
 import { Tenant } from "./tenant.model";
 import { Principal } from "./principal.model";
 
+@description("Materialized effective permission granted to a principal within a scope")
 @table("effective_permissions")
 @model()
 export class EffectivePermission extends AuthorizationModel {

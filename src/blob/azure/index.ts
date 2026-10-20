@@ -4,4 +4,5 @@
  * @description Re-exports the Azure Blob store service.
  */
 export * from "./AzureBlobStoreService";
+export * from "./AzureNodeService";
 export * from "./AzureBlobEnvironment";

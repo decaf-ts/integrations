@@ -21,6 +21,7 @@
 /.npmtoken
 /.dockertoken
 /.confluence-token
+/.env.secret
 !/workdocs/reports/jest.coverage.config.cjs
 /workdocs/coverage
 /node_modules

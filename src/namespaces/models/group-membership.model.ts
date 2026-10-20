@@ -1,3 +1,4 @@
+import { description } from "@decaf-ts/decoration";
 import { column, createdAt, manyToOne, pk, table, uuid } from "@decaf-ts/core";
 import { model, required, type as typeOf } from "@decaf-ts/decorator-validation";
 import { REL_CASCADE_DEPENDENT } from "../utils";
@@ -6,6 +7,7 @@ import { Tenant } from "./tenant.model";
 import { Group } from "./group.model";
 import { Principal } from "./principal.model";
 
+@description("Membership linking a principal to a group")
 @table("group_memberships")
 @model()
 export class GroupMembership extends AuthorizationModel {

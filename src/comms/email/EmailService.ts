@@ -12,7 +12,7 @@
  * {@link httpError} (Graph) or wrapped `InternalError`s (SMTP).
  */
 import { service } from "@decaf-ts/core";
-import { InternalError } from "@decaf-ts/db-decorators";
+import { BadRequestError, InternalError } from "@decaf-ts/db-decorators";
 import { CommsEnvironment } from "../environment";
 import {
   envBoolean,
@@ -25,11 +25,7 @@ import {
   httpError,
 } from "../../shared/http";
 import { SmtpClient } from "./smtp";
-import {
-  buildEmail,
-  parseAddressList,
-  type EmailMessageInput,
-} from "./mime";
+import { buildEmail, type EmailMessageInput } from "./mime";
 
 /**
  * @description Delivery provider selected for a send
@@ -56,6 +52,11 @@ export interface EmailServiceConfig extends HttpApiServiceConfig {
   secure?: boolean;
   username?: string;
   password?: string;
+  /**
+   * Explicitly allow SMTP `AUTH LOGIN` over a plaintext session. Defaults to
+   * `false`: credentials are only sent after implicit TLS or a STARTTLS upgrade.
+   */
+  allowPlaintextAuth?: boolean;
   from?: string;
   graphBaseUrl?: string;
   token?: string;
@@ -92,10 +93,45 @@ export interface EmailInboxQuery {
   mailbox?: string;
   /** @description Maximum messages returned (default 25) */
   limit?: number;
-  /** @description Only messages received after this date (Graph `$filter`) */
+  /** @description Only messages received after this date (Graph `$filter`); must be an ISO 8601 date or timestamp */
   since?: string;
   /** @description Subject `contains` filter (Graph only) */
   subject?: string;
+}
+
+/**
+ * ISO 8601 date shapes accepted by the Graph `receivedDateTime` filter.
+ * Date-only values and full timestamps (with optional fractional seconds and
+ * `Z`/offset) are allowed; anything else is rejected before it can reach
+ * `$filter`.
+ */
+const ISO_DATE =
+  /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2})?)?$/;
+
+/**
+ * Validates and returns an ISO 8601 date for a Graph `$filter` literal.
+ *
+ * @param value - Caller-supplied `since` value.
+ * @returns The validated ISO date string.
+ * @throws {BadRequestError} when the value is not a parseable ISO 8601 date.
+ */
+function assertIsoDate(value: string): string {
+  if (!ISO_DATE.test(value) || Number.isNaN(Date.parse(value))) {
+    throw new BadRequestError(
+      "Email inbox 'since' filter must be an ISO 8601 date"
+    );
+  }
+  return value;
+}
+
+/**
+ * Escapes a value for use inside an OData single-quoted string literal.
+ *
+ * @param value - Raw filter value.
+ * @returns The value with embedded single quotes doubled per OData rules.
+ */
+function escapeODataString(value: string): string {
+  return value.replace(/'/g, "''");
 }
 
 /**
@@ -146,6 +182,7 @@ export class EmailService extends HttpApiService<EmailServiceConfig> {
       secure: envBoolean(env.secure),
       username: envString(env.username),
       password: envString(env.password),
+      allowPlaintextAuth: envBoolean(env.allowPlaintextAuth),
       from: envString(env.from),
       token,
       graphBaseUrl: envString(env.graphBaseUrl),
@@ -187,10 +224,13 @@ export class EmailService extends HttpApiService<EmailServiceConfig> {
   /**
    * @description Sends an email through the resolved provider
    * @summary Builds the raw MIME message (honouring `input.from`, else the
-   * resolved config sender), then delivers via SMTP or Graph.
+   * resolved config sender), then delivers via SMTP or Graph. SMTP config
+   * passes `allowPlaintextAuth` through unchanged, so the plaintext-AUTH
+   * opt-out is inherited from the service config.
    * @param input - Message input (recipients, subject, text/html body, attachments)
    * @returns The send result with the generated `Message-ID` and provider
-   * @throws {InternalError} when the provider cannot be resolved, the SMTP host is missing, or SMTP delivery fails
+   * @throws {BadRequestError} when an address, attachment filename, or content type fails validation (via {@link buildEmail})
+   * @throws {InternalError} when the provider cannot be resolved, the SMTP host is missing, plaintext AUTH is refused, or SMTP delivery fails
    */
   async send(input: EmailMessageInput): Promise<EmailSendResult> {
     const config = this.config;
@@ -216,6 +256,7 @@ export class EmailService extends HttpApiService<EmailServiceConfig> {
       username: config.username,
       password: config.password,
       timeout: config.timeout,
+      allowPlaintextAuth: config.allowPlaintextAuth,
     });
     try {
       await client.connect();
@@ -269,9 +310,12 @@ export class EmailService extends HttpApiService<EmailServiceConfig> {
   /**
    * @description Lists messages from a Graph mailbox
    * @summary Queries `<mailbox>/messages` with `$top`, an optional
-   * subject/since `$filter`, and `receivedDateTime desc` ordering.
+   * subject/since `$filter`, and `receivedDateTime desc` ordering. The mailbox
+   * is URL-encoded as a single path segment, quotes in the subject are escaped
+   * for the OData string literal, and `since` must be an ISO 8601 date.
    * @param query - Inbox filter (mailbox, limit, since, subject)
    * @returns The raw Graph message records
+   * @throws {BadRequestError} when `since` is not an ISO 8601 date
    * @throws {InternalError} when no `token` is configured; Graph errors mapped through {@link httpError}
    */
   async listInbox(
@@ -283,10 +327,14 @@ export class EmailService extends HttpApiService<EmailServiceConfig> {
       config.graphBaseUrl ??
       config.baseUrl ??
       "https://graph.microsoft.com/v1.0";
-    const mailbox = query.mailbox ?? "me";
+    const mailbox = encodeURIComponent(query.mailbox ?? "me");
     const filters = [
-      query.subject ? `contains(subject,'${query.subject}')` : undefined,
-      query.since ? `receivedDateTime ge ${query.since}` : undefined,
+      query.subject
+        ? `contains(subject,'${escapeODataString(query.subject)}')`
+        : undefined,
+      query.since
+        ? `receivedDateTime ge ${assertIsoDate(query.since)}`
+        : undefined,
     ].filter(Boolean);
     try {
       const response = await this.client.get<{
@@ -309,6 +357,13 @@ export class EmailService extends HttpApiService<EmailServiceConfig> {
    * @summary Dynamically imports the optional `imapflow` package, connects to
    * `host` (default port 993, implicit TLS), and fetches the newest messages
    * from `INBOX`.
+   *
+   * R2 direct-library-wrap justification: IMAP is a stateful protocol
+   * (mailbox locks, sequence/UID state, IDLE) whose correct implementation is
+   * large and security-sensitive. `imapflow` is the maintained n8n-vetted
+   * client for exactly this surface, so wrapping it is deliberate; a local
+   * reimplementation would add risk without changing the node contract. The
+   * package stays optional so SMTP/Graph-only consumers do not install it.
    * @param query - Inbox filter (limit only is honoured by IMAP)
    * @returns The fetched IMAP message records
    * @throws {InternalError} when `imapflow` is not installed, no `host` is configured, or the IMAP session fails

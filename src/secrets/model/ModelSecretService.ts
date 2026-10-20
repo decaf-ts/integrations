@@ -1,3 +1,15 @@
+/**
+ * @module integrations/secrets/model/service
+ * @summary Model-backed encrypted secret service.
+ * @description Implements the `{@link ModelSecretService}`, a
+ * `@service("secret-model")`-decorated `ClientBasedSecretService` that
+ * persists AES-encrypted payloads as `{@link Secret}` rows through a
+ * decaf `Repository` (tenant/org-unit/owner scoping included). Encryption
+ * keys derive from a master `keySecret` via `CryptoService`; configuration
+ * comes from the `secrets.model` Environment slice or an explicit boot
+ * config (see `ModelSecretServiceConfig`). The non-Environment node
+ * counterpart is `{@link ModelSecretNodeService}`.
+ */
 import { ClientBasedSecretService, SecretError, SecretProvider } from "../core";
 import {
   SecretName,
@@ -12,6 +24,7 @@ import {
   ExistsSecretOptions,
   ListSecretsOptions,
   SecretMetadataOptions,
+  RotateSecretOptions,
 } from "../core";
 import { validateSecretName, normalizeSecretName } from "../core";
 import {
@@ -35,6 +48,34 @@ import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 
 const DEFAULT_KEY_ID = "default-key";
 
+/**
+ * @description Model-backed encrypted secret service
+ * @summary Stores each secret as a `{@link Secret}` row (encrypted payload,
+ * key id/iv/salt metadata, version, enablement flag, and optional
+ * tenant/org-unit/owner scope) through the repository booted as the service
+ * client. Names are validated and normalized before persistence; retrieval
+ * only considers enabled rows and supports version pinning. Delete is soft
+ * by default (sets `enabled: false`) unless `options.force` is set. Errors
+ * from the repository are translated into typed {@link SecretError}s by
+ * `parseError`.
+ *
+ * Registered as `@service("secret-model")` and Environment-configurable
+ * through the `secrets.model` slice; the credential service
+ * (`CredentialService`) delegates user/runtime credential storage to this
+ * service.
+ * @class ModelSecretService
+ * @category Secrets
+ * @example
+ * ```ts
+ * import { ModelSecretService } from "@decaf-ts/integrations/secrets";
+ *
+ * const modelSecrets = await new ModelSecretService().boot({
+ *   keySecret: "model-master-key",
+ * });
+ * await modelSecrets.store("my-secret", { value: "s3cr3t" });
+ * const payload = await modelSecrets.retrieve<{ value: string }>("my-secret");
+ * ```
+ */
 @service("secret-model")
 export class ModelSecretService extends ClientBasedSecretService<
   Repository<Secret, any>,
@@ -43,6 +84,18 @@ export class ModelSecretService extends ClientBasedSecretService<
   readonly provider: SecretProvider = "model";
   private cryptoService!: CryptoService;
 
+  constructor() {
+    super();
+  }
+
+  /**
+   * @description Builds the model secret configuration from the Environment
+   * @summary Reads the `secrets.model` Environment slice and returns a
+   * `ModelSecretServiceConfig` when a `keySecret` is configured; returns
+   * `undefined` otherwise, letting boot fall back to explicit arguments.
+   * @returns {ModelSecretServiceConfig | undefined} The Environment-derived configuration, or `undefined`.
+   * @override
+   */
   protected configFromEnvironment(): ModelSecretServiceConfig | undefined {
     const env = ModelSecretEnvironment.secrets.model;
     const keySecret = envString(env?.keySecret);
@@ -54,6 +107,15 @@ export class ModelSecretService extends ClientBasedSecretService<
     };
   }
 
+  /**
+   * @description Boots the crypto service and resolves the backing repository
+   * @summary Accepts the configuration (explicit args, merged with the
+   * Environment slice by the base) and an optional `Repository<Secret>` as the
+   * second argument; when absent, creates one via `Repository.forModel(Secret)`.
+   * Returns the config and repository as the service client.
+   * @param {ContextualArgs} args - Configuration and optional `Repository`/`Context` arguments.
+   * @returns {Promise<{config: ModelSecretServiceConfig, client: Repository<Secret, any>}>} The resolved config and repository client.
+   */
   async initialize(...args: ContextualArgs<any>): Promise<{
     config: ModelSecretServiceConfig;
     client: Repository<Secret, any>;
@@ -61,19 +123,36 @@ export class ModelSecretService extends ClientBasedSecretService<
     const config = this.getConfigFromArgs<ModelSecretServiceConfig>(...args);
     const repository =
       (args[1] as Repository<Secret, any> | undefined) ||
-      new Repository<Secret, any>(undefined, Secret);
+      Repository.forModel<Secret, Repository<Secret, any>>(Secret);
     this.cryptoService = new CryptoService();
-    await this.cryptoService.initialize(config);
+    await this.cryptoService.boot({});
     return { config, client: repository };
   }
 
+  /**
+   * @description Encrypts and persists a secret row
+   * @summary Validates and normalizes the name, serializes the payload, and
+   * encrypts it with a key derived from the master `keySecret`, embedding the
+   * key id/iv/salt in the row's `encryption` metadata. The row carries the
+   * optional tenant/org-unit/owner scoping and version. A conflicting insert
+   * surfaces as a `SECRET_ALREADY_EXISTS` {@link SecretError}.
+   * @template T - The secret payload type.
+   * @param {SecretName} name - The secret name (validated and normalized).
+   * @param {T} value - The payload to encrypt and store.
+   * @param {StoreSecretOptions} [options] - Optional content type, tags, version, and tenant/org/owner scoping.
+   * @param {MaybeContextualArg} args - Optional trailing decaf `Context` forwarded to the repository.
+   * @returns {Promise<SecretReference>} A reference to the persisted secret.
+   * @throws {SecretError} When the name is invalid or the secret already exists.
+   */
   async store<T extends SecretPayload = SecretPayload>(
     name: SecretName,
     value: T,
     options: StoreSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<SecretReference> {
-    const { log } = (await this.logCtx(args, "store", true)).for(this.store);
+    const { log, ctxArgs } = (await this.logCtx(args, "store", true)).for(
+      this.store
+    );
     log.verbose(`Storing secret ${name}`);
     try {
       validateSecretName(name);
@@ -86,10 +165,11 @@ export class ModelSecretService extends ClientBasedSecretService<
     const derivedKey = await this.cryptoService.deriveKeyFromSecret(
       this.config.keySecret as string
     );
+    const extracted = this.cryptoService.extractKeyFromDerivedKey(derivedKey);
     const { encryptedData, metadata } = await this.cryptoService.encryptPayload(
-      serialized.value,
+      JSON.stringify(serialized),
       this.config.keyId || DEFAULT_KEY_ID,
-      this.cryptoService.extractKeyFromDerivedKey(derivedKey).key
+      extracted.key
     );
 
     const now = new Date();
@@ -100,15 +180,19 @@ export class ModelSecretService extends ClientBasedSecretService<
       encryption: {
         keyId: metadata.keyId,
         iv: metadata.iv,
+        salt: extracted.salt,
       },
       contentType: options.contentType,
       tags: options.tags,
       enabled: true,
       version: options.version,
+      tenantId: options.tenantId,
+      orgUnitId: options.orgUnitId,
+      ownerPrincipalId: options.ownerPrincipalId,
     });
 
     try {
-      await this.client.create(secret);
+      await this.client.create(secret, ...ctxArgs);
     } catch (error: any) {
       if (
         error?.message?.toLowerCase()?.includes?.("already") ||
@@ -129,12 +213,25 @@ export class ModelSecretService extends ClientBasedSecretService<
     };
   }
 
+  /**
+   * @description Reads, decrypts, and deserializes an enabled secret row
+   * @summary Queries the newest matching enabled row (by normalized name and,
+   * optionally, version), re-derives the key using the row's salt, and decrypts
+   * the payload. Missing rows throw {@link NotFoundError}; decryption and JSON
+   * parse failures throw `InternalError`.
+   * @template T - The secret payload type.
+   * @param {SecretName | SecretReference} nameOrRef - The secret name or reference.
+   * @param {RetrieveSecretOptions} [options] - Optional version filter.
+   * @param {MaybeContextualArg} args - Optional trailing decaf `Context` forwarded to the repository.
+   * @returns {Promise<T>} The decrypted payload.
+   * @throws {NotFoundError} When no enabled secret matches the name/version.
+   */
   async retrieve<T extends SecretPayload = SecretPayload>(
     nameOrRef: SecretName | SecretReference,
     options: RetrieveSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<T> {
-    const { log } = (await this.logCtx(args, "retrieve", true)).for(
+    const { log, ctxArgs } = (await this.logCtx(args, "retrieve", true)).for(
       this.retrieve
     );
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
@@ -167,7 +264,10 @@ export class ModelSecretService extends ClientBasedSecretService<
 
     condition = condition.and(Condition.attr<Secret>("enabled").eq(true));
 
-    const results = await this.client.select().where(condition).execute();
+    const results = await this.client
+      .select()
+      .where(condition)
+      .execute(...ctxArgs);
     const existing = results[0];
 
     if (!existing) {
@@ -175,7 +275,8 @@ export class ModelSecretService extends ClientBasedSecretService<
     }
 
     const derivedKey = await this.cryptoService.deriveKeyFromSecret(
-      this.config.keySecret as string
+      this.config.keySecret as string,
+      existing.encryption?.salt
     );
     let decryptedValue: string;
     try {
@@ -189,20 +290,36 @@ export class ModelSecretService extends ClientBasedSecretService<
       );
     }
 
-    const payload: SerializedSecretPayload = {
-      encoding: "utf8",
-      value: decryptedValue,
-    };
+    let payload: SerializedSecretPayload;
+    try {
+      payload = JSON.parse(decryptedValue) as SerializedSecretPayload;
+    } catch (error) {
+      throw new InternalError(
+        `Failed to deserialize secret "${normalizedName}": ${(error as Error).message}`
+      );
+    }
 
     return deserializeSecretPayload(payload) as T;
   }
 
+  /**
+   * @description Deletes (or disables) a secret row
+   * @summary Soft-deletes by default: the row is disabled and stamped with a
+   * new `updatedAt`. With `options.force`, the row is hard-deleted from the
+   * repository. A missing secret resolves silently.
+   * @param {SecretName | SecretReference} nameOrRef - The secret name or reference.
+   * @param {DeleteSecretOptions} [options] - Optional version filter and `force` hard-delete flag.
+   * @param {MaybeContextualArg} args - Optional trailing decaf `Context` forwarded to the repository.
+   * @returns {Promise<void>} Resolves once the row is deleted or disabled.
+   */
   async delete(
     nameOrRef: SecretName | SecretReference,
     options: DeleteSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log } = (await this.logCtx(args, "delete", true)).for(this.delete);
+    const { log, ctxArgs } = (await this.logCtx(args, "delete", true)).for(
+      this.delete
+    );
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Deleting secret ${nameStr}`);
 
@@ -228,7 +345,10 @@ export class ModelSecretService extends ClientBasedSecretService<
       filter = filter.and(Condition.attr<Secret>("version").eq(version));
     }
 
-    const results = await this.client.select().where(filter).execute();
+    const results = await this.client
+      .select()
+      .where(filter)
+      .execute(...ctxArgs);
     const existing = results[0];
 
     if (!existing) {
@@ -236,20 +356,31 @@ export class ModelSecretService extends ClientBasedSecretService<
     }
 
     if (options.force) {
-      await this.client.delete(normalizedName);
+      await this.client.delete(existing.id, ...ctxArgs);
     } else {
       existing.enabled = false;
       existing.updatedAt = new Date();
-      await this.client.update(existing);
+      await this.client.update(existing, ...ctxArgs);
     }
   }
 
+  /**
+   * @description Checks whether an enabled secret exists (optionally at a version)
+   * @summary Counts enabled rows matching the normalized name (plus any
+   * requested version) and returns whether the count is positive.
+   * @param {SecretName | SecretReference} nameOrRef - The secret name or reference.
+   * @param {ExistsSecretOptions} [options] - Optional version filter.
+   * @param {MaybeContextualArg} args - Optional trailing decaf `Context` forwarded to the repository.
+   * @returns {Promise<boolean>} `true` when at least one enabled row matches.
+   */
   async exists(
     nameOrRef: SecretName | SecretReference,
     options: ExistsSecretOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<boolean> {
-    const { log } = (await this.logCtx(args, "exists", true)).for(this.exists);
+    const { log, ctxArgs } = (await this.logCtx(args, "exists", true)).for(
+      this.exists
+    );
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
     log.verbose(`Checking if secret ${nameStr} exists`);
 
@@ -279,16 +410,26 @@ export class ModelSecretService extends ClientBasedSecretService<
       filter = filter.and(Condition.attr<Secret>("version").eq(version));
     }
 
-    const count = await this.client.count().where(filter).execute();
+    const count = await this.client.count().where(filter).execute(...ctxArgs);
 
     return count > 0;
   }
 
+  /**
+   * @description Lists secret metadata across stored rows
+   * @summary Selects rows filtered by the `enabled` flag (when supplied) and
+   * maps them to `SecretMetadata` records (no payloads).
+   * @param {ListSecretsOptions} [options] - Optional `enabled` filter.
+   * @param {MaybeContextualArg} args - Optional trailing decaf `Context` forwarded to the repository.
+   * @returns {Promise<SecretMetadata[]>} Metadata for every matching secret.
+   */
   async list(
     options: ListSecretsOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<SecretMetadata[]> {
-    const { log } = (await this.logCtx(args, "list", true)).for(this.list);
+    const { log, ctxArgs } = (await this.logCtx(args, "list", true)).for(
+      this.list
+    );
     log.verbose("Listing secrets");
 
     let condition: Condition<Secret> | null = null;
@@ -300,7 +441,7 @@ export class ModelSecretService extends ClientBasedSecretService<
     const secrets: Secret[] = await this.client
       .select()
       .where(condition || Condition.attr<Secret>("name").dif(null))
-      .execute();
+      .execute(...ctxArgs);
 
     return secrets.map((secret: Secret) => ({
       provider: secret.provider as SecretProvider,
@@ -314,12 +455,22 @@ export class ModelSecretService extends ClientBasedSecretService<
     }));
   }
 
+  /**
+   * @description Reads one secret's metadata without its payload
+   * @summary Selects the row matching the normalized name (and optional
+   * version) and maps it to `SecretMetadata`; tags are included only when
+   * `options.includeTags` is set. Returns `undefined` when no row matches.
+   * @param {SecretName | SecretReference} nameOrRef - The secret name or reference.
+   * @param {SecretMetadataOptions} [options] - Optional version filter and `includeTags` flag.
+   * @param {MaybeContextualArg} args - Optional trailing decaf `Context` forwarded to the repository.
+   * @returns {Promise<SecretMetadata | undefined>} The metadata, or `undefined` when absent.
+   */
   async metadata(
     nameOrRef: SecretName | SecretReference,
     options: SecretMetadataOptions = {},
     ...args: MaybeContextualArg<any>
   ): Promise<SecretMetadata | undefined> {
-    const { log } = (await this.logCtx(args, "metadata", true)).for(
+    const { log, ctxArgs } = (await this.logCtx(args, "metadata", true)).for(
       this.metadata
     );
     const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
@@ -353,7 +504,7 @@ export class ModelSecretService extends ClientBasedSecretService<
     const results: Secret[] = await this.client
       .select()
       .where(filter)
-      .execute();
+      .execute(...ctxArgs);
     const secret = results[0];
 
     if (!secret) {
@@ -377,6 +528,93 @@ export class ModelSecretService extends ClientBasedSecretService<
     return meta;
   }
 
+  /**
+   * @description Re-encrypts an enabled secret row with a new payload
+   * @summary Locates the enabled row (optionally pinned to
+   * `options.oldVersion`), encrypts the new payload with a freshly derived
+   * key (optionally tagged with `options.keyId`), and updates the row's
+   * payload, encryption metadata, version (`options.newVersion`), and
+   * `updatedAt`.
+   * @template T - The secret payload type.
+   * @param {SecretName | SecretReference} nameOrRef - The secret name or reference.
+   * @param {T} value - The new payload.
+   * @param {RotateSecretOptions} [options] - Optional `newVersion`, `oldVersion`, and `keyId`.
+   * @param {MaybeContextualArg} args - Optional trailing decaf `Context` forwarded to the repository.
+   * @returns {Promise<SecretReference>} A reference reflecting the updated row.
+   * @throws {NotFoundError} When no enabled secret matches the name/version.
+   */
+  async rotate<T extends SecretPayload = SecretPayload>(
+    nameOrRef: SecretName | SecretReference,
+    value: T,
+    options: RotateSecretOptions = {},
+    ...args: MaybeContextualArg<any>
+  ): Promise<SecretReference> {
+    const { log, ctxArgs } = (await this.logCtx(args, "rotate", true)).for(
+      this.rotate
+    );
+    const nameStr = typeof nameOrRef === "string" ? nameOrRef : nameOrRef.name;
+    log.verbose(`Rotating secret ${nameStr}`);
+
+    const normalizedName = normalizeSecretName(nameStr);
+    let condition = Condition.attr<Secret>("name").eq(normalizedName);
+    condition = condition.and(Condition.attr<Secret>("enabled").eq(true));
+
+    const version =
+      options.oldVersion ??
+      (typeof nameOrRef === "object" ? nameOrRef.version : undefined);
+    if (version) {
+      condition = condition.and(Condition.attr<Secret>("version").eq(version));
+    }
+
+    const results = await this.client
+      .select()
+      .where(condition)
+      .execute(...ctxArgs);
+    const existing = results[0];
+
+    if (!existing) {
+      throw new NotFoundError(`Secret "${normalizedName}" not found`);
+    }
+
+    const serialized = serializeSecretPayload(value);
+    const derivedKey = await this.cryptoService.deriveKeyFromSecret(
+      this.config.keySecret as string
+    );
+    const extracted = this.cryptoService.extractKeyFromDerivedKey(derivedKey);
+    const { encryptedData, metadata } = await this.cryptoService.encryptPayload(
+      JSON.stringify(serialized),
+      options.keyId || this.config.keyId || DEFAULT_KEY_ID,
+      extracted.key
+    );
+
+    existing.encryptedPayload = encryptedData;
+    existing.encryption = {
+      keyId: metadata.keyId,
+      iv: metadata.iv,
+      salt: extracted.salt,
+    };
+    existing.version = options.newVersion ?? existing.version;
+    existing.updatedAt = new Date();
+
+    await this.client.update(existing, ...ctxArgs);
+
+    return {
+      provider: this.provider,
+      name: normalizedName,
+      version: existing.version,
+    };
+  }
+
+  /**
+   * @description Translates repository errors into typed secret errors
+   * @summary Inspects the error message for "not found"/404, "already
+   * exists"/conflict/409, and decryption-related markers and maps them to
+   * `SECRET_NOT_FOUND`, `SECRET_ALREADY_EXISTS`,
+   * `SECRET_DECRYPTION_FAILED`, or a generic `SECRET_PROVIDER_CONFLICT`
+   * {@link SecretError}.
+   * @param {unknown} error - The raw error thrown by the repository.
+   * @returns {SecretError} The typed secret error.
+   */
   protected parseError(error: unknown): SecretError {
     const err = error as Error;
     const message = err.message || err.name || "Unknown error";

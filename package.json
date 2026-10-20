@@ -516,7 +516,7 @@
     "repo:setup": "codex exec \"$(cat ./.codex/prompts/repo-setup.md)\nbase_path is ./\"",
     "repo:doc": "codex exec \"$(cat ./.codex/prompts/doc.md) $(cat ./.codex/prompts/bulk-docs.md)\nbase_path is ./\"",
     "repo:tests": "codex exec \"$(cat ./.codex/prompts/bulk-tests.md)\nbase_path is ./ and coverage is 95%\" -s workspace-write",
-    "prepare-it-tests": "docker compose -f docker/dragonfly-compose.yml up -d --wait",
+    "prepare-it-tests": "docker compose -f docker/dragonfly-compose.yml up -d --wait && docker compose -f docker/postgres-compose.yml up -d --wait && docker compose -f docker/mailpit-compose.yml up -d --wait",
     "repo:readme": "codex exec \"$(cat ./.codex/prompts/update-readme.md)\nbase_path is ./\"",
     "repo:pr": "npm run repo:doc && npm run repo:tests && npm run repo:readme",
     "clean": "rimraf ./lib ./workdocs/coverage"
@@ -555,8 +555,11 @@
     "@nestjs/testing": "^11.0.0",
     "@playwright/test": "^1.61.1",
     "@types/jest": "^30.0.0",
+    "@types/pg": "^8.23.1",
     "@types/supertest": "^6.0.0",
     "cron-parser": "^5.7.0",
+    "nodemailer": "^10.1.7",
+    "pg": "^8.23.1",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
     "supertest": "^7.0.0"
@@ -565,7 +568,9 @@
     "@decaf-ts/as-zod": "latest",
     "@decaf-ts/for-http": "latest",
     "@decaf-ts/for-nest": "latest",
-    "jose": ">=5.0.0"
+    "jose": ">=5.0.0",
+    "nodemailer": ">=7.0.0",
+    "pg": ">=8.0.0"
   },
   "peerDependenciesMeta": {
     "@decaf-ts/for-http": {
@@ -575,6 +580,12 @@
       "optional": true
     },
     "jose": {
+      "optional": true
+    },
+    "nodemailer": {
+      "optional": true
+    },
+    "pg": {
       "optional": true
     }
   },
@@ -591,6 +602,7 @@
     "@google-cloud/secret-manager": "^5.6.0",
     "@google-cloud/storage": "^7.21.0",
     "hashicorp-vault": "^0.1.0",
+    "imapflow": "^1.7.1",
     "keycloak-admin": "^24.0.5",
     "onelogin-node": "^0.1.0",
     "ssh2": "^1.16.0"

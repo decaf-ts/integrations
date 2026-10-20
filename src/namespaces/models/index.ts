@@ -19,3 +19,4 @@ export * from "./protected-resource.model";
 export * from "./resource-grant.model";
 export * from "./effective-permission.model";
 export * from "./storage-binding.model";
+export * from "./credential.model";

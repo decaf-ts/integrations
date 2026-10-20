@@ -1,3 +1,4 @@
+import { description } from "@decaf-ts/decoration";
 import { column, createdAt, manyToOne, oneToMany, pk, table, updatedAt, uuid } from "@decaf-ts/core";
 import { model, required, type as typeOf } from "@decaf-ts/decorator-validation";
 import { REL_NULLIFY, REL_RESTRICT } from "../utils";
@@ -6,6 +7,7 @@ import { Tenant } from "./tenant.model";
 import { OrgUnit } from "./org-unit.model";
 import { GroupMembership } from "./group-membership.model";
 
+@description("Named group of principals within a tenant and organizational unit")
 @table("groups")
 @model()
 export class Group extends AuthorizationModel {

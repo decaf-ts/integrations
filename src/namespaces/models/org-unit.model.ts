@@ -1,3 +1,4 @@
+import { description } from "@decaf-ts/decoration";
 import { column, createdAt, manyToOne, oneToMany, pk, table, updatedAt, uuid } from "@decaf-ts/core";
 import { model, required, type as typeOf } from "@decaf-ts/decorator-validation";
 import { REL_RESTRICT } from "../utils";
@@ -8,6 +9,7 @@ import { OrgUnitClosure } from "./org-unit-closure.model";
 import { ProtectedResource } from "./protected-resource.model";
 import { InheritanceBlock } from "./inheritance-block.model";
 
+@description("Organizational unit node in a tenant hierarchy (department, project, or team)")
 @table("org_units")
 @model()
 export class OrgUnit extends AuthorizationModel {

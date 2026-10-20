@@ -4,3 +4,4 @@
  * @description Re-exports the Slack client-based service and its types.
  */
 export * from "./SlackService";
+export * from "./SlackNodeService";

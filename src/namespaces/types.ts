@@ -60,6 +60,11 @@ export enum StorageBindingKind {
   Dedicated = "dedicated",
 }
 
+export enum CredentialProvider {
+  Model = "model",
+  Filesystem = "filesystem",
+}
+
 export const IsolationTierOptions = Object.values(IsolationTier);
 export const MembershipStatusOptions = Object.values(MembershipStatus);
 export const PrincipalKindOptions = Object.values(PrincipalKind);
@@ -68,6 +73,7 @@ export const PermissionCategoryOptions = Object.values(PermissionCategory);
 export const ResourceVisibilityOptions = Object.values(ResourceVisibility);
 export const StorageKindOptions = Object.values(StorageKind);
 export const StorageBindingKindOptions = Object.values(StorageBindingKind);
+export const CredentialProviderOptions = Object.values(CredentialProvider);
 
 export type TxArgs = any[];
 
@@ -180,6 +186,41 @@ export interface CreateStorageBindingInput {
   bindingKey: string;
   region: string;
   config?: Record<string, unknown>;
+}
+
+export interface CreateCredentialInput {
+  tenantId: string;
+  orgUnitId?: string;
+  ownerPrincipalId?: string;
+  name: string;
+  credentialType: string;
+  secret: string | Record<string, unknown> | Uint8Array;
+  description?: string;
+  metadata?: Record<string, unknown>;
+  expiresAt?: Date;
+}
+
+export interface RotateCredentialInput {
+  credentialId: string;
+  secret: string | Record<string, unknown> | Uint8Array;
+  version?: string;
+}
+
+export interface CredentialSummary {
+  id: string;
+  tenantId: string;
+  orgUnitId?: string;
+  ownerPrincipalId?: string;
+  name: string;
+  credentialType: string;
+  provider: CredentialProvider;
+  description?: string;
+  enabled: boolean;
+  metadata?: Record<string, unknown>;
+  expiresAt?: Date;
+  lastUsedAt?: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface BootstrapPermission {

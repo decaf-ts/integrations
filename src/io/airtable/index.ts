@@ -4,3 +4,4 @@
  * @description Re-exports the Airtable client-based service and its types.
  */
 export * from "./AirtableService";
+export * from "./AirtableNodeService";

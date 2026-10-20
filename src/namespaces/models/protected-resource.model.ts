@@ -1,3 +1,4 @@
+import { description } from "@decaf-ts/decoration";
 import { column, createdAt, manyToOne, oneToMany, pk, table, updatedAt, uuid } from "@decaf-ts/core";
 import { model, option, required, type as typeOf } from "@decaf-ts/decorator-validation";
 import { REL_NULLIFY, REL_RESTRICT } from "../utils";
@@ -8,6 +9,7 @@ import { OrgUnit } from "./org-unit.model";
 import { Principal } from "./principal.model";
 import { ResourceGrant } from "./resource-grant.model";
 
+@description("Resource registered for authorization and visibility decisions")
 @table("protected_resources")
 @model()
 export class ProtectedResource extends AuthorizationModel {

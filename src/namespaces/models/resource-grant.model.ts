@@ -1,3 +1,4 @@
+import { description } from "@decaf-ts/decoration";
 import { column, createdAt, manyToOne, pk, table, updatedAt, uuid } from "@decaf-ts/core";
 import { model, required, type as typeOf } from "@decaf-ts/decorator-validation";
 import { REL_CASCADE_DEPENDENT, REL_RESTRICT } from "../utils";
@@ -6,6 +7,7 @@ import { Tenant } from "./tenant.model";
 import { Principal } from "./principal.model";
 import { ProtectedResource } from "./protected-resource.model";
 
+@description("Permission grant on a protected resource for a principal")
 @table("resource_grants")
 @model()
 export class ResourceGrant extends AuthorizationModel {

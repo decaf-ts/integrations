@@ -22,3 +22,4 @@ export * from "./storage-binding.service";
 export * from "./bootstrap.service";
 export * from "./system-management.service";
 export * from "./authz.service";
+export * from "./credential.service";

@@ -1,3 +1,4 @@
+import { description } from "@decaf-ts/decoration";
 import { column, createdAt, manyToOne, pk, table, updatedAt, uuid } from "@decaf-ts/core";
 import { model, option, required, type as typeOf } from "@decaf-ts/decorator-validation";
 import { PermissionCategory, PermissionCategoryOptions } from "../types";
@@ -6,6 +7,7 @@ import { AuthorizationModel } from "./authorization-model";
 import { Tenant } from "./tenant.model";
 import { OrgUnit } from "./org-unit.model";
 
+@description("Block preventing permission inheritance from an ancestor organizational unit")
 @table("inheritance_blocks")
 @model()
 export class InheritanceBlock extends AuthorizationModel {

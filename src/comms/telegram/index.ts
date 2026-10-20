@@ -4,3 +4,4 @@
  * @description Re-exports the Telegram client-based service and its types.
  */
 export * from "./TelegramService";
+export * from "./TelegramNodeService";

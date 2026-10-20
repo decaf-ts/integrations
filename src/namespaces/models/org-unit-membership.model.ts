@@ -1,3 +1,4 @@
+import { description } from "@decaf-ts/decoration";
 import { column, createdAt, manyToOne, pk, table, updatedAt, uuid } from "@decaf-ts/core";
 import { model, option, required, type as typeOf } from "@decaf-ts/decorator-validation";
 import { MembershipStatus, MembershipStatusOptions } from "../types";
@@ -7,6 +8,7 @@ import { Tenant } from "./tenant.model";
 import { OrgUnit } from "./org-unit.model";
 import { User } from "./user.model";
 
+@description("Membership linking a user to an organizational unit")
 @table("org_unit_memberships")
 @model()
 export class OrgUnitMembership extends AuthorizationModel {

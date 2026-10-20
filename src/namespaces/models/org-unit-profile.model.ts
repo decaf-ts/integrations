@@ -1,9 +1,11 @@
+import { description } from "@decaf-ts/decoration";
 import { column, createdAt, manyToOne, pk, table, updatedAt, uuid } from "@decaf-ts/core";
 import { model, required, type as typeOf } from "@decaf-ts/decorator-validation";
 import { REL_CASCADE_DEPENDENT } from "../utils";
 import { AuthorizationModel } from "./authorization-model";
 import { OrgUnit } from "./org-unit.model";
 
+@description("Profile metadata attached to an organizational unit")
 @table("org_unit_profiles")
 @model()
 export class OrgUnitProfile extends AuthorizationModel {

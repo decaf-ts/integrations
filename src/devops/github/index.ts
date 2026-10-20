@@ -4,3 +4,4 @@
  * @description Re-exports the GitHub client-based service and its types.
  */
 export * from "./GithubService";
+export * from "./GithubNodeService";

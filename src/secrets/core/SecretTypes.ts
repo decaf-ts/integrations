@@ -6,6 +6,7 @@
 export type SecretProvider =
   | "model"
   | "memory"
+  | "filesystem"
   | "hashicorp-vault"
   | "aws-secrets-manager"
   | "azure-key-vault"
@@ -61,6 +62,20 @@ export interface StoreSecretOptions {
   tags?: Record<string, string>;
   version?: string;
   ttl?: number;
+  /**
+   * @description Namespace tenant that owns the secret.
+   * @summary Stamped onto model-backed secrets so the namespace RLS policies
+   * can scope reads and writes without joining the credential row.
+   */
+  tenantId?: string;
+  /**
+   * @description Organizational unit that owns the secret.
+   */
+  orgUnitId?: string;
+  /**
+   * @description Principal that owns the secret.
+   */
+  ownerPrincipalId?: string;
 }
 
 export interface RetrieveSecretOptions {

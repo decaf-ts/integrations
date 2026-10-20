@@ -1,3 +1,4 @@
+import { description } from "@decaf-ts/decoration";
 import { column, createdAt, manyToOne, oneToMany, pk, table, updatedAt, uuid } from "@decaf-ts/core";
 import { model, option, required, type as typeOf } from "@decaf-ts/decorator-validation";
 import { PrincipalKind, PrincipalKindOptions } from "../types";
@@ -7,6 +8,7 @@ import { Tenant } from "./tenant.model";
 import { RoleAssignment } from "./role-assignment.model";
 import { ResourceGrant } from "./resource-grant.model";
 
+@description("Authorization subject representing a user, group, service account, agent, or API key")
 @table("principals")
 @model()
 export class Principal extends AuthorizationModel {

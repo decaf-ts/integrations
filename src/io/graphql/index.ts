@@ -4,3 +4,4 @@
  * @description Re-exports the GraphQL client-based service and its types.
  */
 export * from "./GraphqlService";
+export * from "./GraphqlNodeService";

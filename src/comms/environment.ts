@@ -48,6 +48,8 @@ export interface CommsEnvironmentShape {
       from: string;
       token: string;
       graphBaseUrl: string;
+      /** Explicit opt-in for SMTP AUTH over a plaintext session (default false). */
+      allowPlaintextAuth?: boolean;
       timeout?: number;
     };
     gmail: {

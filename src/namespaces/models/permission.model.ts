@@ -1,3 +1,4 @@
+import { description } from "@decaf-ts/decoration";
 import { column, oneToMany, pk, table, unique, uuid } from "@decaf-ts/core";
 import { model, option, required, type as typeOf } from "@decaf-ts/decorator-validation";
 import { PermissionCategory, PermissionCategoryOptions } from "../types";
@@ -5,6 +6,7 @@ import { REL_RESTRICT } from "../utils";
 import { AuthorizationModel } from "./authorization-model";
 import { RolePermission } from "./role-permission.model";
 
+@description("Named authorization permission with a category")
 @table("permissions")
 @model()
 export class Permission extends AuthorizationModel {

@@ -6,3 +6,4 @@
 export * from "./AzureKeyVaultSecretService";
 export * from "./AzureKeyVaultSecretServiceConfig";
 export * from "./AzureSecretEnvironment";
+export * from "./AzureKeyVaultSecretNodeService";

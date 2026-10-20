@@ -1,3 +1,4 @@
+import { description } from "@decaf-ts/decoration";
 import { column, createdAt, manyToOne, pk, table, uuid } from "@decaf-ts/core";
 import { model, required, type as typeOf } from "@decaf-ts/decorator-validation";
 import { REL_CASCADE_DEPENDENT } from "../utils";
@@ -5,6 +6,7 @@ import { AuthorizationModel } from "./authorization-model";
 import { Tenant } from "./tenant.model";
 import { OrgUnit } from "./org-unit.model";
 
+@description("Ancestor/descendant closure entry for the organizational hierarchy")
 @table("org_unit_closure")
 @model()
 export class OrgUnitClosure extends AuthorizationModel {

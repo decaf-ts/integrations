@@ -1,9 +1,11 @@
+import { description } from "@decaf-ts/decoration";
 import { column, createdAt, manyToOne, pk, table, updatedAt, uuid } from "@decaf-ts/core";
 import { model, required, type as typeOf } from "@decaf-ts/decorator-validation";
 import { REL_CASCADE_DEPENDENT } from "../utils";
 import { AuthorizationModel } from "./authorization-model";
 import { Tenant } from "./tenant.model";
 
+@description("Profile metadata attached to a tenant")
 @table("tenant_profiles")
 @model()
 export class TenantProfile extends AuthorizationModel {

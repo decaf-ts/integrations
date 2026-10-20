@@ -32,6 +32,9 @@
 - Redis (and Redis-compatible, e.g. DragonflyDB) persistence adapter: `RedisAdapter`, query statement/paginator, pub/sub event dispatch, and a `RedisContextLock` backing `@transactional()`.
 - SFTP client helpers for list/download/delete over an SSH connection (used by the `core.devops.ftp` graph node).
 - BI dashboard embed plugins (Kibana + Superset) with a shared DOM-free `DashboardEmbedPlugin` contract. The Kibana plugin is generated source + installer; the Superset plugin is a patch-and-build strategy that modifies Superset's internal embedded frontend and SDK source. Both expose the exact same API and are org-agnostic (no space switching).
+- Namespaced credential management: `Credential` model + `CredentialService` storing secret values encrypted at rest via the model-backed `ModelSecretService`, plus the namespace RLS template/bootstrap (`RlsBootstrapService`, `runAsPrincipal`) — see [Credentials and namespace RLS](#credentials-and-namespace-rls).
+- Filesystem-backed `FsSecretService` (encrypted `decaf.fs-secret.v1` envelopes, never enumerable) with `InfraCredentialBootstrap.ensure()` for infrastructure credentials — see [Credentials and namespace RLS](#credentials-and-namespace-rls).
+- Non-Environment `XxxNodeService` variants for every comms/devops/io/blob/secret/HTTP service, booted with an explicit `XxxService.boot(config)` — see [Node service variants](#node-service-variants).
 
 ## Communication, DevOps, and IO services
 
@@ -122,6 +125,115 @@ flags.isEnabled("engineLocalWorkflowList");            // true
 ```
 
 The manifest input is a structural subset of the as-graph manifest, so no import of the as-graph package is required and the dependency direction is preserved. All read paths (`isEnabled`, `resolveFeatureFlags`, `isEnabledForSubject`, `resolveFeatureFlagsForSubject`) resolve against the derived registry only, and `listEnabled()` returns the enabled flags as `FeatureFlag` models without touching a repository.
+
+## Credentials and namespace RLS
+
+The `./namespaces` export adds namespaced credential management and the row-level-security bootstrap on top of the authorization scaffold.
+
+**Credential management.** The `Credential` model is the namespaced credential *metadata* record (tenant / org unit / owner principal, name, credential type, provider, expiry); the secret value itself is stored encrypted at rest through the model-backed `ModelSecretService` (`@decaf-ts/crypto` AES envelopes, RLS-scoped `secrets` rows). `CredentialService` manages the lifecycle — `createCredential`, `rotateCredential`, `getCredential`, `listCredentials`, `markCredentialUsed`, `deleteCredential` — and deliberately exposes no `resolveCredentialSecret`-style retrieval: secret values resolve through the context-bound, RLS-restricted secret path.
+
+**Namespace RLS.** `sql/002_rls.sql` is generated from `src/namespaces/rls/rls.template.ts` (never edit it by hand) and enforces reader/writer/admin semantics (`namespace.read` / `namespace.write` / `namespace.admin` permission keys; `namespace-reader` / `namespace-writer` / `namespace-admin` default role keys) across the org-unit closure and principal identity: readers see content tables only, writers additionally write non-administrative rows, admins see everything (administrative tables — `permissions`, `roles`, `role_permissions`, `role_assignments`, `inheritance_blocks`, `storage_bindings` — are admin-only), and users always see their own identity rows and their own credentials/secrets.
+
+```ts
+import {
+  CredentialService,
+  RlsBootstrapService,
+  runAsPrincipal,
+} from "@decaf-ts/integrations/namespaces";
+import pg from "pg";
+
+// Apply the generated RLS template through any pg-shaped executor.
+const admin = new pg.Client({ connectionString: process.env.DECAF_PG_URL });
+await admin.connect();
+const rls = await new RlsBootstrapService().boot(admin);
+await rls.apply();                       // idempotent; safe on every deployment
+
+// Bind the acting principal for request-scoped reads (transaction-local).
+await rls.setPrincipal(principalId);
+
+// ...or run a callback inside a transaction with the principal bound
+// (rolls back by default; pass { commit: true } for real writes).
+await runAsPrincipal(admin, principalId, async (executor) => {
+  /* RLS-scoped queries */
+});
+
+// Credential lifecycle (secret value encrypted at rest via ModelSecretService).
+const credentials = new CredentialService();
+const credential = await credentials.createCredential({
+  tenantId,
+  name: "smtp-relay",
+  credentialType: "smtp",
+  secret: { host: "...", username: "...", password: "..." },
+});
+```
+
+SQL prerequisites (in order): `sql/001_constraints.sql` (namespace schema), `sql/004_credentials.sql` (credential/secret namespacing columns + indexes), then `sql/002_rls.sql` (RLS template — applied via `RlsBootstrapService.apply()` or a migration runner) before request-scoped traffic reaches the database.
+
+**Infrastructure credentials.** The `./secrets` export adds `FsSecretService` — a filesystem-backed, AES-encrypted (`decaf.fs-secret.v1` envelopes, `0o700` root / `0o600` files, default `.decaf/secrets`) secret store for infrastructure credentials. It is never enumerable (`list`/`metadata` throw) and is configured through the `secrets.fs` Environment slice (`rootPath`, `keySecret`, `keyId`) or an explicit boot config; the `keySecret` is mandatory. `InfraCredentialBootstrap.ensure(seeds)` seeds infra credentials idempotently at initialization time, and `retrieve(name)` reads a value immediately before use:
+
+```ts
+import { createInfraCredentialBootstrap } from "@decaf-ts/integrations/secrets";
+
+const infra = await createInfraCredentialBootstrap({ keySecret: "infra-master-key" });
+await infra.ensure([{ name: "smtp/relay", value: { host: "...", password: "..." } }]);
+const { host, password } = await infra.retrieve("smtp/relay");
+```
+
+## SMTP email delivery
+
+`@decaf-ts/integrations/comms/email` now also exports `SmtpClient` (also via the `./smtp` subpath) and `EmailNodeService`. `SmtpClient` delegates the SMTP protocol to the optional **`nodemailer`** peer (the same library n8n uses) instead of hand-rolling the wire protocol, while keeping the same `connect`/`send`/`close` surface over a pre-built raw MIME message:
+
+- `secure: true` opens an implicit-TLS socket from the first byte (default port `465`); `secure: false` (default) connects in plaintext and upgrades via STARTTLS (default port `587`).
+- Fail-closed plaintext AUTH: with credentials configured, the session must be encrypted before `AUTH LOGIN` is attempted; `allowPlaintextAuth` is the explicit opt-out for servers that cannot offer TLS.
+- Envelope addresses are validated before they reach any SMTP command.
+
+```ts
+import { SmtpClient, buildEmail } from "@decaf-ts/integrations/comms/email";
+
+const client = new SmtpClient({
+  host: "smtp.example.com",
+  port: 587,
+  username: "noreply@example.com",
+  password: process.env.SMTP_PASSWORD,
+});
+await client.connect();
+const mail = buildEmail({ from: "noreply@example.com", to: ["ops@example.com"], subject: "Nightly report", text: "All systems nominal." });
+await client.send(mail.from, mail.recipients, mail.raw);
+await client.close();
+```
+
+`EmailNodeService` is the non-Environment counterpart of the `@service("email")`-decorated `EmailService` for explicit `boot(config)` usage in node contexts.
+
+## Node service variants
+
+Every comms/devops/io/blob/secret/HTTP service now ships a non-Environment `XxxNodeService` counterpart (21 variants, e.g. `SlackNodeService`, `GithubNodeService`, `S3NodeService`, `ModelSecretNodeService`, `HttpNodeService`). They are plain subclasses of the undecorated service implementation — not `@service()`-registered singletons — and must be booted with an explicit configuration object; Environment configuration is disabled for them by construction:
+
+```ts
+import { SlackNodeService } from "@decaf-ts/integrations/comms/slack";
+
+const slack = await new SlackNodeService().boot({ token: process.env.SLACK_TOKEN });
+```
+
+A no-argument or `Context`-only boot throws a `ValidationError`, because no Environment fallback exists.
+
+## Optional peer dependencies
+
+Two new optional peers were added (`peerDependenciesMeta` marks both optional; each is also a dev dependency):
+
+| Peer | Needed for |
+|:-----|:-----------|
+| `nodemailer` (`>=7.0.0`) | SMTP delivery (`SmtpClient`, `EmailService` SMTP path). Install: `npm i nodemailer`. |
+| `pg` (`>=8.0.0`) | Namespace RLS / credential / model-secret integration tests and applications driving the RLS bootstrap against Postgres. Install: `npm i pg`. |
+
+## Integration-test infrastructure
+
+`npm run prepare-it-tests` boots all Dockerized IT infrastructure with `--wait` health gating:
+
+- `docker/dragonfly-compose.yml` — DragonflyDB (Redis-compatible) on `localhost:6379` (Redis adapter ITs).
+- `docker/postgres-compose.yml` — `postgres:16` on host port `55435`, db `decaf_integration`, user `decaf` (RLS matrix, credential, and model-secret ITs; override the connection string with `DECAF_PG_URL`, default `postgresql://decaf:decaf-integration@localhost:55435/decaf_integration`).
+- `docker/mailpit-compose.yml` — Mailpit SMTP sink on `1025` (HTTP API/UI on `8025`), accepting any AUTH including plaintext so the SMTP credential path is exercisable locally (Email ITs).
+
+Run the integration tests with `npm run test:integration`.
 
 ## Notes
 

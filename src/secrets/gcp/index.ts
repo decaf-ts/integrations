@@ -6,3 +6,4 @@
 export * from "./GcpSecretManagerService";
 export * from "./GcpSecretManagerServiceConfig";
 export * from "./GcpSecretEnvironment";
+export * from "./GcpSecretManagerNodeService";

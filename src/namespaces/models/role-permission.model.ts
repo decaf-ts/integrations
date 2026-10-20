@@ -1,3 +1,4 @@
+import { description } from "@decaf-ts/decoration";
 import { createdAt, manyToOne, pk, table, uuid } from "@decaf-ts/core";
 import { model, required } from "@decaf-ts/decorator-validation";
 import { REL_CASCADE_DEPENDENT } from "../utils";
@@ -5,6 +6,7 @@ import { AuthorizationModel } from "./authorization-model";
 import { Role } from "./role.model";
 import { Permission } from "./permission.model";
 
+@description("Link between a role and a permission")
 @table("role_permissions")
 @model()
 export class RolePermission extends AuthorizationModel {

@@ -5,3 +5,5 @@
  */
 export * from "./core";
 export * from "./model";
+export * from "./fs";
+export * from "./InfraCredentialBootstrap";

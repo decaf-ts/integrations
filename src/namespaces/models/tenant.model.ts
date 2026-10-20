@@ -1,3 +1,4 @@
+import { description } from "@decaf-ts/decoration";
 import {
   column,
   createdAt,
@@ -22,6 +23,7 @@ import { TenantMembership } from "./tenant-membership.model";
 import { Principal } from "./principal.model";
 import { StorageBinding } from "./storage-binding.model";
 
+@description("Top-level tenant (organization) namespace")
 @table("tenants")
 @model()
 export class Tenant extends AuthorizationModel {

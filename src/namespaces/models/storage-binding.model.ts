@@ -1,3 +1,4 @@
+import { description } from "@decaf-ts/decoration";
 import { column, createdAt, manyToOne, pk, table, updatedAt, uuid } from "@decaf-ts/core";
 import { model, option, required, type as typeOf } from "@decaf-ts/decorator-validation";
 import { StorageBindingKind, StorageBindingKindOptions, StorageKind, StorageKindOptions } from "../types";
@@ -5,6 +6,7 @@ import { REL_CASCADE_DEPENDENT } from "../utils";
 import { AuthorizationModel } from "./authorization-model";
 import { Tenant } from "./tenant.model";
 
+@description("Storage backend binding configured for a tenant")
 @table("storage_bindings")
 @model()
 export class StorageBinding extends AuthorizationModel {

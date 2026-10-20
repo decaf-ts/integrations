@@ -1,3 +1,4 @@
+import { description } from "@decaf-ts/decoration";
 import { column, createdAt, manyToOne, pk, table, updatedAt, uuid } from "@decaf-ts/core";
 import { model, option, required, type as typeOf } from "@decaf-ts/decorator-validation";
 import { ScopeKind, ScopeKindOptions } from "../types";
@@ -7,6 +8,7 @@ import { Tenant } from "./tenant.model";
 import { Principal } from "./principal.model";
 import { Role } from "./role.model";
 
+@description("Role assigned to a principal within a scope")
 @table("role_assignments")
 @model()
 export class RoleAssignment extends AuthorizationModel {
