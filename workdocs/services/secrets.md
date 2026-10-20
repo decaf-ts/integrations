@@ -28,6 +28,7 @@ Use these services when you want a common secret interface while keeping provide
 
 - best for application-owned secret storage
 - supports encrypted-at-rest payloads
+- enforces `(name, version)` uniqueness — a conflicting `store`/`rotate` is rejected with a `SECRET_ALREADY_EXISTS` error (`rotate` excludes the row being updated), and name-based lookups resolve the newest `updatedAt` row deterministically
 - uses the crypto helpers in [`ModelSecretCrypto`](../../src/secrets/model/ModelSecretCrypto.ts)
 
 ### AWS Secrets Manager

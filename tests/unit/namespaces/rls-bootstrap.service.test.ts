@@ -7,19 +7,38 @@
  */
 import { InternalError, ValidationError } from "@decaf-ts/db-decorators";
 import { RLS_FUNCTION_STATEMENTS, rlsBootstrapStatements, rlsPolicyStatements } from "../../../src/namespaces/rls/rls.template";
-import { RlsBootstrapService, assertPrincipalId, runAsPrincipal } from "../../../src/namespaces/rls/rls-bootstrap.service";
-import { RLS_SETTINGS } from "../../../src/namespaces/rls/rls.constants";
+import {
+  RlsBootstrapService,
+  RlsFunctionOwnerError,
+  assertPrincipalId,
+  runAsPrincipal,
+} from "../../../src/namespaces/rls/rls-bootstrap.service";
+import {
+  RLS_FUNCTION_OWNER_QUERY,
+  RLS_SETTINGS,
+} from "../../../src/namespaces/rls/rls.constants";
 import type { RlsQueryExecutor } from "../../../src/namespaces/rls/rls.types";
 
 const PRINCIPAL_ID = "11111111-1111-4111-8111-111111111111";
 const SECOND_PRINCIPAL_ID = "22222222-2222-4222-8222-222222222222";
+
+const SUPERUSER_ROW = [{ rolname: "decaf", rolsuper: true, rolbypassrls: false }];
+const BYPASSRLS_ROW = [
+  { rolname: "decaf", rolsuper: false, rolbypassrls: true },
+];
+const NOBYPASSRLS_ROW = [
+  { rolname: "rls_app", rolsuper: false, rolbypassrls: false },
+];
 
 interface RecordedCall {
   sql: string;
   values?: unknown[];
 }
 
-function fakeExecutor(rows: unknown[] = []): RlsQueryExecutor & {
+function fakeExecutor(
+  rows: unknown[] = [],
+  roleRows: unknown[] = SUPERUSER_ROW
+): RlsQueryExecutor & {
   calls: RecordedCall[];
 } {
   const calls: RecordedCall[] = [];
@@ -27,6 +46,9 @@ function fakeExecutor(rows: unknown[] = []): RlsQueryExecutor & {
     calls,
     async query(sql: string, values?: unknown[]) {
       calls.push({ sql, values });
+      if (sql === RLS_FUNCTION_OWNER_QUERY) {
+        return { rowCount: roleRows.length, rows: roleRows };
+      }
       return { rowCount: rows.length, rows };
     },
   };
@@ -103,9 +125,75 @@ describe("RlsBootstrapService", () => {
     const result = await service.apply();
 
     expect(result).toEqual({ applied: rlsBootstrapStatements().length });
-    expect(executor.calls.map((call) => call.sql)).toEqual(
-      rlsBootstrapStatements()
-    );
+    expect(executor.calls.map((call) => call.sql)).toEqual([
+      RLS_FUNCTION_OWNER_QUERY,
+      ...rlsBootstrapStatements(),
+    ]);
+  });
+
+  it("applies the template when the executor is a SUPERUSER", async () => {
+    const executor = fakeExecutor([], SUPERUSER_ROW);
+    const service = new RlsBootstrapService();
+    await service.boot(executor);
+
+    await expect(service.apply()).resolves.toEqual({
+      applied: rlsBootstrapStatements().length,
+    });
+  });
+
+  it("applies the template when the executor has BYPASSRLS", async () => {
+    const executor = fakeExecutor([], BYPASSRLS_ROW);
+    const service = new RlsBootstrapService();
+    await service.boot(executor);
+
+    await expect(service.apply()).resolves.toEqual({
+      applied: rlsBootstrapStatements().length,
+    });
+  });
+
+  it("rejects a NOBYPASSRLS executor before running any template DDL", async () => {
+    const executor = fakeExecutor([], NOBYPASSRLS_ROW);
+    const service = new RlsBootstrapService();
+    await service.boot(executor);
+
+    const failure = await service.apply().catch((error) => error);
+
+    expect(failure).toBeInstanceOf(RlsFunctionOwnerError);
+    expect(failure).toBeInstanceOf(InternalError);
+    expect(failure.message).toMatch(/SUPERUSER/);
+    expect(failure.message).toMatch(/BYPASSRLS/);
+    expect(failure.message).toContain("rls_app");
+    expect(executor.calls).toEqual([
+      { sql: RLS_FUNCTION_OWNER_QUERY, values: undefined },
+    ]);
+  });
+
+  it("rejects when the executor privileges cannot be determined", async () => {
+    const executor = fakeExecutor([], []);
+    const service = new RlsBootstrapService();
+    await service.boot(executor);
+
+    const failure = await service.apply().catch((error) => error);
+
+    expect(failure).toBeInstanceOf(RlsFunctionOwnerError);
+    expect(failure.message).toMatch(/SUPERUSER/);
+    expect(failure.message).toMatch(/BYPASSRLS/);
+    expect(executor.calls).toEqual([
+      { sql: RLS_FUNCTION_OWNER_QUERY, values: undefined },
+    ]);
+  });
+
+  it("rejects when the role row omits the privilege booleans", async () => {
+    const executor = fakeExecutor([], [{ rolname: "decaf" }]);
+    const service = new RlsBootstrapService();
+    await service.boot(executor);
+
+    const failure = await service.apply().catch((error) => error);
+
+    expect(failure).toBeInstanceOf(RlsFunctionOwnerError);
+    expect(executor.calls).toEqual([
+      { sql: RLS_FUNCTION_OWNER_QUERY, values: undefined },
+    ]);
   });
 
   it("throws InternalError when there is nothing to apply", async () => {

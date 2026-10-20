@@ -18,10 +18,29 @@ import type {
   RlsQueryExecutor,
   RunAsPrincipalOptions,
 } from "./rls.types";
-import { RLS_SETTINGS } from "./rls.constants";
+import { RLS_FUNCTION_OWNER_QUERY, RLS_SETTINGS } from "./rls.constants";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * @description Thrown when the executor role cannot safely own the RLS helper functions.
+ * @summary Raised by
+ * `RlsBootstrapService.assertFunctionOwnerPrivileges()` when the current
+ * database role is neither `SUPERUSER` nor `BYPASSRLS` (or when its
+ * privileges cannot be determined). Extends
+ * `{@link InternalError}` so callers can catch it generically, while
+ * carrying the distinctive `RlsFunctionOwnerError` name for
+ * fail-closed matching.
+ * @class RlsFunctionOwnerError
+ * @category Namespaces
+ */
+export class RlsFunctionOwnerError extends InternalError {
+  constructor(message: string) {
+    super(message);
+    this.name = "RlsFunctionOwnerError";
+  }
+}
 
 /**
  * @description Validates a principal identifier before binding it to the RLS
@@ -37,9 +56,14 @@ export function assertPrincipalId(principalId: string): void {
 
 /**
  * @description Applies the namespace RLS template through a SQL executor.
- * @summary The service is booted with an executor (`pg.Client`, `pg.Pool`, or a
- * compatible wrapper) and applies function plus policy DDL sequentially. The
- * template is idempotent and may run on every deployment.
+ * @summary The service boots with a SQL executor (`pg.Client`, `pg.Pool`, or a
+ * compatible wrapper) and applies the namespace row-level-security template:
+ * function plus policy DDL executed sequentially. It is the deployment-side
+ * entry point for the RLS template, meant to run during application bootstrap
+ * or a migration runner instead of hand-running SQL. The template is
+ * idempotent and may run on every deployment.
+ * @class RlsBootstrapService
+ * @category Namespaces
  */
 export class RlsBootstrapService extends ClientBasedService<
   RlsQueryExecutor,
@@ -65,7 +89,16 @@ export class RlsBootstrapService extends ClientBasedService<
 
   /**
    * @description Applies the configured (or bundled) RLS statement list.
-   * @return The number of statements executed.
+   * @summary The service is booted with an executor (`pg.Client`, `pg.Pool`, or a
+   * compatible wrapper) and applies function plus policy DDL sequentially. The
+   * template is idempotent and may run on every deployment. Before any DDL is
+   * sent, `assertFunctionOwnerPrivileges()` verifies that the current
+   * executor role is `SUPERUSER` or `BYPASSRLS` and fails closed otherwise,
+   * so `SECURITY DEFINER` helper functions are never created with an owner
+   * that would recurse under `FORCE ROW LEVEL SECURITY`.
+   * @return {Promise<{applied: number}>} The number of statements executed.
+   * @throws {RlsFunctionOwnerError} When the executor role is neither `SUPERUSER` nor `BYPASSRLS`, or its privileges cannot be determined.
+   * @throws {InternalError} When the resolved statement list is empty.
    */
   async apply(...args: any[]): Promise<{ applied: number }> {
     const { log } = (await this.logCtx(args, "apply", true)).for(this.apply);
@@ -73,6 +106,7 @@ export class RlsBootstrapService extends ClientBasedService<
     if (!statements.length) {
       throw new InternalError("No RLS statements to apply");
     }
+    await this.assertFunctionOwnerPrivileges(...args);
     log.verbose(`Applying ${statements.length} RLS statements`);
     for (const statement of statements) {
       await this.client.query(statement);
@@ -81,6 +115,51 @@ export class RlsBootstrapService extends ClientBasedService<
       `Applied namespace RLS template (${statements.length} statements)`
     );
     return { applied: statements.length };
+  }
+
+  /**
+   * @description Verifies that the current executor role can own the RLS helper functions.
+   * @summary Runs `RLS_FUNCTION_OWNER_QUERY` through the configured executor
+   * and reads the current role's `rolsuper`/`rolbypassrls` flags from
+   * `pg_roles`. Fails closed: when the row is missing or the flags are not
+   * booleans, it throws `RlsFunctionOwnerError` with the same
+   * fail-closed semantics as an explicit privilege failure. Called
+   * automatically by `apply()` before any DDL is executed.
+   * @param args - Optional trailing decaf `Context` arguments forwarded to the log context.
+   * @return Resolves when the current role is `SUPERUSER` or `BYPASSRLS`.
+   * @throws {RlsFunctionOwnerError} When the executor role is neither `SUPERUSER` nor `BYPASSRLS`, or when its privileges cannot be determined from `pg_roles`.
+   */
+  async assertFunctionOwnerPrivileges(...args: any[]): Promise<void> {
+    const { log } = (
+      await this.logCtx(args, "assertFunctionOwnerPrivileges", true)
+    ).for(this.assertFunctionOwnerPrivileges);
+    const result = await this.client.query(RLS_FUNCTION_OWNER_QUERY);
+    const row = (result.rows?.[0] ?? undefined) as
+      | { rolname?: string; rolsuper?: boolean; rolbypassrls?: boolean }
+      | undefined;
+    const roleName = row?.rolname
+      ? JSON.stringify(row.rolname)
+      : "current_user";
+    if (
+      typeof row?.rolsuper !== "boolean" ||
+      typeof row?.rolbypassrls !== "boolean"
+    ) {
+      throw new RlsFunctionOwnerError(
+        `Cannot apply the namespace RLS template: could not determine the privileges of ${roleName}. ` +
+          "The SECURITY DEFINER helper functions require a SUPERUSER or BYPASSRLS owner; refusing to " +
+          "apply policies that would recurse under FORCE ROW LEVEL SECURITY."
+      );
+    }
+    if (!row.rolsuper && !row.rolbypassrls) {
+      throw new RlsFunctionOwnerError(
+        `Cannot apply the namespace RLS template as ${roleName}: the executor role is neither SUPERUSER ` +
+          "nor BYPASSRLS. The SECURITY DEFINER helper functions must be owned by a role that bypasses RLS, " +
+          "otherwise every policy evaluation recurses under FORCE ROW LEVEL SECURITY and fails. Connect as " +
+          "the database owner/BYPASSRLS migration role, or create the helper functions with a dedicated " +
+          "BYPASSRLS owner."
+      );
+    }
+    log.verbose(`Verified RLS function owner privileges for ${roleName}`);
   }
 
   /**

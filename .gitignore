@@ -27,3 +27,6 @@
 /node_modules
 !.gitkeep
 tests/integration/fixtures/WorkerThreadTask.cjs
+
+workdocs/locks/*
+!workdocs/locks/.gitkeep

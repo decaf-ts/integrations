@@ -38,6 +38,18 @@ export const RLS_ROLE_KEYS = {
 } as const;
 
 /**
+ * @description Boot-time privilege probe for the RLS `SECURITY DEFINER` helper functions.
+ * @summary Reads the current role's `rolsuper` and `rolbypassrls` flags from
+ * `pg_roles`. `RlsBootstrapService.assertFunctionOwnerPrivileges()` executes
+ * this query before applying any RLS DDL and refuses to proceed unless the
+ * executor role is `SUPERUSER` or `BYPASSRLS`, because a `SECURITY DEFINER`
+ * owner that does not bypass RLS makes every policy evaluation recurse under
+ * `FORCE ROW LEVEL SECURITY`.
+ */
+export const RLS_FUNCTION_OWNER_QUERY =
+  "SELECT current_user AS rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user";
+
+/**
  * @description Tables protected by the namespace RLS template.
  * @summary Includes the authorization machinery, org profiles, protected
  * resources, and the slice-1 credential/secret records.

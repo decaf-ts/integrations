@@ -42,7 +42,7 @@ import {
 import { ModelSecretServiceConfig } from "./ModelSecretServiceConfig";
 import { ModelSecretEnvironment } from "./ModelSecretEnvironment";
 import { envString } from "../../shared/environmentValue";
-import { Condition } from "@decaf-ts/core";
+import { Condition, OrderDirection } from "@decaf-ts/core";
 import { CryptoService } from "@decaf-ts/crypto/integration/services/crypto";
 import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 
@@ -53,11 +53,14 @@ const DEFAULT_KEY_ID = "default-key";
  * @summary Stores each secret as a `{@link Secret}` row (encrypted payload,
  * key id/iv/salt metadata, version, enablement flag, and optional
  * tenant/org-unit/owner scope) through the repository booted as the service
- * client. Names are validated and normalized before persistence; retrieval
- * only considers enabled rows and supports version pinning. Delete is soft
- * by default (sets `enabled: false`) unless `options.force` is set. Errors
- * from the repository are translated into typed {@link SecretError}s by
- * `parseError`.
+ * client. Names are validated and normalized before persistence;
+ * `(name, version)` is unique (enforced by a `SECRET_ALREADY_EXISTS`
+ * conflict in `store`/`rotate` and backed by the `uq_secrets_name_version`
+ * database index); retrieval only considers enabled rows, supports version
+ * pinning, and resolves multiple matches deterministically by `updatedAt
+ * DESC`. Delete is soft by default (sets `enabled: false`) unless
+ * `options.force` is set. Errors from the repository are translated into
+ * typed {@link SecretError}s by `parseError`.
  *
  * Registered as `@service("secret-model")` and Environment-configurable
  * through the `secrets.model` slice; the credential service
@@ -134,15 +137,18 @@ export class ModelSecretService extends ClientBasedSecretService<
    * @summary Validates and normalizes the name, serializes the payload, and
    * encrypts it with a key derived from the master `keySecret`, embedding the
    * key id/iv/salt in the row's `encryption` metadata. The row carries the
-   * optional tenant/org-unit/owner scoping and version. A conflicting insert
-   * surfaces as a `SECRET_ALREADY_EXISTS` {@link SecretError}.
+   * optional tenant/org-unit/owner scoping and version. `(name, version)` is
+   * unique: an application-level pre-check rejects a duplicate combination
+   * with a `SECRET_ALREADY_EXISTS` {@link SecretError} before the insert, and
+   * the `uq_secrets_name_version` database index (which treats `NULL`
+   * versions as `''`) backstops the same rule against concurrent writers.
    * @template T - The secret payload type.
    * @param {SecretName} name - The secret name (validated and normalized).
    * @param {T} value - The payload to encrypt and store.
    * @param {StoreSecretOptions} [options] - Optional content type, tags, version, and tenant/org/owner scoping.
    * @param {MaybeContextualArg} args - Optional trailing decaf `Context` forwarded to the repository.
    * @returns {Promise<SecretReference>} A reference to the persisted secret.
-   * @throws {SecretError} When the name is invalid or the secret already exists.
+   * @throws {SecretError} `SECRET_ALREADY_EXISTS` when a row with the same normalized name and version already exists, or `SECRET_NOT_FOUND`/`SECRET_PROVIDER_CONFLICT` when the name is invalid or the repository insert fails.
    */
   async store<T extends SecretPayload = SecretPayload>(
     name: SecretName,
@@ -191,16 +197,27 @@ export class ModelSecretService extends ClientBasedSecretService<
       ownerPrincipalId: options.ownerPrincipalId,
     });
 
+    const targetVersion = options.version ?? "";
+    const existing = await this.client
+      .select()
+      .where(Condition.attr<Secret>("name").eq(normalizedName))
+      .execute(...ctxArgs);
+    const duplicate = existing.some(
+      (row: Secret) => (row.version ?? "") === targetVersion
+    );
+    if (duplicate) {
+      throw new SecretError(
+        "SECRET_ALREADY_EXISTS",
+        `Secret ${JSON.stringify(normalizedName)}${
+          targetVersion ? ` version ${JSON.stringify(targetVersion)}` : ""
+        } already exists`
+      );
+    }
+
     try {
       await this.client.create(secret, ...ctxArgs);
-    } catch (error: any) {
-      if (
-        error?.message?.toLowerCase()?.includes?.("already") ||
-        error?.name === "ConflictError"
-      ) {
-        throw this.parseError(error as Error);
-      }
-      throw this.parseError(error as Error);
+    } catch (error) {
+      throw this.parseError(error);
     }
 
     return {
@@ -217,8 +234,10 @@ export class ModelSecretService extends ClientBasedSecretService<
    * @description Reads, decrypts, and deserializes an enabled secret row
    * @summary Queries the newest matching enabled row (by normalized name and,
    * optionally, version), re-derives the key using the row's salt, and decrypts
-   * the payload. Missing rows throw {@link NotFoundError}; decryption and JSON
-   * parse failures throw `InternalError`.
+   * the payload. Rows are ordered by `updatedAt DESC`, so when several rows
+   * share a name the most recently updated enabled row is resolved
+   * deterministically. Missing rows throw {@link NotFoundError}; decryption
+   * and JSON parse failures throw `InternalError`.
    * @template T - The secret payload type.
    * @param {SecretName | SecretReference} nameOrRef - The secret name or reference.
    * @param {RetrieveSecretOptions} [options] - Optional version filter.
@@ -267,6 +286,7 @@ export class ModelSecretService extends ClientBasedSecretService<
     const results = await this.client
       .select()
       .where(condition)
+      .orderBy(["updatedAt", OrderDirection.DSC])
       .execute(...ctxArgs);
     const existing = results[0];
 
@@ -306,7 +326,9 @@ export class ModelSecretService extends ClientBasedSecretService<
    * @description Deletes (or disables) a secret row
    * @summary Soft-deletes by default: the row is disabled and stamped with a
    * new `updatedAt`. With `options.force`, the row is hard-deleted from the
-   * repository. A missing secret resolves silently.
+   * repository. Rows are ordered by `updatedAt DESC`, so the most recently
+   * updated matching row is resolved deterministically. A missing secret
+   * resolves silently.
    * @param {SecretName | SecretReference} nameOrRef - The secret name or reference.
    * @param {DeleteSecretOptions} [options] - Optional version filter and `force` hard-delete flag.
    * @param {MaybeContextualArg} args - Optional trailing decaf `Context` forwarded to the repository.
@@ -348,6 +370,7 @@ export class ModelSecretService extends ClientBasedSecretService<
     const results = await this.client
       .select()
       .where(filter)
+      .orderBy(["updatedAt", OrderDirection.DSC])
       .execute(...ctxArgs);
     const existing = results[0];
 
@@ -459,7 +482,9 @@ export class ModelSecretService extends ClientBasedSecretService<
    * @description Reads one secret's metadata without its payload
    * @summary Selects the row matching the normalized name (and optional
    * version) and maps it to `SecretMetadata`; tags are included only when
-   * `options.includeTags` is set. Returns `undefined` when no row matches.
+   * `options.includeTags` is set. Rows are ordered by `updatedAt DESC`, so
+   * the most recently updated matching row is resolved deterministically.
+   * Returns `undefined` when no row matches.
    * @param {SecretName | SecretReference} nameOrRef - The secret name or reference.
    * @param {SecretMetadataOptions} [options] - Optional version filter and `includeTags` flag.
    * @param {MaybeContextualArg} args - Optional trailing decaf `Context` forwarded to the repository.
@@ -504,6 +529,7 @@ export class ModelSecretService extends ClientBasedSecretService<
     const results: Secret[] = await this.client
       .select()
       .where(filter)
+      .orderBy(["updatedAt", OrderDirection.DSC])
       .execute(...ctxArgs);
     const secret = results[0];
 
@@ -534,7 +560,12 @@ export class ModelSecretService extends ClientBasedSecretService<
    * `options.oldVersion`), encrypts the new payload with a freshly derived
    * key (optionally tagged with `options.keyId`), and updates the row's
    * payload, encryption metadata, version (`options.newVersion`), and
-   * `updatedAt`.
+   * `updatedAt`. When `options.newVersion` differs from the row's current
+   * version, a `(name, version)` duplicate check rejects the rotation with a
+   * `SECRET_ALREADY_EXISTS` {@link SecretError}; otherwise the target version
+   * is reused and the row is updated in place. Matching rows are ordered by
+   * `updatedAt DESC`, so the most recently updated enabled row is resolved
+   * deterministically.
    * @template T - The secret payload type.
    * @param {SecretName | SecretReference} nameOrRef - The secret name or reference.
    * @param {T} value - The new payload.
@@ -542,6 +573,7 @@ export class ModelSecretService extends ClientBasedSecretService<
    * @param {MaybeContextualArg} args - Optional trailing decaf `Context` forwarded to the repository.
    * @returns {Promise<SecretReference>} A reference reflecting the updated row.
    * @throws {NotFoundError} When no enabled secret matches the name/version.
+   * @throws {SecretError} `SECRET_ALREADY_EXISTS` when the target `newVersion` is already held by another row with the same normalized name, or `SECRET_PROVIDER_CONFLICT` when the repository update fails.
    */
   async rotate<T extends SecretPayload = SecretPayload>(
     nameOrRef: SecretName | SecretReference,
@@ -569,11 +601,33 @@ export class ModelSecretService extends ClientBasedSecretService<
     const results = await this.client
       .select()
       .where(condition)
+      .orderBy(["updatedAt", OrderDirection.DSC])
       .execute(...ctxArgs);
     const existing = results[0];
 
     if (!existing) {
       throw new NotFoundError(`Secret "${normalizedName}" not found`);
+    }
+
+    const nextVersion = options.newVersion ?? existing.version;
+    const targetVersion = nextVersion ?? "";
+    if (targetVersion !== (existing.version ?? "")) {
+      const rows = await this.client
+        .select()
+        .where(Condition.attr<Secret>("name").eq(normalizedName))
+        .execute(...ctxArgs);
+      const duplicate = rows.some(
+        (row: Secret) =>
+          row.id !== existing.id && (row.version ?? "") === targetVersion
+      );
+      if (duplicate) {
+        throw new SecretError(
+          "SECRET_ALREADY_EXISTS",
+          `Secret ${JSON.stringify(normalizedName)}${
+            targetVersion ? ` version ${JSON.stringify(targetVersion)}` : ""
+          } already exists`
+        );
+      }
     }
 
     const serialized = serializeSecretPayload(value);
@@ -593,10 +647,14 @@ export class ModelSecretService extends ClientBasedSecretService<
       iv: metadata.iv,
       salt: extracted.salt,
     };
-    existing.version = options.newVersion ?? existing.version;
+    existing.version = nextVersion;
     existing.updatedAt = new Date();
 
-    await this.client.update(existing, ...ctxArgs);
+    try {
+      await this.client.update(existing, ...ctxArgs);
+    } catch (error) {
+      throw this.parseError(error);
+    }
 
     return {
       provider: this.provider,
@@ -631,7 +689,10 @@ export class ModelSecretService extends ClientBasedSecretService<
     if (
       lowerMessage.includes("already exists") ||
       lowerMessage.includes("conflict") ||
-      lowerMessage.includes("409")
+      lowerMessage.includes("409") ||
+      lowerMessage.includes("duplicate key") ||
+      lowerMessage.includes("unique constraint") ||
+      (err as { code?: unknown }).code === "23505"
     ) {
       return new SecretError(
         "SECRET_ALREADY_EXISTS",
