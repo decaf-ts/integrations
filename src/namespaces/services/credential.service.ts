@@ -11,8 +11,13 @@
  * secret store or repository.
  */
 import { randomUUID } from "node:crypto";
-import { Repository } from "@decaf-ts/core";
-import { ValidationError } from "@decaf-ts/db-decorators";
+import {
+  Context,
+  ContextLock,
+  Repository,
+  resolveTransactionLock,
+} from "@decaf-ts/core";
+import { InternalError, ValidationError } from "@decaf-ts/db-decorators";
 import { ModelSecretService } from "../../secrets/model";
 import {
   DeleteSecretOptions,
@@ -31,7 +36,7 @@ import {
   CredentialSummary,
   RotateCredentialInput,
 } from "../types";
-import { BaseModelService, relationId, transactional } from "../utils";
+import { BaseModelService, relationId } from "../utils";
 import { Credential } from "../models/credential.model";
 
 /**
@@ -262,20 +267,29 @@ export class CredentialService extends BaseModelService<Credential> {
 
   /**
    * @description Reads a credential row by id
+   * @summary Runs the read inside the explicit `withinTransaction` boundary
+   * instead of `@transactional()`: a missing trailing `Context` is synthesized
+   * via `logCtx(args, ..., true)`, then the helper reuses an in-flight
+   * `ContextLock` or opens a new one (`resolveTransactionLock` + `begin`),
+   * rolling back on error and committing when this is the outermost frame. On
+   * a TypeORM-backed repository this binds the context's principal to
+   * `app.principal_id` for the duration of the transaction so namespace RLS
+   * applies to the read.
    * @param {string} credentialId - The credential id.
    * @param {any[]} args - Optional trailing decaf `Context` forwarded to the repository.
    * @returns {Promise<Credential>} The credential row.
    */
-  @transactional()
   async getCredential(
     credentialId: string,
     ...args: any[]
   ): Promise<Credential> {
-    const { log, ctxArgs } = (await this.logCtx(args, "getCredential", true)).for(
-      this.getCredential
-    );
+    const { log, ctx, ctxArgs } = (
+      await this.logCtx(args, "getCredential", true)
+    ).for(this.getCredential);
     log.verbose(`Reading credential ${credentialId}`);
-    return this.repo.read(credentialId, ...ctxArgs);
+    return this.withinTransaction(ctx, () =>
+      this.repo.read(credentialId, ...ctxArgs)
+    );
   }
 
   /**
@@ -296,22 +310,31 @@ export class CredentialService extends BaseModelService<Credential> {
 
   /**
    * @description Stamps a credential's `lastUsedAt` timestamp
+   * @summary Runs the read and the update inside one explicit
+   * `withinTransaction` boundary instead of `@transactional()`: a missing
+   * trailing `Context` is synthesized via `logCtx(args, ..., true)`, then the
+   * helper reuses an in-flight `ContextLock` or opens a new one
+   * (`resolveTransactionLock` + `begin`), rolling back on error and committing
+   * when this is the outermost frame. On a TypeORM-backed repository this
+   * binds the context's principal to `app.principal_id` for the duration of
+   * the transaction so namespace RLS applies to both statements.
    * @param {string} credentialId - The credential id.
    * @param {any[]} args - Optional trailing decaf `Context` forwarded to the repository.
    * @returns {Promise<Credential>} The updated credential row.
    */
-  @transactional()
   async markCredentialUsed(
     credentialId: string,
     ...args: any[]
   ): Promise<Credential> {
-    const { log, ctxArgs } = (
+    const { log, ctx, ctxArgs } = (
       await this.logCtx(args, "markCredentialUsed", true)
     ).for(this.markCredentialUsed);
     log.verbose(`Marking credential ${credentialId} as used`);
-    const existing = await this.repo.read(credentialId, ...ctxArgs);
-    existing.lastUsedAt = new Date();
-    return this.repo.update(existing, ...ctxArgs);
+    return this.withinTransaction(ctx, async () => {
+      const existing = await this.repo.read(credentialId, ...ctxArgs);
+      existing.lastUsedAt = new Date();
+      return this.repo.update(existing, ...ctxArgs);
+    });
   }
 
   /**
@@ -334,6 +357,69 @@ export class CredentialService extends BaseModelService<Credential> {
     await this.repo.delete(credentialId, ...ctxArgs);
     const service = await this.secretService();
     await service.delete(existing.secretName, { force: true }, ...ctxArgs);
+  }
+
+  /**
+   * @description Runs an operation inside an explicit adapter transaction boundary
+   * @summary Mirrors core's `@transactional()` proxy without the decorator:
+   * reuses the `ContextLock` already cached on the context (`transactionLock`)
+   * when a transaction is in flight, otherwise resolves a fresh lock via
+   * `resolveTransactionLock` and `begin`s it, caching it on the context so
+   * nested frames share it. Depth is tracked so nested calls only decrement;
+   * the outermost frame commits. On error the frame rolls back — unless an
+   * inner frame already ended the transaction — and rethrows the original
+   * error. When the repository exposes no adapter `transactionLock` (e.g.
+   * non-transactional adapters or repository doubles), the operation runs
+   * directly with no transaction. If `ctx` is `undefined`, a standalone
+   * context is synthesized via `this.context`.
+   * @template R - The operation's result type.
+   * @param {Context<any> | undefined} ctx - The caller's decaf `Context`, if one was resolved or synthesized.
+   * @param {() => Promise<R>} operation - The repository work to run inside the transaction.
+   * @returns {Promise<R>} The operation's result, committed when outermost.
+   * @throws {InternalError} When the outermost commit fails.
+   */
+  private async withinTransaction<R>(
+    ctx: Context<any> | undefined,
+    operation: () => Promise<R>
+  ): Promise<R> {
+    const adapter = (this.repo as any)?.adapter;
+    if (!adapter || typeof adapter.transactionLock !== "function") {
+      return operation();
+    }
+    const context = ctx ?? (await this.context("credentialTransaction", {}));
+    const existing = context.getOrUndefined("transactionLock") as
+      | ContextLock
+      | undefined;
+    const lock = existing ?? resolveTransactionLock(this.repo);
+    lock.depth++;
+    if (!existing) {
+      await lock.begin(context);
+      context.cache.put("transactionLock", lock);
+    }
+    let result: R;
+    try {
+      result = await operation();
+    } catch (error: unknown) {
+      const alreadyEnded = lock.depth === 0;
+      lock.depth = 0;
+      if (!alreadyEnded) {
+        try {
+          await lock.rollback(error as Error, context);
+        } catch (rollbackError: unknown) {
+          void rollbackError;
+        }
+      }
+      throw error;
+    }
+    lock.depth--;
+    if (lock.depth === 0) {
+      try {
+        await lock.commit(context);
+      } catch (error: unknown) {
+        throw new InternalError(`Failed to commit transaction: ${error}`);
+      }
+    }
+    return result;
   }
 
   /**

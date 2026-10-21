@@ -5,7 +5,7 @@
 Prerequisites:
 - Postgres schema and migrations for the namespace tables
 - The SQL artifacts in `integrations/sql/001_constraints.sql`, `integrations/sql/002_rls.sql`, and `integrations/sql/003_indexes.sql`
-- A trusted application layer that can set `app.principal_id` for RLS-scoped reads
+- A trusted application layer that resolves subjects to principals at auth-priming time and carries `principalId` on the request context — the `@decaf-ts/for-typeorm` adapter binds `app.principal_id` transaction-locally for RLS-scoped reads (see [RLS requirements](#rls-requirements))
 
 ## Public surface
 
@@ -165,19 +165,26 @@ const qdrantFilter = await authz.buildQdrantFilter(
 
 ## RLS requirements
 
-The shipped SQL policy currently enables RLS on `protected_resources` and gates `SELECT` through `effective_permissions`:
+The shipped RLS layer is **generated from source** (`src/namespaces/rls/rls.template.ts` → `sql/002_rls.sql`, "do not edit by hand"): 24 `SECURITY DEFINER` helper functions and 88 `CREATE POLICY` statements protect the 22 tables in `RLS_PROTECTED_TABLES` — the authorization machinery, org profiles, protected resources, and the credential/secret records. Apply it through `RlsBootstrapService.apply()` with a `SUPERUSER` or `BYPASSRLS` executor role; `apply()` fails closed with `RlsFunctionOwnerError` otherwise. Write policies ship with the template — do not hand-add `INSERT`/`UPDATE`/`DELETE` policies in a separate migration layer.
 
-- `ALTER TABLE protected_resources ENABLE ROW LEVEL SECURITY`
-- `ALTER TABLE protected_resources FORCE ROW LEVEL SECURITY`
-- `protected_resources_select_policy` checks:
-  - matching `tenant_id`
-  - `current_setting('app.principal_id')::uuid`
-  - `permission_key = 'resource.read'`
-  - a matching scope at tenant, org unit, or resource level
+Policies resolve the acting principal from the `app.principal_id` session setting (`RLS_SETTINGS`).
 
-Use this pattern in trusted code only. The application should set `app.principal_id` inside the session or transaction before it queries protected rows.
+### Binding the request principal
 
-If you add write paths, add explicit `INSERT`, `UPDATE`, and `DELETE` policies in the migration layer. Keep the policy logic outside the Decaf model decorators, and mirror the same tenant/scope checks you use in the service layer.
+- **Resolve the subject once, at auth-priming time, on a privileged connection.** Call `resolvePrincipalForSubject(client, subject, tenantId?)` from `@decaf-ts/integrations/namespaces` with a privileged auth-prime/service-role client: it maps the authenticated subject to the single matching principal UUID through the `SECURITY DEFINER` helper `app_rls_principal_for_subject(text, uuid)` — fully parameterized SQL, UUID-validated, fail-closed (`undefined` when the subject is empty, ambiguous, or unknown). The helper is `REVOKE`d from `PUBLIC`, so it is not callable from an RLS-restricted application session.
+- **Carry the resolved `principalId` on the request context and wire the binding config-only.** Spread `namespaceRlsTypeORMOptions()` from `@decaf-ts/integrations/namespaces` into the `TypeORMAdapter` options — no subclassing or method overrides. The returned `sessionBinding` is a `namespaceRlsSessionBinding` resolver that reads the `principalId` context key by default; `@decaf-ts/for-typeorm` consumes it transaction-locally: `TypeORMContextLock.begin(context)` issues `SELECT set_config('app.principal_id', $1, true)` right after `BEGIN`, so the setting lives only inside that transaction.
+- **Deny-by-default.** A context without a resolvable principal leaves `app.principal_id` unbound and RLS denies the transaction's protected-row reads. An authenticated context that fails to resolve logs a single warning — never the principal value.
+- **Transaction-local only.** The binding is discarded at commit/rollback and is never set session-wide on pooled connections. For infrastructure jobs that need a principal outside a request transaction, use `runAsPrincipal(executor, principalId, run, {commit?})` on a dedicated single connection.
+
+```ts
+import { TypeORMAdapter } from "@decaf-ts/for-typeorm";
+import { namespaceRlsTypeORMOptions } from "@decaf-ts/integrations/namespaces";
+
+const adapter = new TypeORMAdapter({
+  ...dataSourceOptions,
+  ...namespaceRlsTypeORMOptions(), // binds ctx "principalId" as app.principal_id, transaction-locally
+});
+```
 
 ## How effective permissions are rebuilt
 

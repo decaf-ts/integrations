@@ -239,8 +239,13 @@ export class ModelSecretService extends ClientBasedSecretService<
    * optionally, version), re-derives the key using the row's salt, and decrypts
    * the payload. Rows are ordered by `updatedAt DESC`, so when several rows
    * share a name the most recently updated enabled row is resolved
-   * deterministically. Missing rows throw {@link NotFoundError}; decryption
-   * and JSON parse failures throw `InternalError`.
+   * deterministically. The repository SELECT runs inside a principal-bound
+   * transaction (see {@link ModelSecretService.withinPrincipalTransaction}):
+   * it joins an in-flight `transactionLock` on the context or begins one,
+   * binding the context's principal to `app.principal_id` on TypeORM adapters
+   * so namespace RLS applies to the read. Missing rows throw
+   * {@link NotFoundError}; decryption and JSON parse failures throw
+   * `InternalError`.
    * @template T - The secret payload type.
    * @param {SecretName | SecretReference} nameOrRef - The secret name or reference.
    * @param {RetrieveSecretOptions} [options] - Optional version filter.
@@ -328,6 +333,23 @@ export class ModelSecretService extends ClientBasedSecretService<
     return deserializeSecretPayload(payload) as T;
   }
 
+  /**
+   * @description Runs a repository operation inside a principal-bound transaction
+   * @summary Mirrors core's `@transactional()` proxy for single reads: reuses
+   * the `transactionLock` already cached on the context (nested call), or
+   * resolves a fresh lock for the service client via `resolveTransactionLock`
+   * and calls `begin(context)` - which, on a TypeORM adapter, binds the
+   * context's principal to `app.principal_id` for the new transaction.
+   * Increments the lock depth for the duration of the operation; on failure,
+   * rolls back and zeroes the depth (skipping a redundant rollback when an
+   * inner frame already ended the transaction) and rethrows the original
+   * error; on success, commits when the outermost frame completes.
+   * @template R - The operation result type.
+   * @param {Context} context - The request context, carrying any in-flight transaction lock.
+   * @param {function(ContextLock): Promise<R>} operation - The repository operation to run, receiving the active lock.
+   * @returns {Promise<R>} The operation result.
+   * @throws {InternalError} When the final commit fails; operation errors are rethrown after rollback.
+   */
   private async withinPrincipalTransaction<R>(
     context: Context<any>,
     operation: (lock: ContextLock) => Promise<R>

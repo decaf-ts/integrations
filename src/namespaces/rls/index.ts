@@ -7,3 +7,4 @@ export * from "./rls.types";
 export * from "./rls.template";
 export * from "./rls-bootstrap.service";
 export * from "./principal-resolver";
+export * from "./session-binding";

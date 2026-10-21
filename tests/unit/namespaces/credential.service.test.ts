@@ -5,7 +5,7 @@
  * model-provider guard, secret rollback, summary projection and context
  * forwarding without requiring a persistence adapter.
  */
-import { Context } from "@decaf-ts/core";
+import { Context, ContextLock, Repository } from "@decaf-ts/core";
 import { NotFoundError, ValidationError } from "@decaf-ts/db-decorators";
 import { CredentialService } from "../../../src/namespaces/services/credential.service";
 import { Credential } from "../../../src/namespaces/models/credential.model";
@@ -127,6 +127,124 @@ class FakeCredentialRepository {
   async create(model: Partial<Credential>, ...args: unknown[]): Promise<Credential> {
     this.calls.push({ method: "create", args });
     if (this.failCreate) throw new Error("insert failed");
+    const row = Object.assign({}, model, {
+      id: (model as Credential).id ?? "credential-id",
+    }) as Credential;
+    this.rows.set(row.id, row);
+    return row;
+  }
+
+  async read(id: string, ...args: unknown[]): Promise<Credential> {
+    this.calls.push({ method: "read", args });
+    const row = this.rows.get(id);
+    if (!row) throw new NotFoundError(`Credential ${id} not found`);
+    return row;
+  }
+
+  async update(model: Credential, ...args: unknown[]): Promise<Credential> {
+    this.calls.push({ method: "update", args });
+    this.rows.set(model.id, model);
+    return model;
+  }
+
+  async delete(id: string, ...args: unknown[]): Promise<Credential> {
+    this.calls.push({ method: "delete", args });
+    const row = this.rows.get(id);
+    if (!row) throw new NotFoundError(`Credential ${id} not found`);
+    this.rows.delete(id);
+    return row;
+  }
+
+  select(): { execute: (...args: unknown[]) => Promise<Credential[]> } {
+    return {
+      execute: async (...args: unknown[]) => {
+        this.calls.push({ method: "select", args });
+        return Array.from(this.rows.values());
+      },
+    };
+  }
+}
+
+class RecordingContextLock extends ContextLock<any> {
+  readonly calls: string[] = [];
+
+  constructor(adapter: AdapterShapedDouble) {
+    super(adapter as any);
+  }
+
+  async begin(context: Context<any>): Promise<void> {
+    this.calls.push("begin");
+    return super.begin(context);
+  }
+
+  async commit(context: Context<any>): Promise<void> {
+    this.calls.push("commit");
+    return super.commit(context);
+  }
+
+  async rollback(error: Error, context: Context<any>): Promise<void> {
+    this.calls.push("rollback");
+    return super.rollback(error, context);
+  }
+}
+
+class AdapterShapedDouble {
+  readonly alias = "adapter-shaped-double";
+  readonly locks: RecordingContextLock[] = [];
+  readonly logCtxCalls: Array<{
+    args: unknown[];
+    operation: unknown;
+    allowCreate: boolean;
+  }> = [];
+
+  logCtx(args: unknown[], operation: unknown, allowCreate = false) {
+    this.logCtxCalls.push({ args, operation, allowCreate });
+    const context = args.find((arg) => arg instanceof Context) as
+      | Context<any>
+      | undefined;
+    const ctx = context ?? new Context();
+    const payload = {
+      log: noopLogger,
+      ctx,
+      ctxArgs: [...args, ctx],
+      for: () => payload,
+    };
+    return payload;
+  }
+
+  transactionLock(): RecordingContextLock {
+    const lock = new RecordingContextLock(this);
+    this.locks.push(lock);
+    return lock;
+  }
+}
+
+class AdapterShapedCredentialRepository extends Repository<Credential, any> {
+  readonly rows = new Map<string, Credential>();
+  readonly calls: Array<{ method: string; args: unknown[] }> = [];
+  readonly adapterDouble: AdapterShapedDouble;
+
+  constructor(adapterDouble = new AdapterShapedDouble()) {
+    super(undefined as any, undefined as any);
+    this.adapterDouble = adapterDouble;
+    (this as any)._adapter = adapterDouble;
+    (this as any)._class = Credential;
+    delete (this as any).create;
+    delete (this as any).read;
+    delete (this as any).update;
+    delete (this as any).delete;
+  }
+
+  seed(row: Credential): Credential {
+    this.rows.set(row.id, row);
+    return row;
+  }
+
+  async create(
+    model: Partial<Credential>,
+    ...args: unknown[]
+  ): Promise<Credential> {
+    this.calls.push({ method: "create", args });
     const row = Object.assign({}, model, {
       id: (model as Credential).id ?? "credential-id",
     }) as Credential;
@@ -458,5 +576,107 @@ describe("CredentialService", () => {
       (call) => call.method === "create"
     );
     expect(createCall?.args.at(-1)).toBe(ctx);
+  });
+
+  describe("ctx-less regression (SAA-1197)", () => {
+    it("resolves a ctx-less getCredential with exactly one repository read", async () => {
+      const repository = new FakeCredentialRepository();
+      repository.seed(credentialRow());
+      const { service } = createService(new FakeSecretStore(), repository);
+
+      const credential = await service.getCredential("credential-1");
+
+      expect(credential).toMatchObject({
+        id: "credential-1",
+        name: "database",
+        secretName: "credential-secret",
+      });
+      expect(
+        repository.calls.filter((call) => call.method === "read")
+      ).toHaveLength(1);
+      expect(repository.calls).toHaveLength(1);
+    });
+
+    it("resolves a ctx-less markCredentialUsed with one read and one update", async () => {
+      const repository = new FakeCredentialRepository();
+      repository.seed(credentialRow());
+      const { service } = createService(new FakeSecretStore(), repository);
+
+      const updated = await service.markCredentialUsed("credential-1");
+
+      expect(updated.id).toBe("credential-1");
+      expect(updated.lastUsedAt).toBeInstanceOf(Date);
+      expect(
+        repository.calls.filter((call) => call.method === "read")
+      ).toHaveLength(1);
+      expect(
+        repository.calls.filter((call) => call.method === "update")
+      ).toHaveLength(1);
+      expect(repository.calls).toHaveLength(2);
+      expect(repository.rows.get("credential-1")).toBe(updated);
+    });
+
+    it("takes the adapter transaction path on a ctx-less getCredential", async () => {
+      const adapterDouble = new AdapterShapedDouble();
+      const repository = new AdapterShapedCredentialRepository(adapterDouble);
+      repository.seed(credentialRow());
+      const { service } = createService(new FakeSecretStore(), repository);
+
+      const credential = await service.getCredential("credential-1");
+
+      expect(credential.id).toBe("credential-1");
+      expect(
+        repository.calls.filter((call) => call.method === "read")
+      ).toHaveLength(1);
+      expect(adapterDouble.locks).toHaveLength(1);
+      const lock = adapterDouble.locks[0];
+      expect(lock.calls).toEqual(["begin", "commit"]);
+      expect(lock.depth).toBe(0);
+    });
+
+    it("takes the adapter transaction path on a ctx-less markCredentialUsed", async () => {
+      const adapterDouble = new AdapterShapedDouble();
+      const repository = new AdapterShapedCredentialRepository(adapterDouble);
+      repository.seed(credentialRow());
+      const { service } = createService(new FakeSecretStore(), repository);
+
+      const updated = await service.markCredentialUsed("credential-1");
+
+      expect(updated.lastUsedAt).toBeInstanceOf(Date);
+      expect(repository.calls.map((call) => call.method)).toEqual([
+        "read",
+        "update",
+      ]);
+      expect(adapterDouble.locks).toHaveLength(1);
+      const lock = adapterDouble.locks[0];
+      expect(lock.calls).toEqual(["begin", "commit"]);
+      expect(lock.depth).toBe(0);
+    });
+
+    it("reuses an in-flight transaction lock on a nested call", async () => {
+      const adapterDouble = new AdapterShapedDouble();
+      const repository = new AdapterShapedCredentialRepository(adapterDouble);
+      repository.seed(credentialRow());
+      const { service } = createService(new FakeSecretStore(), repository);
+
+      const ctx = new Context().accumulate({
+        operation: "outerTransaction",
+      } as any);
+      const inFlight = adapterDouble.transactionLock();
+      await inFlight.begin(ctx);
+      inFlight.depth = 1;
+      ctx.cache.put("transactionLock", inFlight);
+
+      const credential = await service.getCredential("credential-1", ctx);
+
+      expect(credential.id).toBe("credential-1");
+      expect(
+        repository.calls.filter((call) => call.method === "read")
+      ).toHaveLength(1);
+      expect(adapterDouble.locks).toHaveLength(1);
+      expect(adapterDouble.locks[0]).toBe(inFlight);
+      expect(inFlight.calls).toEqual(["begin"]);
+      expect(inFlight.depth).toBe(1);
+    });
   });
 });

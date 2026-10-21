@@ -14,13 +14,19 @@
  */
 import { InternalError } from "@decaf-ts/db-decorators";
 import type { RlsPolicySet } from "./rls.types";
-import { RLS_PROTECTED_TABLES } from "./rls.constants";
+import { RLS_PROTECTED_TABLES, RLS_SETTINGS } from "./rls.constants";
 
 const FUNCTION_SEARCH_PATH = "SET search_path = public, pg_temp";
 
 /**
  * @description Helper functions backing the namespace RLS policies.
  * @summary Each function is idempotently created with `CREATE OR REPLACE`.
+ * `app_rls_principal_for_subject(text, uuid)` is additionally `SECURITY
+ * DEFINER` with `search_path` pinned to `public, pg_temp` and `REVOKE`d from
+ * `PUBLIC`: it maps an authenticated subject (and optional tenant) to the
+ * single matching principal UUID - or `NULL` when the match is ambiguous or
+ * absent - and is consumed by privileged resolvers such as
+ * `resolvePrincipalForSubject` from `./principal-resolver`.
  */
 export const RLS_FUNCTION_STATEMENTS: readonly string[] = [
   `CREATE OR REPLACE FUNCTION app_rls_principal_id()
@@ -28,7 +34,7 @@ RETURNS uuid
 LANGUAGE sql
 STABLE
 AS $fn$
-  SELECT NULLIF(current_setting('app.principal_id', true), '')::uuid
+  SELECT NULLIF(current_setting('${RLS_SETTINGS.Principal}', true), '')::uuid
 $fn$;`,
   `CREATE OR REPLACE FUNCTION app_rls_subject_id()
 RETURNS text
