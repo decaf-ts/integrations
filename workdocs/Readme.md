@@ -34,11 +34,11 @@
 - BI dashboard embed plugins (Kibana + Superset) with a shared DOM-free `DashboardEmbedPlugin` contract. The Kibana plugin is generated source + installer; the Superset plugin is a patch-and-build strategy that modifies Superset's internal embedded frontend and SDK source. Both expose the exact same API and are org-agnostic (no space switching).
 - Namespaced credential management: `Credential` model + `CredentialService` storing secret values encrypted at rest via the model-backed `ModelSecretService`, plus the namespace RLS template/bootstrap (`RlsBootstrapService`, `runAsPrincipal`) — see [Credentials and namespace RLS](#credentials-and-namespace-rls).
 - Filesystem-backed `FsSecretService` (encrypted `decaf.fs-secret.v1` envelopes, never enumerable) with `InfraCredentialBootstrap.ensure()` for infrastructure credentials — see [Credentials and namespace RLS](#credentials-and-namespace-rls).
-- Non-Environment `XxxNodeService` variants for every comms/devops/io/blob/secret/HTTP service, booted with an explicit `XxxService.boot(config)` — see [Node service variants](#node-service-variants).
+- Plain undecorated service classes for every comms/devops/io/blob/secret/HTTP service: construct them directly and boot with an explicit `await instance.boot(config)` — see [Constructing and booting services](#constructing-and-booting-services).
 
 ## Communication, DevOps, and IO services
 
-The graph node families added in SAA-1027 stage 3b wrap these service classes. Every service extends `HttpApiService` (Axios transport, decaf errors) except `SpreadsheetService`, which is local computation. Config resolves from explicit `initialize({...})` arguments, then from the matching `CommsEnvironment`/`DevopsEnvironment`/`IoEnvironment` slice; secrets are read from the environment or supplied by the caller and are never embedded in a graph document.
+The graph node families added in SAA-1027 stage 3b construct these service classes directly. Every service extends `HttpApiService` (Axios transport, decaf errors) except `SpreadsheetService`, which is local computation. Consumers construct the service and boot it with an explicit configuration object (`await instance.boot(config)` — see [Constructing and booting services](#constructing-and-booting-services)); the explicit config wins over the matching `CommsEnvironment`/`DevopsEnvironment`/`IoEnvironment` slice, and secrets are read from the environment or supplied by the caller, never embedded in a graph document.
 
 | Export | Service | Config environment | Operations |
 | --- | --- | --- | --- |
@@ -181,7 +181,7 @@ const { host, password } = await infra.retrieve("smtp/relay");
 
 ## SMTP email delivery
 
-`@decaf-ts/integrations/comms/email` now also exports `SmtpClient` (also via the `./smtp` subpath) and `EmailNodeService`. `SmtpClient` delegates the SMTP protocol to the optional **`nodemailer`** peer (the same library n8n uses) instead of hand-rolling the wire protocol, while keeping the same `connect`/`send`/`close` surface over a pre-built raw MIME message:
+`@decaf-ts/integrations/comms/email` exports `SmtpClient` (also via the `./smtp` subpath). `SmtpClient` delegates the SMTP protocol to the optional **`nodemailer`** peer (the same library n8n uses) instead of hand-rolling the wire protocol, while keeping the same `connect`/`send`/`close` surface over a pre-built raw MIME message:
 
 - `secure: true` opens an implicit-TLS socket from the first byte (default port `465`); `secure: false` (default) connects in plaintext and upgrades via STARTTLS (default port `587`).
 - Fail-closed plaintext AUTH: with credentials configured, the session must be encrypted before `AUTH LOGIN` is attempted; `allowPlaintextAuth` is the explicit opt-out for servers that cannot offer TLS.
@@ -202,19 +202,19 @@ await client.send(mail.from, mail.recipients, mail.raw);
 await client.close();
 ```
 
-`EmailNodeService` is the non-Environment counterpart of the `@service("email")`-decorated `EmailService` for explicit `boot(config)` usage in node contexts.
+`EmailService` is a plain undecorated class: construct it directly and boot it with an explicit configuration object (see [Constructing and booting services](#constructing-and-booting-services)).
 
-## Node service variants
+## Constructing and booting services
 
-Every comms/devops/io/blob/secret/HTTP service now ships a non-Environment `XxxNodeService` counterpart (21 variants, e.g. `SlackNodeService`, `GithubNodeService`, `S3NodeService`, `ModelSecretNodeService`, `HttpNodeService`). They are plain subclasses of the undecorated service implementation — not `@service()`-registered singletons — and must be booted with an explicit configuration object; Environment configuration is disabled for them by construction:
+The comms/devops/io/blob/secret/HTTP services are plain undecorated classes — no `@service()` registration, no auto-singleton, and no auto-boot. Construct the service directly and call `boot(config)` with an explicit configuration object:
 
 ```ts
-import { SlackNodeService } from "@decaf-ts/integrations/comms/slack";
+import { SlackService } from "@decaf-ts/integrations/comms/slack";
 
-const slack = await new SlackNodeService().boot({ token: process.env.SLACK_TOKEN });
+const slack = await new SlackService().boot({ token: process.env.SLACK_TOKEN });
 ```
 
-A no-argument or `Context`-only boot throws a `ValidationError`, because no Environment fallback exists.
+`boot(config)` delegates to `initialize()`, which merges the explicit config over any values resolvable from the matching `CommsEnvironment`/`DevopsEnvironment`/`IoEnvironment` slice; the explicit object always wins. For fully explicit, environment-free configuration, pass every required field in the boot config object.
 
 ## Optional peer dependencies
 

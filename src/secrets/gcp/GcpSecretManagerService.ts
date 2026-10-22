@@ -1,7 +1,7 @@
 import { SecretManagerServiceClient } from "@google-cloud/secret-manager";
 import * as grpc from "@grpc/grpc-js";
 import { ClientBasedSecretService, SecretProvider } from "../../secrets/core";
-import { service, type MaybeContextualArg } from "@decaf-ts/core";
+import { type MaybeContextualArg } from "@decaf-ts/core";
 import {
   SecretName,
   SecretPayload,
@@ -25,7 +25,6 @@ import {
   NotFoundError,
 } from "@decaf-ts/db-decorators";
 
-@service("secret-gcp")
 export class GcpSecretManagerService extends ClientBasedSecretService<
   SecretManagerServiceClient,
   GcpSecretManagerServiceConfig

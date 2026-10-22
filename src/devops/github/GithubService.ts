@@ -3,14 +3,13 @@
  * @summary GitHub REST API integration service for repositories, issues, and pull requests.
  * @description Exposes a focused subset of the GitHub REST API (`/repos/*`:
  * repository lookup, issue listing/creation/commenting, and pull-request
- * listing) as a decaf `@service("github")` client-based service built on
+ * listing) as an undecorated client-based service built on
  * {@link HttpApiService}. Configuration comes from an explicit
  * `GithubServiceConfig` or the `devops.github` environment slice; repository
  * targets default to the configured `owner`/`repo` and can be overridden per
  * call. Raw GitHub responses are normalized to camelCase issue descriptors,
  * and failures are mapped to decaf errors via {@link httpError}.
  */
-import { service } from "@decaf-ts/core";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { DevopsEnvironment } from "../environment";
 import { envNumber, envString } from "../../shared/environmentValue";
@@ -153,7 +152,7 @@ export interface GithubListOptions extends GithubRepositoryRef {
 
 /**
  * @description GitHub REST API integration service
- * @summary A decaf `@service("github")` HTTP service for looking up
+ * @summary An undecorated HTTP service for looking up
  * repositories, listing issues (excluding pull requests), creating issues,
  * commenting on issues, and listing pull requests. Repository targets resolve
  * per call from the input's `owner`/`repo`, falling back to the configured
@@ -180,7 +179,6 @@ export interface GithubListOptions extends GithubRepositoryRef {
  * ```
  * @memberOf module:integrations/devops/github/service
  */
-@service("github")
 export class GithubService extends HttpApiService<GithubServiceConfig> {
   /**
    * @description The provider name used in error messages

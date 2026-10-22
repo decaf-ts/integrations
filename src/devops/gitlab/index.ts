@@ -4,4 +4,3 @@
  * @description Re-exports the GitLab client-based service and its types.
  */
 export * from "./GitlabService";
-export * from "./GitlabNodeService";

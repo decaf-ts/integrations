@@ -4,4 +4,3 @@
  * @description Re-exports the Teams client-based service and its types.
  */
 export * from "./TeamsService";
-export * from "./TeamsNodeService";

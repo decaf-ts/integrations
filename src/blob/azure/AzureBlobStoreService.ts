@@ -17,7 +17,6 @@ import {
   ConnectionError,
   ForbiddenError,
   type MaybeContextualArg,
-  service,
   UnsupportedError,
 } from "@decaf-ts/core";
 import {
@@ -50,14 +49,13 @@ import type {
 } from "../core/BlobTypes";
 
 /**
- * @description Azure Blob storage service registered as `blob-azure`
+ * @description Undecorated Azure Blob storage service
  * @summary Stores blobs in an Azure Blob Storage container via
  * `@azure/storage-blob`, authenticating either with a connection string or
  * `DefaultAzureCredential`, and signing URLs with SAS tokens.
  * @class AzureBlobStoreService
  * @memberOf module:integrations/blob/azure/service
  */
-@service("blob-azure")
 export class AzureBlobStoreService extends BlobStoreService<
   ContainerClient,
   AzureBlobStoreServiceConfig
@@ -74,8 +72,8 @@ export class AzureBlobStoreService extends BlobStoreService<
   /**
    * @description Builds the Azure blob config from the environment
    * @summary Reads the `blobs.azure` environment slice; considered
-   * unconfigured when no `container` is set, which keeps the auto-boot
-   * fallback (see `getConfigFromArgs`) resolving to `undefined`.
+   * unconfigured when no `container` is set, in which case this returns
+   * `undefined` (see `getConfigFromArgs`).
    * @return {AzureBlobStoreServiceConfig | undefined} The environment-derived config, or `undefined` when unconfigured
    */
   protected configFromEnvironment(): AzureBlobStoreServiceConfig | undefined {
@@ -96,10 +94,10 @@ export class AzureBlobStoreService extends BlobStoreService<
   /**
    * @description Initializes the Azure Blob container client
    * @summary Resolves the config via `getConfigFromArgs` (explicit config,
-   * then the `blobs.azure` environment slice). When no config resolves during
-   * a context-bearing auto-boot of an unconfigured provider, returns
-   * `skipInitialization()` so `Service.boot` does not throw; an explicit
-   * `initialize()` with no resolvable config still throws a
+   * then the `blobs.azure` environment slice). When no config resolves and
+   * the arguments carry a decaf `Context`, returns
+   * `skipInitialization()` so the context-bearing boot does not throw; an
+   * explicit `initialize()` with no resolvable config still throws a
    * `ValidationError`. Requires a `container`, builds the
    * `BlobServiceClient` from the connection string when present or from the
    * endpoint (defaulting to `https://<accountName>.blob.core.windows.net`)

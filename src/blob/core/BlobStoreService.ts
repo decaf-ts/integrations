@@ -29,20 +29,21 @@ import type {
 /**
  * @description Base abstraction for blob store client services
  * @summary Provides the shared key handling, URI composition, and
- * auto-boot-aware config resolution used by every provider backend
+ * boot-aware config resolution used by every provider backend
  * (memory, local filesystem, S3-compatible, Azure Blob, GCS, IPFS).
  *
- * Extends {@link ClientBasedService} so concrete providers are registered as
- * injectable services and auto-booted by `Service.boot`. During auto-boot the
- * framework passes a decaf `Context` instead of a blob config, so
- * {@link BlobStoreService.getConfigFromArgs} must distinguish the two: a real
- * config always carries a non-empty string `provider`, while a `Context` does
- * not. When neither an explicit config nor the provider's environment slice
- * resolves a config, a context-bearing auto-boot is skipped via
+ * Extends {@link ClientBasedService}. Decorated providers are registered as
+ * injectable services and auto-booted by `Service.boot`; undecorated providers
+ * are plain classes that consumers construct and boot explicitly. In a
+ * context-bearing boot the framework passes a decaf `Context` instead of a
+ * blob config, so {@link BlobStoreService.getConfigFromArgs} must distinguish
+ * the two: a real config always carries a non-empty string `provider`, while a
+ * `Context` does not. When neither an explicit config nor the provider's
+ * environment slice resolves a config, a context-bearing boot is skipped via
  * {@link BlobStoreService.skipInitialization} instead of throwing, so optional
- * providers (e.g. `blob-minio`/`blob-r2` registered alongside `blob-s3`) do not
- * block the rest of the service graph. An explicit `initialize()` call with no
- * resolvable config still fails loudly with a {@link ValidationError}.
+ * providers (e.g. an unconfigured `blob-minio`/`blob-r2` next to `blob-s3`) do
+ * not block the rest of the service graph. An explicit `initialize()` call
+ * with no resolvable config still fails loudly with a {@link ValidationError}.
  *
  * @template TClient - The provider-specific client type created by `initialize`
  * @template TConfig - The provider-specific config extending {@link BlobStoreServiceConfig}
@@ -56,7 +57,7 @@ export abstract class BlobStoreService<
   /**
    * @description Initializes the base service
    * @summary Delegates to {@link ClientBasedService}; config and client are
-   * only set by a successful `initialize()` (or skipped on auto-boot).
+   * only set by a successful `initialize()` (or skipped on a context-bearing boot).
    */
   constructor() {
     super();
@@ -87,9 +88,9 @@ export abstract class BlobStoreService<
    * @summary Concrete providers resolve their config via
    * {@link BlobStoreService.getConfigFromArgs}, build the provider client, and
    * store both on `_config`/`_client`. When no config can be resolved during a
-   * context-bearing auto-boot, providers return
+   * context-bearing boot, providers return
    * {@link BlobStoreService.skipInitialization} instead of throwing.
-   * @param {...ContextualArg<any>} args - An optional blob config, optionally followed by a decaf `Context` (auto-boot always appends a `Context`)
+   * @param {...ContextualArg<any>} args - An optional blob config, optionally followed by a decaf `Context` (a context-bearing boot appends a `Context`)
    * @return {Promise<{config: TConfig, client: TClient}>} The resolved config and constructed client
    */
   abstract override initialize(
@@ -231,25 +232,25 @@ export abstract class BlobStoreService<
 
   /**
    * @description Resolves the provider config from the initialize arguments or the provider's environment slice
-   * @summary `Service.boot` passes a decaf `Context` (not a blob config) to
-   * every registered `ClientBasedService`, so an object-shaped argument must
+   * @summary A context-bearing boot passes a decaf `Context` (not a blob
+   * config) to the service, so an object-shaped argument must
    * not blindly be treated as config. A real blob config always carries a
    * non-empty string `provider` (see {@link BlobStoreService.isConfigLike}).
    * Resolution order: explicit config argument, then the provider's
    * `configFromEnvironment()` slice. When neither resolves, `undefined` is
-   * returned only for a context-bearing auto-boot so an unconfigured provider
-   * (e.g. an optional `blob-minio`/`blob-r2` registered alongside `blob-s3`)
+   * returned only for a context-bearing boot so an unconfigured provider
+   * (e.g. an optional unconfigured `blob-minio`/`blob-r2` next to `blob-s3`)
    * does not block the whole service graph from booting; an explicit
    * `initialize()` with neither config nor environment still throws.
    *
    * @template TExpected - The provider-specific config type expected by the caller
    * @param {...MaybeContextualArg<any>} args - Initialize arguments: an optional blob config and/or a decaf `Context`
-   * @return {TExpected | undefined} The resolved config, or `undefined` when a context-bearing auto-boot has no resolvable config
+   * @return {TExpected | undefined} The resolved config, or `undefined` when a context-bearing boot has no resolvable config
    * @throws {ValidationError} When called explicitly (no `Context` in `args`) and no config argument or environment config is available
    *
    * @mermaid
    * sequenceDiagram
-   *   participant Caller as Service.boot / initialize()
+   *   participant Caller as boot() / initialize()
    *   participant Service as BlobStoreService
    *   participant Env as configFromEnvironment()
    *
@@ -267,7 +268,7 @@ export abstract class BlobStoreService<
    *       Service-->>Caller: config
    *     else no env config
    *       Service->>Service: hasContext(args)
-   *       alt Context present (auto-boot)
+   *       alt Context present (context-bearing boot)
    *         Service-->>Caller: undefined (skip initialization)
    *       else explicit initialize()
    *         Service--xCaller: ValidationError
@@ -297,7 +298,7 @@ export abstract class BlobStoreService<
    * @description Determines whether a value is a blob config object
    * @summary True only for an object that carries a non-empty string
    * `provider` and is not a decaf `Context`. Avoids mistaking a contextual
-   * argument (e.g. the `Context` that `Service.boot` passes) for the config.
+   * argument (e.g. the `Context` a context-bearing boot passes) for the config.
    * @param {unknown} value - The value to test
    * @return {boolean} `true` when the value is config-like
    */
@@ -338,8 +339,8 @@ export abstract class BlobStoreService<
 
   /**
    * @description Determines whether the initialize arguments carry a decaf `Context`
-   * @summary A `Context` in the arguments marks a background auto-boot of an
-   * unconfigured provider (resolved to a skip by
+   * @summary A `Context` in the arguments marks a context-bearing background
+   * boot of an unconfigured provider (resolved to a skip by
    * {@link BlobStoreService.getConfigFromArgs}), as opposed to an explicit
    * `initialize()` that must fail loudly when no config is available.
    * @param {MaybeContextualArg<any>[]} args - The initialize arguments to inspect
@@ -350,17 +351,17 @@ export abstract class BlobStoreService<
   }
 
   /**
-   * @description Skips initialization for an unconfigured provider during auto-boot
+   * @description Skips initialization for an unconfigured provider during a context-bearing boot
    * @summary Clears `_config`/`_client` and returns a `{ config, client }`
    * result compatible with the `ClientBasedService.initialize` signature so
-   * `Service.boot` completes without throwing. Leaves the service
+   * the boot completes without throwing. Leaves the service
    * deterministic: the `config`/`client` getters still throw if accessed until
    * the service is explicitly initialized with a resolvable config, and the
    * rest of the service graph is not blocked by this provider's absence.
    * Concrete providers invoke this from `initialize()` when
    * `getConfigFromArgs` resolves no config and cast the result to the
    * declared return type.
-   * @return {{config: undefined, client: undefined}} An unset config/client pair for the auto-boot path
+   * @return {{config: undefined, client: undefined}} An unset config/client pair for the skip path
    */
   protected skipInitialization(): {
     config: undefined;

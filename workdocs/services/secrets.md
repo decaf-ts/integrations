@@ -72,14 +72,14 @@ Use these services when you want a common secret interface while keeping provide
 ```ts
 import { AwsSecretService } from "@decaf-ts/integrations/secrets/aws";
 
-const secrets = new AwsSecretService({
-  provider: "aws",
-  region: "eu-west-1",
-});
+const secrets = new AwsSecretService();
+await secrets.boot({ provider: "aws-secrets-manager", region: "eu-west-1" });
 
 await secrets.store("api-key", { value: "secret-value" });
 const current = await secrets.retrieve("api-key");
 ```
+
+Secret services are plain undecorated classes: construct them directly and call `boot(config)` with an explicit configuration object.
 
 ## Error Handling
 

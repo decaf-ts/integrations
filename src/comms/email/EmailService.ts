@@ -1,7 +1,7 @@
 /**
  * @module integrations/comms/email/service
  * @summary Email integration service for sending mail and reading inboxes across SMTP, Microsoft Graph, and IMAP.
- * @description Exposes a decaf `@service("email")` client-based service that
+ * @description Exposes an undecorated client-based service that
  * multiplexes three delivery surfaces behind one config: SMTP delivery through
  * the built-in {@link SmtpClient} (raw MIME built by {@link buildEmail}), and
  * Microsoft Graph (`sendMail`, message listing) through {@link HttpApiService}
@@ -11,7 +11,6 @@
  * `comms.email` environment slice; failures are mapped to decaf errors via
  * {@link httpError} (Graph) or wrapped `InternalError`s (SMTP).
  */
-import { service } from "@decaf-ts/core";
 import { BadRequestError, InternalError } from "@decaf-ts/db-decorators";
 import { CommsEnvironment } from "../environment";
 import {
@@ -144,7 +143,6 @@ function escapeODataString(value: string): string {
  * @category Comms
  * @memberOf module:integrations/comms/email/service
  */
-@service("email")
 export class EmailService extends HttpApiService<EmailServiceConfig> {
   protected readonly serviceName = "Email";
 

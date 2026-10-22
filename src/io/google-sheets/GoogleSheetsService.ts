@@ -2,14 +2,13 @@
  * @module integrations/io/google-sheets/service
  * @summary Google Sheets API integration service for reading and writing spreadsheet values.
  * @description Exposes the Google Sheets v4 values API (`get`, `update`,
- * `append`, `clear`) and spreadsheet creation as a decaf
- * `@service("google-sheets")` client-based service built on
+ * `append`, `clear`) and spreadsheet creation as an undecorated
+ * client-based service built on
  * {@link HttpApiService}. Authentication accepts either an OAuth token
  * (bearer) or a plain API key (`X-Goog-Api-Key`); configuration comes from an
  * explicit `GoogleSheetsServiceConfig` or the `io.googleSheets` environment
  * slice, and failures are mapped to decaf errors via {@link httpError}.
  */
-import { service } from "@decaf-ts/core";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { IoEnvironment } from "../environment";
 import { envNumber, envString } from "../../shared/environmentValue";
@@ -75,7 +74,7 @@ export interface GoogleSheetsWriteInput {
 
 /**
  * @description Google Sheets API integration service
- * @summary A decaf `@service("google-sheets")` HTTP service for reading,
+ * @summary An undecorated HTTP service for reading,
  * updating, appending, and clearing values in A1 ranges of a spreadsheet, and
  * for creating new spreadsheets. Every operation requires either an OAuth
  * token or an API key (`requireAuth()`); ranges and spreadsheet IDs are
@@ -103,7 +102,6 @@ export interface GoogleSheetsWriteInput {
  * ```
  * @memberOf module:integrations/io/google-sheets/service
  */
-@service("google-sheets")
 export class GoogleSheetsService extends HttpApiService<GoogleSheetsServiceConfig> {
   /**
    * @description The provider name used in error messages

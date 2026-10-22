@@ -10,7 +10,6 @@ import {
   ConnectionError,
   ForbiddenError,
   type MaybeContextualArg,
-  service,
   UnsupportedError,
 } from "@decaf-ts/core";
 import {
@@ -39,14 +38,13 @@ import type {
 } from "../core/BlobTypes";
 
 /**
- * @description Google Cloud Storage blob store service registered as `blob-gcs`
+ * @description Undecorated Google Cloud Storage blob store service
  * @summary Stores blobs in a GCS bucket via `@google-cloud/storage`,
  * authenticating with optional explicit credentials or the environment's
  * application default credentials.
  * @class GcsBlobStoreService
  * @memberOf module:integrations/blob/gcp/service
  */
-@service("blob-gcs")
 export class GcsBlobStoreService extends BlobStoreService<
   Bucket,
   GcsBlobStoreServiceConfig
@@ -62,8 +60,8 @@ export class GcsBlobStoreService extends BlobStoreService<
   /**
    * @description Builds the GCS blob config from the environment
    * @summary Reads the `blobs.gcs` environment slice; considered
-   * unconfigured when no `bucket` is set, which keeps the auto-boot
-   * fallback (see `getConfigFromArgs`) resolving to `undefined`.
+   * unconfigured when no `bucket` is set, in which case this returns
+   * `undefined` (see `getConfigFromArgs`).
    * @return {GcsBlobStoreServiceConfig | undefined} The environment-derived config, or `undefined` when unconfigured
    */
   protected override configFromEnvironment():
@@ -85,10 +83,10 @@ export class GcsBlobStoreService extends BlobStoreService<
   /**
    * @description Initializes the GCS bucket client
    * @summary Resolves the config via `getConfigFromArgs` (explicit config,
-   * then the `blobs.gcs` environment slice). When no config resolves during a
-   * context-bearing auto-boot of an unconfigured provider, returns
-   * `skipInitialization()` so `Service.boot` does not throw; an explicit
-   * `initialize()` with no resolvable config still throws a
+   * then the `blobs.gcs` environment slice). When no config resolves and the
+   * arguments carry a decaf `Context`, returns
+   * `skipInitialization()` so the context-bearing boot does not throw; an
+   * explicit `initialize()` with no resolvable config still throws a
    * `ValidationError`. Requires a `bucket`, builds the `Storage` client with
    * the configured project ID, credentials, and API endpoint, and stores the
    * bucket client.

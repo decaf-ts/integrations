@@ -2,13 +2,12 @@
  * @module integrations/comms/telegram/service
  * @summary Telegram Bot API integration service for sending messages and reading updates.
  * @description Exposes the Telegram Bot API (`getMe`, `sendMessage`,
- * `getUpdates`, `sendChatAction`) as a decaf `@service("telegram")` client-based
- * service built on {@link HttpApiService}. The bot token is part of the request
+ * `getUpdates`, `sendChatAction`) as an undecorated client-based service built
+ * on {@link HttpApiService}. The bot token is part of the request
  * path (`/bot<token>/<method>`); configuration comes from an explicit
  * `TelegramServiceConfig` or the `comms.telegram` environment slice, and
  * failures are mapped to decaf errors via {@link httpError}.
  */
-import { service } from "@decaf-ts/core";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { CommsEnvironment } from "../environment";
 import { envNumber, envString } from "../../shared/environmentValue";
@@ -97,7 +96,7 @@ interface TelegramApiResponse<T> {
 
 /**
  * @description Telegram Bot API integration service
- * @summary A decaf `@service("telegram")` HTTP service for verifying the bot
+ * @summary An undecorated HTTP service for verifying the bot
  * identity, sending messages with parse modes and reply/thread options, long
  * or short polling `getUpdates`, and posting chat actions. The bot token is
  * required (`requireToken()`) and embedded in the request path; non-`ok` Bot
@@ -121,7 +120,6 @@ interface TelegramApiResponse<T> {
  * ```
  * @memberOf module:integrations/comms/telegram/service
  */
-@service("telegram")
 export class TelegramService extends HttpApiService<TelegramServiceConfig> {
   /**
    * @description The provider name used in error messages

@@ -6,4 +6,3 @@
 export * from "./VaultSecretService";
 export * from "./VaultSecretServiceConfig";
 export * from "./VaultSecretEnvironment";
-export * from "./VaultSecretNodeService";

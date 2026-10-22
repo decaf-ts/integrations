@@ -5,7 +5,6 @@
  */
 export * from "./S3CompatibleBlobStoreService";
 export * from "./S3BlobStoreService";
-export * from "./S3NodeService";
 export * from "./S3BlobEnvironment";
 export * from "./MinioBlobStoreService";
 export * from "./MinioBlobEnvironment";

@@ -14,7 +14,6 @@ import {
 } from "@aws-sdk/client-secrets-manager";
 import {
   AuthorizationError,
-  service,
   type MaybeContextualArg,
 } from "@decaf-ts/core";
 import {
@@ -48,7 +47,6 @@ import {
   NotFoundError,
 } from "@decaf-ts/db-decorators";
 
-@service("secret-aws")
 export class AwsSecretService extends ClientBasedSecretService<
   SecretsManagerClient,
   AwsSecretServiceConfig

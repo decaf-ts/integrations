@@ -12,7 +12,7 @@ import {
   deserializeSecretPayload,
   type SerializedSecretPayload,
 } from "../../secrets/core";
-import { service, type MaybeContextualArg } from "@decaf-ts/core";
+import { type MaybeContextualArg } from "@decaf-ts/core";
 import { VaultSecretServiceConfig } from "./VaultSecretServiceConfig";
 import { VaultSecretEnvironment } from "./VaultSecretEnvironment";
 import { envString } from "../../shared/environmentValue";
@@ -112,7 +112,6 @@ export class VaultKvV2Client {
   }
 }
 
-@service("secret-vault")
 export class VaultSecretService extends ClientBasedSecretService<
   VaultKvV2Client,
   VaultSecretServiceConfig

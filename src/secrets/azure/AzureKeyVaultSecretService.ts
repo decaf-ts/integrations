@@ -2,7 +2,6 @@ import { SecretClient } from "@azure/keyvault-secrets";
 import { DefaultAzureCredential } from "@azure/identity";
 import { ClientBasedSecretService, SecretProvider } from "../../secrets/core";
 import {
-  service,
   type ContextualArgs,
   type MaybeContextualArg,
 } from "@decaf-ts/core";
@@ -29,7 +28,6 @@ import {
   NotFoundError,
 } from "@decaf-ts/db-decorators";
 
-@service("secret-azure")
 export class AzureKeyVaultSecretService extends ClientBasedSecretService<
   SecretClient,
   AzureKeyVaultSecretServiceConfig

@@ -1,8 +1,8 @@
 /**
  * @module integrations/io/graphql/service
  * @summary Generic GraphQL endpoint integration service for executing queries and mutations.
- * @description Posts GraphQL documents to any endpoint as a decaf
- * `@service("graphql")` client-based service built on {@link HttpApiService}.
+ * @description Posts GraphQL documents to any endpoint as an undecorated
+ * client-based service built on {@link HttpApiService}.
  * The endpoint is supplied as `endpoint` (an alias normalized to `baseUrl`
  * during initialization) or the `io.graphql` environment slice; an optional
  * bearer token is attached to every request, per-request headers can extend
@@ -10,7 +10,7 @@
  * field-level `errors` are returned in the response rather than thrown —
  * callers decide how to handle partial results.
  */
-import { service, type MaybeContextualArg } from "@decaf-ts/core";
+import { type MaybeContextualArg } from "@decaf-ts/core";
 import { InternalError } from "@decaf-ts/db-decorators";
 import type { AxiosInstance } from "axios";
 import { IoEnvironment } from "../environment";
@@ -88,7 +88,7 @@ export interface GraphqlResponse<T = unknown> {
 
 /**
  * @description Generic GraphQL endpoint integration service
- * @summary A decaf `@service("graphql")` HTTP service that `POST`s GraphQL
+ * @summary An undecorated HTTP service that `POST`s GraphQL
  * documents to any endpoint. Unlike the other integration services there is
  * no default base URL — the endpoint must come from the config (`endpoint` or
  * `baseUrl`) or the `io.graphql` environment slice. Initialization normalizes
@@ -117,7 +117,6 @@ export interface GraphqlResponse<T = unknown> {
  * ```
  * @memberOf module:integrations/io/graphql/service
  */
-@service("graphql")
 export class GraphqlService extends HttpApiService<GraphqlServiceConfig> {
   /**
    * @description The provider name used in error messages

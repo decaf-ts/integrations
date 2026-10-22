@@ -2,13 +2,12 @@
  * @module integrations/io/airtable/service
  * @summary Airtable Web API integration service for CRUD operations on base records.
  * @description Exposes the Airtable v0 records API (list, get, create, update,
- * delete) as a decaf `@service("airtable")` client-based service built on
+ * delete) as an undecorated client-based service built on
  * {@link HttpApiService}. Configuration comes from an explicit
  * `AirtableServiceConfig` or the `io.airtable` environment slice; base
  * targets default to the configured `baseId` and can be overridden per call.
  * Failures are mapped to decaf errors via {@link httpError}.
  */
-import { service } from "@decaf-ts/core";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { IoEnvironment } from "../environment";
 import { envNumber, envString } from "../../shared/environmentValue";
@@ -125,7 +124,7 @@ export interface AirtableWriteInput {
 
 /**
  * @description Airtable Web API integration service
- * @summary A decaf `@service("airtable")` HTTP service for listing records
+ * @summary An undecorated HTTP service for listing records
  * with filtering, sorting, and cursor paging; fetching, creating, updating,
  * and deleting individual records. Base targets resolve per call from the
  * `baseId` argument, falling back to the configured value, and throw
@@ -150,7 +149,6 @@ export interface AirtableWriteInput {
  * ```
  * @memberOf module:integrations/io/airtable/service
  */
-@service("airtable")
 export class AirtableService extends HttpApiService<AirtableServiceConfig> {
   /**
    * @description The provider name used in error messages

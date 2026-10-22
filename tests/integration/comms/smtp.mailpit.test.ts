@@ -1,7 +1,7 @@
 /**
  * @module integrations/tests/integration/comms/smtp.mailpit
  * @summary SAA-1109 (DECAF-809 Phase A slice 4): live SMTP delivery through
- * Mailpit for `EmailService` and the node-usable `EmailNodeService`.
+ * Mailpit for `EmailService`, including explicit `boot(config)` usage.
  * @description Boots against the Mailpit compose service
  * (`docker/mailpit-compose.yml`, also part of `npm run prepare-it-tests`),
  * sends real messages, and verifies recipient, subject, body, `Message-ID`
@@ -23,7 +23,6 @@ import { readFileSync } from "node:fs";
 import net from "node:net";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { EmailService } from "../../../src/comms/email/EmailService";
-import { EmailNodeService } from "../../../src/comms/email/EmailNodeService";
 
 jest.setTimeout(60000);
 
@@ -246,9 +245,9 @@ describe("EmailService live SMTP delivery through Mailpit", () => {
     }
   });
 
-  it("delivers through EmailNodeService.boot() without Environment configuration", async () => {
-    const subject = `${RUN_TOKEN} EmailNodeService delivery`;
-    const service = new EmailNodeService();
+  it("delivers through EmailService.boot() with an explicit configuration", async () => {
+    const subject = `${RUN_TOKEN} explicit EmailService delivery`;
+    const service = new EmailService();
     await service.boot({
       provider: "smtp",
       host: endpoint.host,
@@ -261,7 +260,7 @@ describe("EmailService live SMTP delivery through Mailpit", () => {
       const result = await service.send({
         to: "node-recipient@example.test",
         subject,
-        text: "hello from EmailNodeService",
+        text: "hello from explicit EmailService",
       });
 
       expect(result.provider).toBe("smtp");
@@ -277,7 +276,7 @@ describe("EmailService live SMTP delivery through Mailpit", () => {
       const detail = await mailpitJson<MailpitMessageDetail>(
         `/api/v1/message/${summary.ID}`
       );
-      expect(detail.Text).toContain("hello from EmailNodeService");
+      expect(detail.Text).toContain("hello from explicit EmailService");
     } finally {
       await service.shutdown().catch(() => undefined);
     }

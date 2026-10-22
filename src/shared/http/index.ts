@@ -6,4 +6,3 @@
  * mapper used by every API service).
  */
 export * from "./HttpApiService";
-export * from "./HttpNodeService";

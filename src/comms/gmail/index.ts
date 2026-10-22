@@ -4,4 +4,3 @@
  * @description Re-exports the Gmail client-based service and its types.
  */
 export * from "./GmailService";
-export * from "./GmailNodeService";

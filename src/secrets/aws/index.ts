@@ -6,4 +6,3 @@
 export * from "./AwsSecretService";
 export * from "./AwsSecretServiceConfig";
 export * from "./AwsSecretEnvironment";
-export * from "./AwsSecretNodeService";

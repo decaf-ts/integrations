@@ -7,4 +7,3 @@
 export * from "./FsSecretServiceConfig";
 export * from "./FsSecretEnvironment";
 export * from "./FsSecretService";
-export * from "./FsSecretNodeService";

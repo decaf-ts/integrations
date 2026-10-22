@@ -1,7 +1,7 @@
 /**
  * @module integrations/secrets/fs/service
  * @summary Filesystem-backed encrypted secret service.
- * @description Implements the {@link FsSecretService}, a `@service("secret-fs")`-decorated
+ * @description Implements the {@link FsSecretService}, an undecorated
  * `ClientBasedSecretService` that stores secrets as AES-encrypted JSON envelopes
  * (schema `decaf.fs-secret.v1`) under a 0o700 private root directory. Encryption
  * keys are derived from a master `keySecret` via `CryptoService`; every secret is
@@ -38,7 +38,6 @@ import { randomUUID } from "node:crypto";
 import {
   ContextualArgs,
   MaybeContextualArg,
-  service,
 } from "@decaf-ts/core";
 import { InternalError, NotFoundError, ValidationError } from "@decaf-ts/db-decorators";
 import { CryptoService } from "@decaf-ts/crypto/integration/services/crypto";
@@ -100,9 +99,8 @@ interface FsSecretEnvelope {
  * filesystem store is designed as a minimal bootstrap sink (see
  * {@link InfraCredentialBootstrap}).
  *
- * Registered as `@service("secret-fs")` and Environment-configurable through
- * the `secrets.fs` slice; the non-Environment node counterpart is
- * {@link FsSecretNodeService}.
+ * Configuration is resolved from the `secrets.fs` slice or an explicit boot
+ * config.
  * @class FsSecretService
  * @category Secrets
  * @example
@@ -139,7 +137,6 @@ interface FsSecretEnvelope {
  *   end
  *   deactivate FS
  */
-@service("secret-fs")
 export class FsSecretService extends ClientBasedSecretService<
   void,
   FsSecretServiceConfig

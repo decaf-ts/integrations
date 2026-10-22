@@ -1,9 +1,9 @@
 /**
  * @module integrations/blob/s3/service
  * @summary AWS S3 blob store service.
- * @description Thin `@service`-decorated provider on top of {@link S3CompatibleBlobStoreService}.
+ * @description Thin undecorated AWS S3 provider service on top of {@link S3CompatibleBlobStoreService}.
  */
-import { Context, ContextualArgs, service } from "@decaf-ts/core";
+import { Context, ContextualArgs } from "@decaf-ts/core";
 import { S3CompatibleBlobStoreService } from "./S3CompatibleBlobStoreService";
 import { S3BlobEnvironment } from "./S3BlobEnvironment";
 import {
@@ -14,7 +14,14 @@ import {
 import type { S3BlobStoreServiceConfig } from "../core/BlobTypes";
 import { S3Client } from "@aws-sdk/client-s3";
 
-@service("blob-s3")
+/**
+ * @description AWS S3 blob store service
+ * @summary Undecorated provider service storing blobs in an AWS S3 bucket
+ * through {@link S3CompatibleBlobStoreService}. Falls back to the `blobs.s3`
+ * environment slice when `initialize()` is called without an explicit config.
+ * @class S3BlobStoreService
+ * @memberOf module:integrations/blob/s3/service
+ */
 export class S3BlobStoreService extends S3CompatibleBlobStoreService {
   protected override configFromEnvironment():
     | S3BlobStoreServiceConfig

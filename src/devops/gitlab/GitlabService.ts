@@ -3,14 +3,13 @@
  * @summary GitLab REST API integration service for projects, issues, and merge requests.
  * @description Exposes a focused subset of the GitLab REST v4 API (`/projects/*`:
  * project lookup, issue listing/creation/commenting, and merge-request
- * listing) as a decaf `@service("gitlab")` client-based service built on
+ * listing) as an undecorated client-based service built on
  * {@link HttpApiService}. Configuration comes from an explicit
  * `GitlabServiceConfig` or the `devops.gitlab` environment slice; project
  * targets default to the configured `projectId` and can be overridden per
  * call. Raw GitLab responses are normalized to camelCase issue descriptors,
  * and failures are mapped to decaf errors via {@link httpError}.
  */
-import { service } from "@decaf-ts/core";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { DevopsEnvironment } from "../environment";
 import { envNumber, envString } from "../../shared/environmentValue";
@@ -140,7 +139,7 @@ export interface GitlabListOptions {
 
 /**
  * @description GitLab REST API integration service
- * @summary A decaf `@service("gitlab")` HTTP service for looking up projects,
+ * @summary An undecorated HTTP service for looking up projects,
  * listing issues, creating issues, commenting on issues (notes), and listing
  * merge requests. Project targets resolve per call from the input's
  * `projectId`, falling back to the configured value, and throw
@@ -165,7 +164,6 @@ export interface GitlabListOptions {
  * ```
  * @memberOf module:integrations/devops/gitlab/service
  */
-@service("gitlab")
 export class GitlabService extends HttpApiService<GitlabServiceConfig> {
   /**
    * @description The provider name used in error messages

@@ -1,14 +1,13 @@
 /**
  * @module integrations/secrets/model/service
  * @summary Model-backed encrypted secret service.
- * @description Implements the `{@link ModelSecretService}`, a
- * `@service("secret-model")`-decorated `ClientBasedSecretService` that
+ * @description Implements the `{@link ModelSecretService}`, an undecorated
+ * `ClientBasedSecretService` that
  * persists AES-encrypted payloads as `{@link Secret}` rows through a
  * decaf `Repository` (tenant/org-unit/owner scoping included). Encryption
  * keys derive from a master `keySecret` via `CryptoService`; configuration
  * comes from the `secrets.model` Environment slice or an explicit boot
- * config (see `ModelSecretServiceConfig`). The non-Environment node
- * counterpart is `{@link ModelSecretNodeService}`.
+ * config (see `ModelSecretServiceConfig`).
  */
 import { ClientBasedSecretService, SecretError, SecretProvider } from "../core";
 import {
@@ -40,7 +39,6 @@ import {
   MaybeContextualArg,
   Repository,
   resolveTransactionLock,
-  service,
 } from "@decaf-ts/core";
 import { ModelSecretServiceConfig } from "./ModelSecretServiceConfig";
 import { ModelSecretEnvironment } from "./ModelSecretEnvironment";
@@ -65,7 +63,7 @@ const DEFAULT_KEY_ID = "default-key";
  * `options.force` is set. Errors from the repository are translated into
  * typed {@link SecretError}s by `parseError`.
  *
- * Registered as `@service("secret-model")` and Environment-configurable
+ * Undecorated and Environment-configurable
  * through the `secrets.model` slice; the credential service
  * (`CredentialService`) delegates user/runtime credential storage to this
  * service.
@@ -82,7 +80,6 @@ const DEFAULT_KEY_ID = "default-key";
  * const payload = await modelSecrets.retrieve<{ value: string }>("my-secret");
  * ```
  */
-@service("secret-model")
 export class ModelSecretService extends ClientBasedSecretService<
   Repository<Secret, any>,
   ModelSecretServiceConfig

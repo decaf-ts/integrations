@@ -1,15 +1,14 @@
 /**
  * @module integrations/comms/teams/service
  * @summary Microsoft Teams integration service for webhook and Microsoft Graph channel messaging.
- * @description Exposes two delivery paths as a decaf `@service("teams")`
- * client-based service built on {@link HttpApiService}: incoming-webhook
+ * @description Exposes two delivery paths as an undecorated client-based
+ * service built on {@link HttpApiService}: incoming-webhook
  * `MessageCard` delivery (no Graph token required) and Microsoft Graph
  * channel messaging, team listing, and channel listing (requires a Graph
  * access token). Configuration comes from an explicit `TeamsServiceConfig`
  * or the `comms.teams` environment slice, and failures are mapped to decaf
  * errors via {@link httpError}.
  */
-import { service } from "@decaf-ts/core";
 import { InternalError } from "@decaf-ts/db-decorators";
 import Axios from "axios";
 import { CommsEnvironment } from "../environment";
@@ -82,7 +81,7 @@ export interface TeamsChannelMessage {
 
 /**
  * @description Microsoft Teams integration service
- * @summary A decaf `@service("teams")` HTTP service combining incoming-webhook
+ * @summary An undecorated HTTP service combining incoming-webhook
  * delivery (needs only `webhookUrl`) with Microsoft Graph operations — channel
  * messaging, team listing, and channel listing (need a Graph `token`).
  * Webhook delivery posts an Office 365 `MessageCard` directly to the
@@ -104,7 +103,6 @@ export interface TeamsChannelMessage {
  * ```
  * @memberOf module:integrations/comms/teams/service
  */
-@service("teams")
 export class TeamsService extends HttpApiService<TeamsServiceConfig> {
   /**
    * @description The provider name used in error messages

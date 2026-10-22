@@ -16,7 +16,6 @@ import {
   type SerializedSecretPayload,
 } from "../../secrets/core";
 import {
-  service,
   type ContextualArgs,
   type MaybeContextualArg,
 } from "@decaf-ts/core";
@@ -25,7 +24,6 @@ import { OnePasswordSecretEnvironment } from "./OnePasswordSecretEnvironment";
 import { envString } from "../../shared/environmentValue";
 import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 
-@service("secret-onepassword")
 export class OnePasswordSecretService extends ClientBasedSecretService<
   unknown,
   OnePasswordSecretServiceConfig

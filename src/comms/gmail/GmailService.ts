@@ -2,14 +2,13 @@
  * @module integrations/comms/gmail/service
  * @summary Gmail API integration service for sending and listing messages.
  * @description Exposes the Gmail REST API (`users.messages.send`,
- * `users.messages.list`, `users.messages.get`, `users.labels.list`) as a decaf
- * `@service("gmail")` client-based service built on {@link HttpApiService}.
+ * `users.messages.list`, `users.messages.get`, `users.labels.list`) as an
+ * undecorated client-based service built on {@link HttpApiService}.
  * Message sending reuses the shared MIME builder from the email integration
  * (`buildEmail`) and posts the raw MIME message as base64url. Configuration
  * comes from an explicit `GmailServiceConfig` or the `comms.gmail` environment
  * slice, and failures are mapped to decaf errors via {@link httpError}.
  */
-import { service } from "@decaf-ts/core";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { CommsEnvironment } from "../environment";
 import { envNumber, envString } from "../../shared/environmentValue";
@@ -71,7 +70,7 @@ export interface GmailListResult {
 
 /**
  * @description Gmail API integration service
- * @summary A decaf `@service("gmail")` HTTP service for sending MIME-built
+ * @summary An undecorated HTTP service for sending MIME-built
  * emails, listing messages with Gmail query syntax and page tokens, fetching
  * a single message in a chosen format, and listing labels. All operations
  * require an OAuth token (`requireToken()`) and operate on the configured
@@ -96,7 +95,6 @@ export interface GmailListResult {
  * ```
  * @memberOf module:integrations/comms/gmail/service
  */
-@service("gmail")
 export class GmailService extends HttpApiService<GmailServiceConfig> {
   /**
    * @description The provider name used in error messages

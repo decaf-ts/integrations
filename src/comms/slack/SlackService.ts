@@ -2,12 +2,11 @@
  * @module integrations/comms/slack/service
  * @summary Slack Web API integration service for posting messages and reading conversations and users.
  * @description Exposes the Slack Web API (`chat.postMessage`, `conversations.*`, `users.info`)
- * as a decaf `@service("slack")` client-based service built on {@link HttpApiService}.
+ * as an undecorated client-based service built on {@link HttpApiService}.
  * Configuration comes from an explicit `SlackServiceConfig` or the `comms.slack`
  * environment slice; every response is normalized and failures are mapped to decaf
  * errors via {@link httpError}.
  */
-import { service } from "@decaf-ts/core";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { CommsEnvironment } from "../environment";
 import { envNumber, envString } from "../../shared/environmentValue";
@@ -112,7 +111,7 @@ interface SlackApiResponse {
 
 /**
  * @description Slack Web API integration service
- * @summary A decaf `@service("slack")` HTTP service for posting messages,
+ * @summary An undecorated HTTP service for posting messages,
  * listing conversations with cursor paging, fetching a single conversation,
  * and looking up users. The Slack Bot token is sent as a bearer token, every
  * call requires it (`requireToken()`), non-`ok` Slack responses raise
@@ -154,7 +153,6 @@ interface SlackApiResponse {
  *   deactivate Service
  * @memberOf module:integrations/comms/slack/service
  */
-@service("slack")
 export class SlackService extends HttpApiService<SlackServiceConfig> {
   /**
    * @description The provider name used in error messages

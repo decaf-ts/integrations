@@ -3,10 +3,9 @@
  * @summary S3-compatible blob store base implementation.
  * @description Shared CRUD implementation backed by the AWS SDK v3 S3Client, used by
  * the S3, MinIO, and Cloudflare R2 provider services. Deliberately left undecorated:
- * `@service(...)` on a class whose parent is itself `@service(...)`-decorated breaks
- * that subclass's inherited field initializers (e.g. `Context` ends up `undefined`).
- * Each concrete provider below extends this class directly and carries its own
- * `@service("blob-<provider>")` decorator instead of stacking on top of one another.
+ * concrete providers are plain classes that consumers construct and boot
+ * explicitly (no injectable registration, no `Service.boot` auto-boot), and
+ * each extends this base directly instead of stacking on top of one another.
  */
 import {
   CopyObjectCommand,
@@ -55,12 +54,9 @@ import type {
  * @description Base implementation for S3-compatible blob stores
  * @summary Implements the full blob CRUD API on top of the AWS SDK v3
  * `S3Client` and is shared by the S3, MinIO, and Cloudflare R2 provider
- * services. Deliberately left undecorated: `@service(...)` on a class whose
- * parent is itself `@service(...)`-decorated breaks that subclass's inherited
- * field initializers (e.g. `Context` ends up `undefined`). Each concrete
- * provider extends this class directly and carries its own
- * `@service("blob-<provider>")` decorator instead of stacking on top of one
- * another.
+ * services. Deliberately left undecorated: concrete providers are plain
+ * classes that consumers construct and boot explicitly, so no injectable
+ * registration or `Service.boot` auto-boot applies here.
  * @class S3CompatibleBlobStoreService
  * @memberOf module:integrations/blob/s3/base-service
  */
@@ -71,11 +67,11 @@ export abstract class S3CompatibleBlobStoreService extends BlobStoreService<
   /**
    * @description Initializes the S3 client from config or environment
    * @summary Resolves the config via `getConfigFromArgs` (explicit config,
-   * then the provider's environment slice). When no config resolves during a
-   * context-bearing auto-boot of an unconfigured provider (e.g. an optional
-   * `blob-minio`/`blob-r2` registered alongside `blob-s3`), returns
-   * `skipInitialization()` so `Service.boot` does not throw; an explicit
-   * `initialize()` with no resolvable config still throws a
+   * then the provider's environment slice). When no config resolves and the
+   * arguments carry a decaf `Context` (e.g. an unconfigured optional
+   * `blob-minio`/`blob-r2` provider next to `blob-s3`), returns
+   * `skipInitialization()` so the context-bearing boot does not throw; an
+   * explicit `initialize()` with no resolvable config still throws a
    * `ValidationError`. Requires a `bucket`, builds the `S3Client` (with
    * optional static credentials), stores config and client, and optionally
    * creates the bucket when `autoCreateBucket` is set.
