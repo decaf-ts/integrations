@@ -164,6 +164,26 @@ export class EmailService extends HttpApiService<EmailServiceConfig> {
   }
 
   /**
+   * @description Pins the SMTP plaintext-AUTH default on top of the base initialization
+   * @summary Runs the {@link HttpApiService} initialization (explicit config
+   * merged over the `comms.email` environment slice) and then defaults an
+   * unresolved `allowPlaintextAuth` to `false`, so credentials are only sent
+   * over a TLS-protected session unless the config explicitly opts in. This
+   * closes the F1 residual where an environment-only `allowPlaintextAuth`
+   * opt-in would otherwise reach a boot whose explicit config omits the key
+   * (defense in depth on top of {@link bootWithoutEnvironment}, which disables
+   * the environment slice entirely on the node path).
+   * @param {...any[]} args - An optional `Partial<EmailServiceConfig>`, optionally followed by a decaf `Context`.
+   * @returns {Promise<{config: EmailServiceConfig, client: AxiosInstance}>} The merged configuration, with `allowPlaintextAuth` defaulted to `false` when unset, and the configured Axios instance.
+   */
+  override async initialize(...args: any[]) {
+    const initialized = await super.initialize(...args);
+    initialized.config.allowPlaintextAuth =
+      initialized.config.allowPlaintextAuth ?? false;
+    return initialized;
+  }
+
+  /**
    * @description Builds service config from the `comms.email` environment slice
    * @returns A partial config when either an SMTP `host` or a Graph `token` is present, otherwise `undefined`
    */

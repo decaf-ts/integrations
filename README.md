@@ -34,11 +34,11 @@
 - BI dashboard embed plugins (Kibana + Superset) with a shared DOM-free `DashboardEmbedPlugin` contract. The Kibana plugin is generated source + installer; the Superset plugin is a patch-and-build strategy that modifies Superset's internal embedded frontend and SDK source. Both expose the exact same API and are org-agnostic (no space switching).
 - Namespaced credential management: `Credential` model + `CredentialService` storing secret values encrypted at rest via the model-backed `ModelSecretService`, plus the namespace RLS template/bootstrap (`RlsBootstrapService`, `runAsPrincipal`) — see [Credentials and namespace RLS](#credentials-and-namespace-rls).
 - Filesystem-backed `FsSecretService` (encrypted `decaf.fs-secret.v1` envelopes, never enumerable) with `InfraCredentialBootstrap.ensure()` for infrastructure credentials — see [Credentials and namespace RLS](#credentials-and-namespace-rls).
-- Plain undecorated service classes for every comms/devops/io/blob/secret/HTTP service: construct them directly and boot with an explicit `await instance.boot(config)` — see [Constructing and booting services](#constructing-and-booting-services).
+- Plain undecorated service classes for every comms/devops/io/blob/secret/HTTP service: construct them directly and boot with an explicit `await instance.boot(config)`, or — on the graph-node path — boot Environment-hermetically with `bootWithoutEnvironment(service, config)` — see [Constructing and booting services](#constructing-and-booting-services).
 
 ## Communication, DevOps, and IO services
 
-The graph node families added in SAA-1027 stage 3b construct these service classes directly. Every service extends `HttpApiService` (Axios transport, decaf errors) except `SpreadsheetService`, which is local computation. Consumers construct the service and boot it with an explicit configuration object (`await instance.boot(config)` — see [Constructing and booting services](#constructing-and-booting-services)); the explicit config wins over the matching `CommsEnvironment`/`DevopsEnvironment`/`IoEnvironment` slice, and secrets are read from the environment or supplied by the caller, never embedded in a graph document.
+The graph node families added in SAA-1027 stage 3b construct these service classes directly. Every service extends `HttpApiService` (Axios transport, decaf errors) except `SpreadsheetService`, which is local computation. Consumers construct the service and boot it with an explicit configuration object (`await instance.boot(config)` — see [Constructing and booting services](#constructing-and-booting-services)); the explicit config wins over the matching `CommsEnvironment`/`DevopsEnvironment`/`IoEnvironment` slice, and secrets are read from the environment or supplied by the caller, never embedded in a graph document. Graph-node execution must not inherit these environment slices: node consumers boot through `bootWithoutEnvironment` instead of plain `.boot(config)` — see [Constructing and booting services](#constructing-and-booting-services).
 
 | Export | Service | Config environment | Operations |
 | --- | --- | --- | --- |
@@ -202,7 +202,7 @@ await client.send(mail.from, mail.recipients, mail.raw);
 await client.close();
 ```
 
-`EmailService` is a plain undecorated class: construct it directly and boot it with an explicit configuration object (see [Constructing and booting services](#constructing-and-booting-services)).
+`EmailService` is a plain undecorated class: construct it directly and boot it with an explicit configuration object (see [Constructing and booting services](#constructing-and-booting-services)). `EmailService` resolution is fail-closed on plaintext AUTH: after merging the explicit config over the `comms.email` environment slice, `initialize()` defaults an unresolved `allowPlaintextAuth` to `false`, so credentials are only sent over a TLS-protected session unless the effective config explicitly opts in — an environment-only `allowPlaintextAuth: true` no longer reaches a boot whose explicit config omits the key (for the fully environment-free node path, see [Hermetic boot for node consumers](#hermetic-boot-for-node-consumers)).
 
 ## Constructing and booting services
 
@@ -215,6 +215,34 @@ const slack = await new SlackService().boot({ token: process.env.SLACK_TOKEN });
 ```
 
 `boot(config)` delegates to `initialize()`, which merges the explicit config over any values resolvable from the matching `CommsEnvironment`/`DevopsEnvironment`/`IoEnvironment` slice; the explicit object always wins. For fully explicit, environment-free configuration, pass every required field in the boot config object.
+
+### Hermetic boot for node consumers
+
+Plain `.boot(config)` merges the matching Environment slice under the explicit config — keys absent from the config object inherit their Environment values. That is the intended behavior for application code, but graph-node execution must stay Environment-hermetic (SAA-1305 finding F1): a node booting `EmailService` must not silently pick up an environment `comms.email.allowPlaintextAuth=true` opt-in, and an Environment `timeout` must not reach an `HttpApiService` node boot.
+
+`@decaf-ts/integrations/shared/http` therefore exports `bootWithoutEnvironment(service, config, ...rest)`, which boots a service with Environment-derived configuration disabled for that one call:
+
+```ts
+import { EmailService } from "@decaf-ts/integrations/comms/email";
+import { bootWithoutEnvironment } from "@decaf-ts/integrations/shared/http";
+
+// The comms.email environment slice is ignored for this boot:
+// allowPlaintextAuth stays false unless the explicit config sets it.
+const email = await bootWithoutEnvironment(new EmailService(), {
+  provider: "smtp",
+  host: "smtp.example.com",
+  port: 587,
+  username: "noreply@example.com",
+  password: process.env.SMTP_PASSWORD,
+});
+```
+
+- **Fail closed:** the explicit config object is mandatory — a missing or non-object config throws a `ValidationError` instead of falling back to Environment configuration.
+- **No Environment for that boot:** the service's own `configFromEnvironment()` hook is shadowed with `() => undefined` for the duration of the single `boot()` call, so keys absent from the explicit config stay unset instead of inheriting the Environment slice.
+- **Restored afterward:** the original `configFromEnvironment()` descriptor is put back (or removed, when the service had none) in a `finally` block after the boot; the shadowing is per-instance and never touches the prototype, so other service instances are unaffected and teardown stays safe.
+- **Same boot contract:** remaining `boot()` arguments (e.g. a decaf `Context`) are forwarded unchanged, and the same service instance is returned, booted.
+
+All 13 as-graph node kinds that boot integrations services (comms, devops, io, and storage/blob) boot through this helper — use it for any node-side or automated boot where Environment-derived configuration must not leak into the explicit boot config. Plain `.boot(config)` remains correct for application code that wants the environment merge.
 
 ## Optional peer dependencies
 
