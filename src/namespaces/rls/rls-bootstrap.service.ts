@@ -3,8 +3,8 @@
  * @summary Bootstrap service that applies the namespace row-level-security template.
  * @description Wires the SQL template into a query executor (for example a
  * `pg.Client`) so deployments apply the policies through application bootstrap
- * or a migration runner instead of hand-running SQL. Also exposes session
- * helpers that bind `app.principal_id` for request-scoped access.
+ * or a migration runner instead of hand-running SQL. Also exposes helpers
+ * that bind `app.principal_id` transaction-locally for request-scoped access.
  */
 import { ClientBasedService } from "@decaf-ts/core";
 import { InternalError, ValidationError } from "@decaf-ts/db-decorators";
@@ -43,14 +43,45 @@ export class RlsFunctionOwnerError extends InternalError {
 }
 
 /**
- * @description Validates a principal identifier before binding it to the RLS
- * session setting.
+ * @description Options accepted by the transaction-local RLS binding helpers.
+ * @summary Session-wide binding is not supported: the only acceptable value is
+ * `local: true`, which is also the default. A `local: false` request is
+ * rejected with `ValidationError` before any SQL is sent, because a
+ * session-wide setting on a pooled connection leaks across requests.
+ * @interface RlsBindingOptions
+ * @property {true} [local] - Must be `true` or omitted (the default is `true`);
+ * any other value is rejected before any SQL is sent.
+ */
+export interface RlsBindingOptions {
+  local?: true;
+}
+
+function assertTransactionLocalBinding(
+  method: string,
+  options: RlsBindingOptions | undefined
+): void {
+  if (options && options.local !== undefined && options.local !== true) {
+    throw new ValidationError(
+      `${method} only supports transaction-local binding: session-wide binding is not allowed`
+    );
+  }
+}
+
+/**
+ * @description Validates a principal identifier before binding it to the
+ * `app.principal_id` RLS setting.
+ * @summary Fail-closed shape guard shared by the binding helpers: the value
+ * must be a non-empty UUID string. On failure it throws a `ValidationError`
+ * with a fixed message that never echoes the rejected value, so invalid input
+ * cannot leak into error surfaces or logs.
+ * @function assertPrincipalId
+ * @param {string} principalId - Candidate principal (or tenant) UUID to validate.
+ * @returns {void}
+ * @throws {ValidationError} When the value is empty or not UUID-shaped; the message does not include the rejected value.
  */
 export function assertPrincipalId(principalId: string): void {
   if (!principalId || !UUID_PATTERN.test(principalId)) {
-    throw new ValidationError(
-      `Invalid RLS principal id: ${JSON.stringify(principalId)}`
-    );
+    throw new ValidationError("Invalid RLS principal id");
   }
 }
 
@@ -178,67 +209,91 @@ export class RlsBootstrapService extends ClientBasedService<
   }
 
   /**
-   * @description Binds the acting principal for subsequent queries.
+   * @description Binds the acting principal for the current transaction.
+   * @summary Issues parameterized `SELECT set_config($1, $2, true)` after
+   * validation, so the binding lives only for the current transaction and is
+   * discarded on commit/rollback — safe on pooled connections. A session-wide
+   * binding request fails with `ValidationError` before any SQL is sent, and
+   * the verbose log records only that a binding happened, never the principal
+   * id.
    * @param principalId Principal UUID stored in `app.principal_id`.
-   * @param options.local When true (default), the setting is transaction-local
-   * and is discarded on commit/rollback. Set false for a session-wide binding.
+   * @param options Only `local: true` (the default) is accepted; the binding is
+   * always transaction-local and is discarded on commit/rollback.
+   * @returns {Promise<void>} Resolves once the setting is bound transaction-locally.
+   * @throws {ValidationError} When the principal id is invalid or a session-wide binding is requested.
    */
   async setPrincipal(
     principalId: string,
-    options: { local?: boolean } = {},
+    options: RlsBindingOptions = {},
     ...args: any[]
   ): Promise<void> {
     const { log } = (await this.logCtx(args, "setPrincipal", true)).for(
       this.setPrincipal
     );
     assertPrincipalId(principalId);
-    const local = options.local ?? true;
-    await this.client.query("SELECT set_config($1, $2, $3)", [
+    assertTransactionLocalBinding("setPrincipal", options);
+    await this.client.query("SELECT set_config($1, $2, true)", [
       RLS_SETTINGS.Principal,
       principalId,
-      local,
     ]);
-    log.verbose(`Bound RLS principal ${principalId} (local=${local})`);
+    log.verbose("Bound RLS principal (transaction-local)");
   }
 
   /**
-   * @description Binds the acting tenant for diagnostic or multi-tenant checks.
+   * @description Binds the acting tenant for the current transaction.
+   * @summary Issues parameterized `SELECT set_config($1, $2, true)` after
+   * validation, so the binding lives only for the current transaction and is
+   * discarded on commit/rollback — safe on pooled connections. A session-wide
+   * binding request fails with `ValidationError` before any SQL is sent, and
+   * the verbose log records only that a binding happened, never the tenant
+   * id.
+   * @param tenantId Tenant UUID stored in `app.tenant_id`.
+   * @param options Only `local: true` (the default) is accepted; the binding is
+   * always transaction-local and is discarded on commit/rollback.
+   * @returns {Promise<void>} Resolves once the setting is bound transaction-locally.
+   * @throws {ValidationError} When the tenant id is invalid or a session-wide binding is requested.
    */
   async setTenant(
     tenantId: string,
-    options: { local?: boolean } = {},
+    options: RlsBindingOptions = {},
     ...args: any[]
   ): Promise<void> {
     const { log } = (await this.logCtx(args, "setTenant", true)).for(
       this.setTenant
     );
     assertPrincipalId(tenantId);
-    const local = options.local ?? true;
-    await this.client.query("SELECT set_config($1, $2, $3)", [
+    assertTransactionLocalBinding("setTenant", options);
+    await this.client.query("SELECT set_config($1, $2, true)", [
       RLS_SETTINGS.Tenant,
       tenantId,
-      local,
     ]);
-    log.verbose(`Bound RLS tenant ${tenantId} (local=${local})`);
+    log.verbose("Bound RLS tenant (transaction-local)");
   }
 
   /**
-   * @description Clears the acting principal for the session/transaction.
+   * @description Clears the acting principal for the current transaction.
+   * @summary Resets `app.principal_id` to the empty string with
+   * `SELECT set_config($1, $2, true)`, so the clear is also transaction-local
+   * and never reaches the pooled session. A session-wide clear request fails
+   * with `ValidationError` before any SQL is sent.
+   * @param options Only `local: true` (the default) is accepted; the clear is
+   * always transaction-local and does not reach the pooled session.
+   * @returns {Promise<void>} Resolves once the setting is cleared transaction-locally.
+   * @throws {ValidationError} When a session-wide clear is requested.
    */
   async clearPrincipal(
-    options: { local?: boolean } = {},
+    options: RlsBindingOptions = {},
     ...args: any[]
   ): Promise<void> {
     const { log } = (await this.logCtx(args, "clearPrincipal", true)).for(
       this.clearPrincipal
     );
-    const local = options.local ?? true;
-    await this.client.query("SELECT set_config($1, $2, $3)", [
+    assertTransactionLocalBinding("clearPrincipal", options);
+    await this.client.query("SELECT set_config($1, $2, true)", [
       RLS_SETTINGS.Principal,
       "",
-      local,
     ]);
-    log.verbose(`Cleared RLS principal (local=${local})`);
+    log.verbose("Cleared RLS principal (transaction-local)");
   }
 
   /**

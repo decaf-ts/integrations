@@ -13,6 +13,7 @@ import {
   assertPrincipalId,
   runAsPrincipal,
 } from "../../../src/namespaces/rls/rls-bootstrap.service";
+import type { RlsBindingOptions } from "../../../src/namespaces/rls/rls-bootstrap.service";
 import {
   RLS_FUNCTION_OWNER_QUERY,
   RLS_SETTINGS,
@@ -21,6 +22,11 @@ import type { RlsQueryExecutor } from "../../../src/namespaces/rls/rls.types";
 
 const PRINCIPAL_ID = "11111111-1111-4111-8111-111111111111";
 const SECOND_PRINCIPAL_ID = "22222222-2222-4222-8222-222222222222";
+const TENANT_ID = "33333333-3333-4333-8333-333333333333";
+const SESSION_WIDE_OPTIONS = {
+  local: false,
+} as unknown as RlsBindingOptions;
+const SET_CONFIG_SQL = "SELECT set_config($1, $2, true)";
 
 const SUPERUSER_ROW = [{ rolname: "decaf", rolsuper: true, rolbypassrls: false }];
 const BYPASSRLS_ROW = [
@@ -54,6 +60,27 @@ function fakeExecutor(
   };
 }
 
+function captureVerbose(service: RlsBootstrapService): string[] {
+  const messages: string[] = [];
+  const logger = {
+    verbose: (message: unknown) => messages.push(String(message)),
+    info: () => undefined,
+    debug: () => undefined,
+    warn: () => undefined,
+    error: () => undefined,
+  };
+  (service as unknown as { logCtx: () => unknown }).logCtx = () => ({
+    for: () => ({ log: logger }),
+  });
+  return messages;
+}
+
+function setConfigCalls(
+  executor: ReturnType<typeof fakeExecutor>
+): RecordedCall[] {
+  return executor.calls.filter((call) => call.sql.includes("set_config("));
+}
+
 describe("assertPrincipalId", () => {
   it("accepts UUIDs", () => {
     expect(() => assertPrincipalId(PRINCIPAL_ID)).not.toThrow();
@@ -70,6 +97,23 @@ describe("assertPrincipalId", () => {
     ["undefined-like", undefined as unknown as string],
   ])("rejects %s values with ValidationError", (_label, value) => {
     expect(() => assertPrincipalId(value)).toThrow(ValidationError);
+  });
+
+  it("does not echo the rejected value in its ValidationError", () => {
+    const rejected = "not-a-uuid-principal-SECRET";
+
+    const failure = (() => {
+      try {
+        assertPrincipalId(rejected);
+      } catch (error) {
+        return error;
+      }
+      return undefined;
+    })();
+
+    expect(failure).toBeInstanceOf(ValidationError);
+    expect((failure as Error).message).not.toContain(rejected);
+    expect((failure as Error).message).not.toContain("SECRET");
   });
 });
 
@@ -209,28 +253,98 @@ describe("RlsBootstrapService", () => {
     await service.boot(executor);
 
     await service.setPrincipal(PRINCIPAL_ID);
-    await service.setPrincipal(PRINCIPAL_ID, { local: false });
-    await service.setTenant(PRINCIPAL_ID);
+    await service.setTenant(TENANT_ID);
     await service.clearPrincipal();
 
-    expect(executor.calls).toEqual([
+    const bindings = setConfigCalls(executor);
+    expect(bindings).toEqual([
       {
-        sql: "SELECT set_config($1, $2, $3)",
-        values: [RLS_SETTINGS.Principal, PRINCIPAL_ID, true],
+        sql: SET_CONFIG_SQL,
+        values: [RLS_SETTINGS.Principal, PRINCIPAL_ID],
       },
       {
-        sql: "SELECT set_config($1, $2, $3)",
-        values: [RLS_SETTINGS.Principal, PRINCIPAL_ID, false],
+        sql: SET_CONFIG_SQL,
+        values: [RLS_SETTINGS.Tenant, TENANT_ID],
       },
       {
-        sql: "SELECT set_config($1, $2, $3)",
-        values: [RLS_SETTINGS.Tenant, PRINCIPAL_ID, true],
-      },
-      {
-        sql: "SELECT set_config($1, $2, $3)",
-        values: [RLS_SETTINGS.Principal, "", true],
+        sql: SET_CONFIG_SQL,
+        values: [RLS_SETTINGS.Principal, ""],
       },
     ]);
+    expect(bindings).toHaveLength(3);
+    expect(
+      bindings.some((call) => call.values?.includes(false))
+    ).toBe(false);
+  });
+
+  it.each([
+    [
+      "setPrincipal",
+      (service: RlsBootstrapService) =>
+        service.setPrincipal(PRINCIPAL_ID, SESSION_WIDE_OPTIONS),
+    ],
+    [
+      "setTenant",
+      (service: RlsBootstrapService) =>
+        service.setTenant(TENANT_ID, SESSION_WIDE_OPTIONS),
+    ],
+    [
+      "clearPrincipal",
+      (service: RlsBootstrapService) =>
+        service.clearPrincipal(SESSION_WIDE_OPTIONS),
+    ],
+  ])(
+    "rejects a session-wide %s binding before issuing any SQL",
+    async (_method, invoke) => {
+      const executor = fakeExecutor();
+      const service = new RlsBootstrapService();
+      await service.boot(executor);
+
+      await expect(invoke(service)).rejects.toBeInstanceOf(ValidationError);
+      expect(setConfigCalls(executor)).toHaveLength(0);
+      expect(executor.calls).toHaveLength(0);
+    }
+  );
+
+  it("accepts an explicit local: true binding without a session-wide write", async () => {
+    const executor = fakeExecutor();
+    const service = new RlsBootstrapService();
+    await service.boot(executor);
+
+    await service.setPrincipal(PRINCIPAL_ID, { local: true });
+    await service.setTenant(TENANT_ID, { local: true });
+    await service.clearPrincipal({ local: true });
+
+    const bindings = setConfigCalls(executor);
+    expect(bindings).toHaveLength(3);
+    expect(bindings.every((call) => call.sql === SET_CONFIG_SQL)).toBe(true);
+    expect(bindings.every((call) => call.values?.length === 2)).toBe(true);
+    expect(bindings.map((call) => call.values)).toEqual([
+      [RLS_SETTINGS.Principal, PRINCIPAL_ID],
+      [RLS_SETTINGS.Tenant, TENANT_ID],
+      [RLS_SETTINGS.Principal, ""],
+    ]);
+    expect(
+      bindings.some((call) => call.values?.includes(false))
+    ).toBe(false);
+  });
+
+  it("redacts principal and tenant identifiers from verbose binding logs", async () => {
+    const executor = fakeExecutor();
+    const service = new RlsBootstrapService();
+    await service.boot(executor);
+    const messages = captureVerbose(service);
+
+    await service.setPrincipal(PRINCIPAL_ID);
+    await service.setTenant(TENANT_ID);
+    await service.clearPrincipal();
+
+    expect(messages.length).toBeGreaterThanOrEqual(3);
+    const output = messages.join("\n");
+    expect(output).not.toContain(PRINCIPAL_ID);
+    expect(output).not.toContain(PRINCIPAL_ID.toUpperCase());
+    expect(output).not.toContain(TENANT_ID);
+    expect(output).not.toContain(TENANT_ID.toUpperCase());
   });
 
   it("rejects an invalid principal before querying", async () => {

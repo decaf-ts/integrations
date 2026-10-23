@@ -214,6 +214,7 @@ export abstract class HttpApiService<
    * @param {CONF} config - The resolved service configuration.
    * @returns {Record<string, string>} The headers to send with every request; empty when the config carries no credentials.
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected authHeaders(_config: CONF): Record<string, string> {
     return {};
   }
