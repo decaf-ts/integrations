@@ -4,20 +4,27 @@ import { LoggedEnvironment } from "@decaf-ts/logging";
  * @module integrations/comms/environment
  * @summary Environment contract and accumulated environment for the comms integration services.
  * @description Declares the `CommsEnvironmentShape` consumed by the Slack,
- * Telegram, Teams, and Gmail services' `configFromEnvironment()` implementations and the
- * `CommsEnvironment` singleton created via `LoggedEnvironment.accumulate`.
- * Services read their credentials and defaults from the matching
- * `comms.<provider>` slice, using the `envString`/`envNumber` helpers from
- * `shared/environmentValue` to reject unset-leaf proxies.
+ * Telegram, Teams, Gmail, Discord, WhatsApp, and Outlook services'
+ * `configFromEnvironment()` implementations and the `CommsEnvironment`
+ * singleton created via `LoggedEnvironment.accumulate`. Services read their
+ * credentials and defaults from the matching `comms.<provider>` slice, using
+ * the `envString`/`envNumber` helpers from `shared/environmentValue` to reject
+ * unset-leaf proxies. The matching public subpath exports are
+ * `@decaf-ts/integrations/comms/discord`,
+ * `@decaf-ts/integrations/comms/whatsapp`, and
+ * `@decaf-ts/integrations/comms/outlook`.
  */
 /**
  * @description Environment shape for the comms integration services
  * @summary Defines the `comms` root with one slice per provider (`slack`,
- * `telegram`, `teams`, `email`, `gmail`). Each slice carries the provider's
- * required credentials (e.g. `token`, `webhookUrl`) plus optional `baseUrl`
- * override and `timeout`. Fields are typed as required here so
+ * `telegram`, `teams`, `email`, `gmail`, `discord`, `whatsApp`, `outlook`).
+ * Each slice carries the provider's required credentials (e.g. `token`,
+ * `webhookUrl`, `phoneNumberId`) plus optional `baseUrl` override and
+ * `timeout`. Fields are typed as required here so
  * `LoggedEnvironment.accumulate` registers them; absent values resolve to
  * proxy placeholders at runtime and must pass through `envString`/`envNumber`.
+ * Values are credential references supplied by the environment, never literals
+ * embedded in source.
  * @memberOf module:integrations/comms/environment
  */
 export interface CommsEnvironmentShape {
@@ -55,6 +62,25 @@ export interface CommsEnvironmentShape {
     gmail: {
       token: string;
       userId: string;
+      baseUrl: string;
+      timeout?: number;
+    };
+    /** Discord bot token and optional API overrides (`comms/discord`). */
+    discord: {
+      token: string;
+      baseUrl: string;
+      timeout?: number;
+    };
+    /** WhatsApp Cloud API token and sender phone number ID (`comms/whatsapp`). */
+    whatsApp: {
+      token: string;
+      phoneNumberId: string;
+      baseUrl: string;
+      timeout?: number;
+    };
+    /** Microsoft Graph access token for Outlook mail/calendar (`comms/outlook`). */
+    outlook: {
+      token: string;
       baseUrl: string;
       timeout?: number;
     };
@@ -113,6 +139,22 @@ export const CommsEnvironment = LoggedEnvironment.accumulate({
     gmail: {
       token: "",
       userId: "",
+      baseUrl: "",
+      timeout: undefined as unknown as number,
+    },
+    discord: {
+      token: "",
+      baseUrl: "",
+      timeout: undefined as unknown as number,
+    },
+    whatsApp: {
+      token: "",
+      phoneNumberId: "",
+      baseUrl: "",
+      timeout: undefined as unknown as number,
+    },
+    outlook: {
+      token: "",
       baseUrl: "",
       timeout: undefined as unknown as number,
     },

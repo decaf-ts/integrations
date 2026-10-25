@@ -1,6 +1,6 @@
 {
   "name": "@decaf-ts/integrations",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.mts",
@@ -258,6 +258,17 @@
       },
       "default": "./lib/esm/calendar/index.js"
     },
+    "./calendar/google-calendar": {
+      "import": {
+        "types": "./lib/types/calendar/google-calendar/index.d.mts",
+        "default": "./lib/esm/calendar/google-calendar/index.js"
+      },
+      "require": {
+        "types": "./lib/types/calendar/google-calendar/index.d.cts",
+        "default": "./lib/cjs/calendar/google-calendar/index.cjs"
+      },
+      "default": "./lib/esm/calendar/google-calendar/index.js"
+    },
     "./sftp": {
       "import": {
         "types": "./lib/types/sftp/index.d.mts",
@@ -357,6 +368,39 @@
       },
       "default": "./lib/esm/comms/telegram/index.js"
     },
+    "./comms/discord": {
+      "import": {
+        "types": "./lib/types/comms/discord/index.d.mts",
+        "default": "./lib/esm/comms/discord/index.js"
+      },
+      "require": {
+        "types": "./lib/types/comms/discord/index.d.cts",
+        "default": "./lib/cjs/comms/discord/index.cjs"
+      },
+      "default": "./lib/esm/comms/discord/index.js"
+    },
+    "./comms/whatsapp": {
+      "import": {
+        "types": "./lib/types/comms/whatsapp/index.d.mts",
+        "default": "./lib/esm/comms/whatsapp/index.js"
+      },
+      "require": {
+        "types": "./lib/types/comms/whatsapp/index.d.cts",
+        "default": "./lib/cjs/comms/whatsapp/index.cjs"
+      },
+      "default": "./lib/esm/comms/whatsapp/index.js"
+    },
+    "./comms/outlook": {
+      "import": {
+        "types": "./lib/types/comms/outlook/index.d.mts",
+        "default": "./lib/esm/comms/outlook/index.js"
+      },
+      "require": {
+        "types": "./lib/types/comms/outlook/index.d.cts",
+        "default": "./lib/cjs/comms/outlook/index.cjs"
+      },
+      "default": "./lib/esm/comms/outlook/index.js"
+    },
     "./devops": {
       "import": {
         "types": "./lib/types/devops/index.d.mts",
@@ -444,6 +488,61 @@
         "default": "./lib/cjs/io/spreadsheet/index.cjs"
       },
       "default": "./lib/esm/io/spreadsheet/index.js"
+    },
+    "./io/microsoft-excel": {
+      "import": {
+        "types": "./lib/types/io/microsoft-excel/index.d.mts",
+        "default": "./lib/esm/io/microsoft-excel/index.js"
+      },
+      "require": {
+        "types": "./lib/types/io/microsoft-excel/index.d.cts",
+        "default": "./lib/cjs/io/microsoft-excel/index.cjs"
+      },
+      "default": "./lib/esm/io/microsoft-excel/index.js"
+    },
+    "./io/confluence": {
+      "import": {
+        "types": "./lib/types/io/confluence/index.d.mts",
+        "default": "./lib/esm/io/confluence/index.js"
+      },
+      "require": {
+        "types": "./lib/types/io/confluence/index.d.cts",
+        "default": "./lib/cjs/io/confluence/index.cjs"
+      },
+      "default": "./lib/esm/io/confluence/index.js"
+    },
+    "./io/jira": {
+      "import": {
+        "types": "./lib/types/io/jira/index.d.mts",
+        "default": "./lib/esm/io/jira/index.js"
+      },
+      "require": {
+        "types": "./lib/types/io/jira/index.d.cts",
+        "default": "./lib/cjs/io/jira/index.cjs"
+      },
+      "default": "./lib/esm/io/jira/index.js"
+    },
+    "./io/google-docs": {
+      "import": {
+        "types": "./lib/types/io/google-docs/index.d.mts",
+        "default": "./lib/esm/io/google-docs/index.js"
+      },
+      "require": {
+        "types": "./lib/types/io/google-docs/index.d.cts",
+        "default": "./lib/cjs/io/google-docs/index.cjs"
+      },
+      "default": "./lib/esm/io/google-docs/index.js"
+    },
+    "./io/microsoft-sharepoint": {
+      "import": {
+        "types": "./lib/types/io/microsoft-sharepoint/index.d.mts",
+        "default": "./lib/esm/io/microsoft-sharepoint/index.js"
+      },
+      "require": {
+        "types": "./lib/types/io/microsoft-sharepoint/index.d.cts",
+        "default": "./lib/cjs/io/microsoft-sharepoint/index.cjs"
+      },
+      "default": "./lib/esm/io/microsoft-sharepoint/index.js"
     },
     "./plugins": {
       "import": {

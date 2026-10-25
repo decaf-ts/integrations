@@ -10,4 +10,7 @@ export * from "./gmail";
 export * from "./slack";
 export * from "./teams";
 export * from "./telegram";
+export * from "./discord";
+export * from "./whatsapp";
+export * from "./outlook";
 export * from "./environment";
