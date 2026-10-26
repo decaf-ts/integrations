@@ -150,14 +150,25 @@
     },
     "./secrets/oneppassword": {
       "import": {
-        "types": "./lib/types/secrets/oneppassword/index.d.mts",
-        "default": "./lib/esm/secrets/oneppassword/index.js"
+        "types": "./lib/types/secrets/onepassword/index.d.mts",
+        "default": "./lib/esm/secrets/onepassword/index.js"
       },
       "require": {
-        "types": "./lib/types/secrets/oneppassword/index.d.cts",
-        "default": "./lib/cjs/secrets/oneppassword/index.cjs"
+        "types": "./lib/types/secrets/onepassword/index.d.cts",
+        "default": "./lib/cjs/secrets/onepassword/index.cjs"
       },
-      "default": "./lib/esm/secrets/oneppassword/index.js"
+      "default": "./lib/esm/secrets/onepassword/index.js"
+    },
+    "./secrets/onepassword": {
+      "import": {
+        "types": "./lib/types/secrets/onepassword/index.d.mts",
+        "default": "./lib/esm/secrets/onepassword/index.js"
+      },
+      "require": {
+        "types": "./lib/types/secrets/onepassword/index.d.cts",
+        "default": "./lib/cjs/secrets/onepassword/index.cjs"
+      },
+      "default": "./lib/esm/secrets/onepassword/index.js"
     },
     "./secrets/vault": {
       "import": {
@@ -225,17 +236,6 @@
       },
       "default": "./lib/esm/blob/local/index.js"
     },
-    "./blob/ipfs": {
-      "import": {
-        "types": "./lib/types/blob/ipfs/index.d.mts",
-        "default": "./lib/esm/blob/ipfs/index.js"
-      },
-      "require": {
-        "types": "./lib/types/blob/ipfs/index.d.cts",
-        "default": "./lib/cjs/blob/ipfs/index.cjs"
-      },
-      "default": "./lib/esm/blob/ipfs/index.js"
-    },
     "./blob/memory": {
       "import": {
         "types": "./lib/types/blob/memory/index.d.mts",
@@ -279,6 +279,28 @@
         "default": "./lib/cjs/sftp/index.cjs"
       },
       "default": "./lib/esm/sftp/index.js"
+    },
+    "./sftp/aws": {
+      "import": {
+        "types": "./lib/types/sftp/aws/index.d.mts",
+        "default": "./lib/esm/sftp/aws/index.js"
+      },
+      "require": {
+        "types": "./lib/types/sftp/aws/index.d.cts",
+        "default": "./lib/cjs/sftp/aws/index.cjs"
+      },
+      "default": "./lib/esm/sftp/aws/index.js"
+    },
+    "./sftp/ssh2": {
+      "import": {
+        "types": "./lib/types/sftp/ssh2/index.d.mts",
+        "default": "./lib/esm/sftp/ssh2/index.js"
+      },
+      "require": {
+        "types": "./lib/types/sftp/ssh2/index.d.cts",
+        "default": "./lib/cjs/sftp/ssh2/index.cjs"
+      },
+      "default": "./lib/esm/sftp/ssh2/index.js"
     },
     "./redis": {
       "import": {
@@ -620,34 +642,31 @@
     "repo:pr": "npm run repo:doc && npm run repo:tests && npm run repo:readme",
     "clean": "rimraf ./lib ./workdocs/coverage"
   },
-  "dependencies": {
+  "devDependencies": {
+    "@aws-sdk/client-s3": "^3.1075.0",
+    "@aws-sdk/client-secrets-manager": "^3.758.0",
+    "@aws-sdk/s3-request-presigner": "^3.1075.0",
+    "@azure/identity": "4.13.0",
+    "@azure/keyvault-secrets": "^4.9.0",
+    "@azure/storage-blob": "^12.33.0",
+    "@decaf-ts/as-zod": "latest",
+    "@decaf-ts/cli": "latest",
     "@decaf-ts/core": "latest",
     "@decaf-ts/crypto": "latest",
     "@decaf-ts/db-decorators": "latest",
     "@decaf-ts/decoration": "latest",
     "@decaf-ts/decorator-validation": "latest",
+    "@decaf-ts/for-http": "latest",
+    "@decaf-ts/for-nano": "latest",
+    "@decaf-ts/for-nest": "latest",
     "@decaf-ts/injectable-decorators": "latest",
     "@decaf-ts/logging": "latest",
     "@decaf-ts/transactional-decorators": "latest",
     "@decaf-ts/ui-decorators": "latest",
-    "acorn": "^8.17.0",
-    "acorn-walk": "^8.3.5",
-    "axios": "^1.7.9",
-    "cron-parser": "^5.7.0",
-    "isolated-vm": "^6.1.2",
-    "node-fetch": "^3.3.2",
-    "redis": "^6.3.0",
-    "tslib": "^2.8.1",
-    "typescript": "^5.9.3",
-    "uuid": "^11.1.1"
-  },
-  "devDependencies": {
-    "@decaf-ts/as-zod": "latest",
-    "@decaf-ts/cli": "latest",
-    "@decaf-ts/for-http": "latest",
-    "@decaf-ts/for-nano": "latest",
-    "@decaf-ts/for-nest": "latest",
     "@decaf-ts/utils": "latest",
+    "@google-cloud/secret-manager": "^5.6.0",
+    "@google-cloud/storage": "^7.21.0",
+    "@grpc/grpc-js": "^1.14.6",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
@@ -657,50 +676,139 @@
     "@types/jest": "^30.0.0",
     "@types/pg": "^8.23.1",
     "@types/supertest": "^6.0.0",
+    "acorn": "^8.17.0",
+    "acorn-walk": "^8.3.5",
+    "axios": "^1.7.9",
+    "cron-parser": "^5.7.0",
+    "form-data": "^4.0.6",
+    "imapflow": "^1.7.1",
+    "isolated-vm": "^6.1.2",
+    "node-fetch": "^3.3.2",
     "nodemailer": "^10.1.7",
     "pg": "^8.23.1",
+    "redis": "^6.3.0",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
-    "supertest": "^7.0.0"
+    "ssh2": "^1.16.0",
+    "supertest": "^7.0.0",
+    "tslib": "^2.8.1",
+    "typescript": "^5.9.3",
+    "uuid": "^11.1.1"
   },
   "peerDependencies": {
-    "@decaf-ts/as-zod": "latest",
+    "@aws-sdk/client-s3": "^3.1075.0",
+    "@aws-sdk/client-secrets-manager": "^3.758.0",
+    "@aws-sdk/s3-request-presigner": "^3.1075.0",
+    "@azure/identity": "^4.13.0",
+    "@azure/keyvault-secrets": "^4.9.0",
+    "@azure/storage-blob": "^12.33.0",
+    "@decaf-ts/core": "latest",
+    "@decaf-ts/crypto": "latest",
+    "@decaf-ts/db-decorators": "latest",
+    "@decaf-ts/decoration": "latest",
+    "@decaf-ts/decorator-validation": "latest",
     "@decaf-ts/for-http": "latest",
-    "@decaf-ts/for-nest": "latest",
-    "jose": ">=5.0.0",
+    "@decaf-ts/injectable-decorators": "latest",
+    "@decaf-ts/logging": "latest",
+    "@decaf-ts/ui-decorators": "latest",
+    "@google-cloud/secret-manager": "^5.6.0",
+    "@google-cloud/storage": "^7.21.0",
+    "@grpc/grpc-js": "^1.14.6",
+    "@nestjs/common": "^11.0.0",
+    "axios": "^1.7.9",
+    "cron-parser": "^5.7.0",
+    "form-data": "^4.0.6",
+    "imapflow": "^1.7.1",
     "nodemailer": "^10.1.7",
-    "pg": ">=8.0.0"
+    "redis": "^6.3.0",
+    "reflect-metadata": "^0.2.0",
+    "ssh2": "^1.16.0"
   },
   "peerDependenciesMeta": {
+    "@aws-sdk/client-s3": {
+      "optional": true
+    },
+    "@aws-sdk/client-secrets-manager": {
+      "optional": true
+    },
+    "@aws-sdk/s3-request-presigner": {
+      "optional": true
+    },
+    "@azure/identity": {
+      "optional": true
+    },
+    "@azure/keyvault-secrets": {
+      "optional": true
+    },
+    "@azure/storage-blob": {
+      "optional": true
+    },
+    "@decaf-ts/core": {
+      "optional": true
+    },
+    "@decaf-ts/crypto": {
+      "optional": true
+    },
+    "@decaf-ts/db-decorators": {
+      "optional": true
+    },
+    "@decaf-ts/decoration": {
+      "optional": true
+    },
+    "@decaf-ts/decorator-validation": {
+      "optional": true
+    },
     "@decaf-ts/for-http": {
       "optional": true
     },
-    "@decaf-ts/for-nest": {
+    "@decaf-ts/injectable-decorators": {
       "optional": true
     },
-    "jose": {
+    "@decaf-ts/logging": {
+      "optional": true
+    },
+    "@decaf-ts/ui-decorators": {
+      "optional": true
+    },
+    "@google-cloud/secret-manager": {
+      "optional": true
+    },
+    "@google-cloud/storage": {
+      "optional": true
+    },
+    "@grpc/grpc-js": {
+      "optional": true
+    },
+    "axios": {
+      "optional": true
+    },
+    "cron-parser": {
+      "optional": true
+    },
+    "form-data": {
+      "optional": true
+    },
+    "imapflow": {
       "optional": true
     },
     "nodemailer": {
       "optional": true
     },
-    "pg": {
+    "redis": {
+      "optional": true
+    },
+    "reflect-metadata": {
+      "optional": true
+    },
+    "ssh2": {
+      "optional": true
+    },
+    "@nestjs/common": {
       "optional": true
     }
   },
   "overrides": {
-    "js-yaml": "^5.2.2"
-  },
-  "optionalDependencies": {
-    "@aws-sdk/client-s3": "^3.1075.0",
-    "@aws-sdk/client-secrets-manager": "^3.758.0",
-    "@aws-sdk/s3-request-presigner": "^3.1075.0",
-    "@azure/identity": "^4.13.1",
-    "@azure/keyvault-secrets": "^4.9.0",
-    "@azure/storage-blob": "^12.33.0",
-    "@google-cloud/secret-manager": "^5.6.0",
-    "@google-cloud/storage": "^7.21.0",
-    "imapflow": "^1.7.1",
-    "ssh2": "^1.16.0"
+    "js-yaml": "^5.2.2",
+    "multer": "^2.5.0"
   }
 }
