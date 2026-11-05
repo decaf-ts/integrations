@@ -246,10 +246,11 @@ All 13 as-graph node kinds that boot integrations services (comms, devops, io, a
 
 ## Optional peer dependencies
 
-Two new optional peers were added (`peerDependenciesMeta` marks both optional; each is also a dev dependency):
+Optional peers are declared in `peerDependenciesMeta`; each is also a dev dependency:
 
 | Peer | Needed for |
 |:-----|:-----------|
+| `@kubernetes/client-node` (`^2.0.2`) | Native Kubernetes Secrets backend (`KubernetesSecretService`). Install: `npm i @kubernetes/client-node`. |
 | `nodemailer` (`>=7.0.0`) | SMTP delivery (`SmtpClient`, `EmailService` SMTP path). Install: `npm i nodemailer`. |
 | `pg` (`>=8.0.0`) | Namespace RLS / credential / model-secret integration tests and applications driving the RLS bootstrap against Postgres. Install: `npm i pg`. |
 
@@ -260,6 +261,15 @@ Two new optional peers were added (`peerDependenciesMeta` marks both optional; e
 - `docker/dragonfly-compose.yml` — DragonflyDB (Redis-compatible) on `localhost:6379` (Redis adapter ITs).
 - `docker/postgres-compose.yml` — `postgres:16` on host port `55435`, db `decaf_integration`, user `decaf` (RLS matrix, credential, and model-secret ITs; override the connection string with `DECAF_PG_URL`, default `postgresql://decaf:decaf-integration@localhost:55435/decaf_integration`).
 - `docker/mailpit-compose.yml` — Mailpit SMTP sink on `1025` (HTTP API/UI on `8025`), accepting any AUTH including plaintext so the SMTP credential path is exercisable locally (Email ITs).
+
+Kubernetes secret integration tests are opt-in because they need a live cluster. Start minikube, point `KUBECONFIG` at it, and run the suite explicitly:
+
+```bash
+minikube start
+npm run test:integration:kubernetes
+```
+
+The suite creates a disposable namespace, exercises the full CRUD contract, and deletes the namespace afterwards. Without a reachable cluster (and `KUBECONFIG`) it is skipped.
 
 Run the integration tests with `npm run test:integration`.
 

@@ -14,6 +14,7 @@ import { AzureKeyVaultSecretService } from "../../../src/secrets/azure/AzureKeyV
 import { GcpSecretManagerService } from "../../../src/secrets/gcp/GcpSecretManagerService";
 import { VaultSecretService } from "../../../src/secrets/vault/VaultSecretService";
 import { OnePasswordSecretService } from "../../../src/secrets/onepassword/OnePasswordSecretService";
+import { KubernetesSecretService } from "../../../src/secrets/kubernetes/KubernetesSecretService";
 import { ModelSecretService } from "../../../src/secrets/model/ModelSecretService";
 
 const ENV_KEYS = [
@@ -24,6 +25,8 @@ const ENV_KEYS = [
   "SECRETS__VAULT__TOKEN",
   "SECRETS__VAULT__PATH",
   "SECRETS__ONE_PASSWORD__CONNECT_HOST",
+  "SECRETS__KUBERNETES__NAMESPACE",
+  "SECRETS__KUBERNETES__KUBECONFIG",
   "SECRETS__MODEL__KEY_SECRET",
 ];
 
@@ -65,6 +68,12 @@ describe("Secret environment fallback", () => {
       await expect(
         new OnePasswordSecretService().initialize()
       ).rejects.toThrow(ValidationError);
+    });
+
+    it("KubernetesSecretService", async () => {
+      await expect(new KubernetesSecretService().initialize()).rejects.toThrow(
+        ValidationError
+      );
     });
 
     it("ModelSecretService", async () => {
@@ -141,6 +150,19 @@ describe("Secret environment fallback", () => {
         expect.objectContaining({
           provider: "1password",
           connectHost: "https://connect.env.local",
+        })
+      );
+    });
+
+    it("KubernetesSecretService initializes without an explicit config", async () => {
+      process.env.SECRETS__KUBERNETES__NAMESPACE = "env-namespace";
+
+      const svc = new KubernetesSecretService();
+      await svc.initialize();
+      expect((svc as any).config).toEqual(
+        expect.objectContaining({
+          provider: "kubernetes",
+          namespace: "env-namespace",
         })
       );
     });

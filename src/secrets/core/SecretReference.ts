@@ -68,6 +68,7 @@ function isValidProvider(provider: string): provider is SecretProvider {
     "azure-key-vault",
     "gcp-secret-manager",
     "1password",
+    "kubernetes",
   ];
   return validProviders.includes(provider as SecretProvider);
 }

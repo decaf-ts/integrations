@@ -59,6 +59,16 @@ Use these services when you want a common secret interface while keeping provide
 - use when you already have a Vault deployment and token
 - supports read/write/list/delete against KV v2 paths
 
+### Kubernetes
+
+[`KubernetesSecretService`](../../src/secrets/kubernetes/KubernetesSecretService.ts) stores secrets as native, namespaced Kubernetes `Secret` objects through the official `@kubernetes/client-node` client.
+
+- use when the workload already runs in Kubernetes or has a kubeconfig
+- resolves credentials from an explicit server/token, a `kubeconfig` file, `KUBECONFIG`, `~/.kube/config`, or the in-cluster service account
+- stores the serialized payload in the `payload` data key and keeps encoding, content type, tags, logical version, and ownership hints in `decaf-ts.io/*` annotations
+- lists only secrets labeled `decaf-ts.io/managed=true`
+- names must be valid lowercase Kubernetes DNS-1123 subdomains; the namespace defaults to the kubeconfig context namespace, then `default`, and can be overridden per call with `namespace`
+
 ### 1Password
 
 [`OnePasswordSecretService`](../../src/secrets/onepassword/OnePasswordSecretService.ts) wraps 1Password Connect / account-style access.
@@ -70,16 +80,20 @@ Use these services when you want a common secret interface while keeping provide
 ## Typical Usage
 
 ```ts
-import { AwsSecretService } from "@decaf-ts/integrations/secrets/aws";
+import { KubernetesSecretService } from "@decaf-ts/integrations/secrets/kubernetes";
 
-const secrets = new AwsSecretService();
-await secrets.boot({ provider: "aws-secrets-manager", region: "eu-west-1" });
+const secrets = new KubernetesSecretService();
+await secrets.boot({
+  provider: "kubernetes",
+  namespace: "payments",
+  kubeconfig: process.env.KUBECONFIG,
+});
 
-await secrets.store("api-key", { value: "secret-value" });
+await secrets.store("api-key", { value: "secret-value" }, { tags: { env: "prod" } });
 const current = await secrets.retrieve("api-key");
 ```
 
-Secret services are plain undecorated classes: construct them directly and call `boot(config)` with an explicit configuration object.
+Secret services are plain undecorated classes: construct them directly and call `boot(config)` with an explicit configuration object. The Kubernetes provider requires the optional `@kubernetes/client-node` peer (`npm i @kubernetes/client-node`).
 
 ## Error Handling
 

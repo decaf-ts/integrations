@@ -181,6 +181,17 @@
       },
       "default": "./lib/esm/secrets/vault/index.js"
     },
+    "./secrets/kubernetes": {
+      "import": {
+        "types": "./lib/types/secrets/kubernetes/index.d.mts",
+        "default": "./lib/esm/secrets/kubernetes/index.js"
+      },
+      "require": {
+        "types": "./lib/types/secrets/kubernetes/index.d.cts",
+        "default": "./lib/cjs/secrets/kubernetes/index.cjs"
+      },
+      "default": "./lib/esm/secrets/kubernetes/index.js"
+    },
     "./blob": {
       "import": {
         "types": "./lib/types/blob/index.d.mts",
@@ -616,6 +627,7 @@
     "test": "npm run build && NODE_OPTIONS=\"--experimental-vm-modules\" jest --watchman=false --runInBand --coverage --detectOpenHandles",
     "test:unit": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --watchman=false --testPathPatterns=\"/tests/unit\" --passWithNoTests --detectOpenHandles",
     "test:integration": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --watchman=false --testPathPatterns=\"/tests/(integration)\" --passWithNoTests --detectOpenHandles",
+    "test:integration:kubernetes": "DECAF_KUBERNETES_IT=1 NODE_OPTIONS=\"--experimental-vm-modules\" jest --watchman=false --runInBand --testPathPatterns=kubernetes-secrets --passWithNoTests --detectOpenHandles",
     "test:e2e": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --watchman=false --testPathPatterns=\"/tests/(e2e)\" --passWithNoTests --detectOpenHandles",
     "test:e2e:plugins": "npx playwright test --config tests/playwright/playwright.config.ts --project chromium",
     "test:e2e:plugins:kibana": "npx playwright test --config tests/playwright/playwright.config.ts tests/playwright/kibana.e2e.ts",
@@ -667,6 +679,7 @@
     "@google-cloud/secret-manager": "^5.6.0",
     "@google-cloud/storage": "^7.21.0",
     "@grpc/grpc-js": "^1.14.6",
+    "@kubernetes/client-node": "^2.0.2",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
@@ -714,6 +727,7 @@
     "@google-cloud/secret-manager": "^5.6.0",
     "@google-cloud/storage": "^7.21.0",
     "@grpc/grpc-js": "^1.14.6",
+    "@kubernetes/client-node": "^2.0.2",
     "@nestjs/common": "^11.0.0",
     "axios": "^1.7.9",
     "cron-parser": "^5.7.0",
@@ -777,6 +791,9 @@
       "optional": true
     },
     "@grpc/grpc-js": {
+      "optional": true
+    },
+    "@kubernetes/client-node": {
       "optional": true
     },
     "axios": {

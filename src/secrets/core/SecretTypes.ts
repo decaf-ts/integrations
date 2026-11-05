@@ -11,7 +11,8 @@ export type SecretProvider =
   | "aws-secrets-manager"
   | "azure-key-vault"
   | "gcp-secret-manager"
-  | "1password";
+  | "1password"
+  | "kubernetes";
 
 export type SecretName = string;
 
@@ -76,20 +77,29 @@ export interface StoreSecretOptions {
    * @description Principal that owns the secret.
    */
   ownerPrincipalId?: string;
+  /**
+   * @description Backend namespace or tenant partition for the secret.
+   * @summary Kubernetes uses this as the object namespace; other providers may
+   * ignore it when their backend is not namespace-scoped.
+   */
+  namespace?: string;
 }
 
 export interface RetrieveSecretOptions {
   version?: string;
   includeMetadata?: boolean;
+  namespace?: string;
 }
 
 export interface DeleteSecretOptions {
   force?: boolean;
   version?: string;
+  namespace?: string;
 }
 
 export interface ExistsSecretOptions {
   version?: string;
+  namespace?: string;
 }
 
 export interface ListSecretsOptions {
@@ -97,15 +107,18 @@ export interface ListSecretsOptions {
   offset?: number;
   tags?: Record<string, string>;
   enabled?: boolean;
+  namespace?: string;
 }
 
 export interface SecretMetadataOptions {
   version?: string;
   includeTags?: boolean;
+  namespace?: string;
 }
 
 export interface RotateSecretOptions {
   oldVersion?: string;
   newVersion?: string;
   keyId?: string;
+  namespace?: string;
 }
