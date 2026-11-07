@@ -6,17 +6,14 @@
  * `app.principal_id`, and proves the reader/writer/admin and end-user visibility
  * rules against a real non-superuser, NOBYPASSRLS role.
  */
+import { it } from "@decaf-ts/for-testing";
 import { jest } from "@jest/globals";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
-import {
-  RlsBootstrapService,
-} from "../../../src/namespaces/rls/rls-bootstrap.service";
-import {
-  rlsBootstrapStatements,
-} from "../../../src/namespaces/rls/rls.template";
+import { RlsBootstrapService } from "../../../src/namespaces/rls/rls-bootstrap.service";
+import { rlsBootstrapStatements } from "../../../src/namespaces/rls/rls.template";
 import {
   RLS_PERMISSION_KEYS,
   RLS_ROLE_KEYS,
@@ -25,10 +22,7 @@ import {
 jest.setTimeout(120_000);
 
 const testDirname = dirname(fileURLToPath(import.meta.url));
-const fixturePath = resolve(
-  testDirname,
-  "fixtures/postgres-rls-schema.sql"
-);
+const fixturePath = resolve(testDirname, "fixtures/postgres-rls-schema.sql");
 
 const DEFAULT_PG_URL =
   "postgresql://decaf:decaf-integration@localhost:55435/decaf_integration";
@@ -199,10 +193,15 @@ async function insertRow(
 }
 
 async function seed(): Promise<void> {
-  await insertRows(client, "tenants", ["id", "slug", "name"], [
-    [T1, "tenant-one", "Tenant One"],
-    [T2, "tenant-two", "Tenant Two"],
-  ]);
+  await insertRows(
+    client,
+    "tenants",
+    ["id", "slug", "name"],
+    [
+      [T1, "tenant-one", "Tenant One"],
+      [T2, "tenant-two", "Tenant Two"],
+    ]
+  );
 
   await insertRows(
     client,
@@ -377,13 +376,69 @@ async function seed(): Promise<void> {
       "inherit_down",
     ],
     [
-      [ROLE_ASSIGNMENT.adminTenant, T1, P.admin, ROLE.admin, "tenant", T1, true],
-      [ROLE_ASSIGNMENT.writerTenant, T1, P.writer, ROLE.writer, "tenant", T1, true],
-      [ROLE_ASSIGNMENT.readerTenant, T1, P.reader, ROLE.reader, "tenant", T1, true],
-      [ROLE_ASSIGNMENT.adminOu, T1, P.adminOu, ROLE.adminOu, "org_unit", DEPT, true],
-      [ROLE_ASSIGNMENT.writerOu, T1, P.writerOu, ROLE.writer, "org_unit", DEPT, true],
-      [ROLE_ASSIGNMENT.readerOu, T1, P.readerOu, ROLE.reader, "org_unit", DEPT, true],
-      [ROLE_ASSIGNMENT.adminResource, T1, P.adminOu, ROLE.adminOu, "resource", PROJECT.dept, false],
+      [
+        ROLE_ASSIGNMENT.adminTenant,
+        T1,
+        P.admin,
+        ROLE.admin,
+        "tenant",
+        T1,
+        true,
+      ],
+      [
+        ROLE_ASSIGNMENT.writerTenant,
+        T1,
+        P.writer,
+        ROLE.writer,
+        "tenant",
+        T1,
+        true,
+      ],
+      [
+        ROLE_ASSIGNMENT.readerTenant,
+        T1,
+        P.reader,
+        ROLE.reader,
+        "tenant",
+        T1,
+        true,
+      ],
+      [
+        ROLE_ASSIGNMENT.adminOu,
+        T1,
+        P.adminOu,
+        ROLE.adminOu,
+        "org_unit",
+        DEPT,
+        true,
+      ],
+      [
+        ROLE_ASSIGNMENT.writerOu,
+        T1,
+        P.writerOu,
+        ROLE.writer,
+        "org_unit",
+        DEPT,
+        true,
+      ],
+      [
+        ROLE_ASSIGNMENT.readerOu,
+        T1,
+        P.readerOu,
+        ROLE.reader,
+        "org_unit",
+        DEPT,
+        true,
+      ],
+      [
+        ROLE_ASSIGNMENT.adminResource,
+        T1,
+        P.adminOu,
+        ROLE.adminOu,
+        "resource",
+        PROJECT.dept,
+        false,
+      ],
       [ROLE_ASSIGNMENT.t2Admin, T2, P.t2Admin, ROLE.t2, "tenant", T2, false],
     ]
   );
@@ -402,13 +457,76 @@ async function seed(): Promise<void> {
       "source_id",
     ],
     [
-      [uuid(880), T1, P.admin, RLS_PERMISSION_KEYS.Admin, "tenant", T1, "role_assignment", ROLE_ASSIGNMENT.adminTenant],
-      [uuid(881), T1, P.writer, RLS_PERMISSION_KEYS.Write, "tenant", T1, "role_assignment", ROLE_ASSIGNMENT.writerTenant],
-      [uuid(882), T1, P.reader, RLS_PERMISSION_KEYS.Read, "tenant", T1, "role_assignment", ROLE_ASSIGNMENT.readerTenant],
-      [uuid(883), T1, P.adminOu, RLS_PERMISSION_KEYS.Admin, "org_unit", DEPT, "role_assignment", ROLE_ASSIGNMENT.adminOu],
-      [uuid(884), T1, P.writerOu, RLS_PERMISSION_KEYS.Write, "org_unit", DEPT, "role_assignment", ROLE_ASSIGNMENT.writerOu],
-      [uuid(885), T1, P.readerOu, RLS_PERMISSION_KEYS.Read, "org_unit", DEPT, "role_assignment", ROLE_ASSIGNMENT.readerOu],
-      [uuid(886), T2, P.t2Admin, RLS_PERMISSION_KEYS.Admin, "tenant", T2, "role_assignment", ROLE_ASSIGNMENT.t2Admin],
+      [
+        uuid(880),
+        T1,
+        P.admin,
+        RLS_PERMISSION_KEYS.Admin,
+        "tenant",
+        T1,
+        "role_assignment",
+        ROLE_ASSIGNMENT.adminTenant,
+      ],
+      [
+        uuid(881),
+        T1,
+        P.writer,
+        RLS_PERMISSION_KEYS.Write,
+        "tenant",
+        T1,
+        "role_assignment",
+        ROLE_ASSIGNMENT.writerTenant,
+      ],
+      [
+        uuid(882),
+        T1,
+        P.reader,
+        RLS_PERMISSION_KEYS.Read,
+        "tenant",
+        T1,
+        "role_assignment",
+        ROLE_ASSIGNMENT.readerTenant,
+      ],
+      [
+        uuid(883),
+        T1,
+        P.adminOu,
+        RLS_PERMISSION_KEYS.Admin,
+        "org_unit",
+        DEPT,
+        "role_assignment",
+        ROLE_ASSIGNMENT.adminOu,
+      ],
+      [
+        uuid(884),
+        T1,
+        P.writerOu,
+        RLS_PERMISSION_KEYS.Write,
+        "org_unit",
+        DEPT,
+        "role_assignment",
+        ROLE_ASSIGNMENT.writerOu,
+      ],
+      [
+        uuid(885),
+        T1,
+        P.readerOu,
+        RLS_PERMISSION_KEYS.Read,
+        "org_unit",
+        DEPT,
+        "role_assignment",
+        ROLE_ASSIGNMENT.readerOu,
+      ],
+      [
+        uuid(886),
+        T2,
+        P.t2Admin,
+        RLS_PERMISSION_KEYS.Admin,
+        "tenant",
+        T2,
+        "role_assignment",
+        ROLE_ASSIGNMENT.t2Admin,
+      ],
     ]
   );
 
@@ -428,9 +546,33 @@ async function seed(): Promise<void> {
       [PROJECT.tenant, T1, ROOT, "project", "p-tenant", "tenant", P.admin],
       [PROJECT.dept, T1, DEPT, "project", "p-dept", "org_unit", P.admin],
       [PROJECT.team, T1, TEAM, "project", "p-team", "org_unit", P.other],
-      [PROJECT.privateOther, T1, TEAM, "project", "p-private-other", "private", P.other],
-      [PROJECT.privatePlain, T1, TEAM, "project", "p-private-plain", "private", P.plain],
-      [PROJECT.grantedToPlain, T1, TEAM, "project", "p-grant", "private", P.other],
+      [
+        PROJECT.privateOther,
+        T1,
+        TEAM,
+        "project",
+        "p-private-other",
+        "private",
+        P.other,
+      ],
+      [
+        PROJECT.privatePlain,
+        T1,
+        TEAM,
+        "project",
+        "p-private-plain",
+        "private",
+        P.plain,
+      ],
+      [
+        PROJECT.grantedToPlain,
+        T1,
+        TEAM,
+        "project",
+        "p-grant",
+        "private",
+        P.other,
+      ],
       [PROJECT.t2, T2, ORG2, "project", "p-t2", "tenant", P.t2Admin],
     ]
   );
@@ -446,9 +588,7 @@ async function seed(): Promise<void> {
       "permission_key",
       "created_by_principal_id",
     ],
-    [
-      [uuid(900), T1, PROJECT.grantedToPlain, P.plain, "resource.read", P.admin],
-    ]
+    [[uuid(900), T1, PROJECT.grantedToPlain, P.plain, "resource.read", P.admin]]
   );
 
   await insertRows(
@@ -465,11 +605,56 @@ async function seed(): Promise<void> {
       "provider",
     ],
     [
-      [CREDENTIAL.plain, T1, TEAM, P.plain, "plain-credential", "password", "plain-secret", "model"],
-      [CREDENTIAL.otherSales, T1, SALES, P.other, "other-sales-credential", "password", "other-sales-secret", "model"],
-      [CREDENTIAL.tenant, T1, null, P.admin, "tenant-credential", "password", "tenant-secret", "model"],
-      [CREDENTIAL.dept, T1, DEPT, P.admin, "dept-credential", "password", "dept-secret", "model"],
-      [CREDENTIAL.t2, T2, ORG2, P.t2Admin, "t2-credential", "password", "t2-secret", "model"],
+      [
+        CREDENTIAL.plain,
+        T1,
+        TEAM,
+        P.plain,
+        "plain-credential",
+        "password",
+        "plain-secret",
+        "model",
+      ],
+      [
+        CREDENTIAL.otherSales,
+        T1,
+        SALES,
+        P.other,
+        "other-sales-credential",
+        "password",
+        "other-sales-secret",
+        "model",
+      ],
+      [
+        CREDENTIAL.tenant,
+        T1,
+        null,
+        P.admin,
+        "tenant-credential",
+        "password",
+        "tenant-secret",
+        "model",
+      ],
+      [
+        CREDENTIAL.dept,
+        T1,
+        DEPT,
+        P.admin,
+        "dept-credential",
+        "password",
+        "dept-secret",
+        "model",
+      ],
+      [
+        CREDENTIAL.t2,
+        T2,
+        ORG2,
+        P.t2Admin,
+        "t2-credential",
+        "password",
+        "t2-secret",
+        "model",
+      ],
     ]
   );
 
@@ -487,12 +672,66 @@ async function seed(): Promise<void> {
       "owner_principal_id",
     ],
     [
-      [SECRET.plain, "plain-secret", "model", "encrypted", '{"keyId":"k1"}', T1, TEAM, P.plain],
-      [SECRET.otherSales, "other-sales-secret", "model", "encrypted", '{"keyId":"k1"}', T1, SALES, P.other],
-      [SECRET.tenant, "tenant-secret", "model", "encrypted", '{"keyId":"k1"}', T1, null, P.admin],
-      [SECRET.dept, "dept-secret", "model", "encrypted", '{"keyId":"k1"}', T1, DEPT, P.admin],
-      [SECRET.global, "global-secret", "model", "encrypted", '{"keyId":"k1"}', null, null, null],
-      [SECRET.t2, "t2-secret", "model", "encrypted", '{"keyId":"k1"}', T2, ORG2, P.t2Admin],
+      [
+        SECRET.plain,
+        "plain-secret",
+        "model",
+        "encrypted",
+        '{"keyId":"k1"}',
+        T1,
+        TEAM,
+        P.plain,
+      ],
+      [
+        SECRET.otherSales,
+        "other-sales-secret",
+        "model",
+        "encrypted",
+        '{"keyId":"k1"}',
+        T1,
+        SALES,
+        P.other,
+      ],
+      [
+        SECRET.tenant,
+        "tenant-secret",
+        "model",
+        "encrypted",
+        '{"keyId":"k1"}',
+        T1,
+        null,
+        P.admin,
+      ],
+      [
+        SECRET.dept,
+        "dept-secret",
+        "model",
+        "encrypted",
+        '{"keyId":"k1"}',
+        T1,
+        DEPT,
+        P.admin,
+      ],
+      [
+        SECRET.global,
+        "global-secret",
+        "model",
+        "encrypted",
+        '{"keyId":"k1"}',
+        null,
+        null,
+        null,
+      ],
+      [
+        SECRET.t2,
+        "t2-secret",
+        "model",
+        "encrypted",
+        '{"keyId":"k1"}',
+        T2,
+        ORG2,
+        P.t2Admin,
+      ],
     ]
   );
 
@@ -644,16 +883,15 @@ beforeAll(async () => {
     await adminClient.connect();
   } catch (error) {
     throw new Error(
-      `Postgres is unreachable at ${BASE_PG_URL}; start docker/postgres-compose.yml (run: npm run prepare-it-tests). ${(error as Error).message}`
+      `Postgres is unreachable at ${BASE_PG_URL}; start docker/postgres-compose.yml (run: npm run prepare-it-tests). ${(error as Error).message}`,
+      { cause: error }
     );
   }
 
   await adminClient.query(
     `DROP DATABASE IF EXISTS ${quoteIdentifier(DATABASE_NAME)} WITH (FORCE)`
   );
-  await adminClient.query(
-    `CREATE DATABASE ${quoteIdentifier(DATABASE_NAME)}`
-  );
+  await adminClient.query(`CREATE DATABASE ${quoteIdentifier(DATABASE_NAME)}`);
 
   client = new pg.Client({
     connectionString: urlForDatabase(DATABASE_NAME),
@@ -695,9 +933,7 @@ afterAll(async () => {
   if (client) {
     try {
       await client.query("RESET ROLE");
-      await client.query(
-        `DROP OWNED BY ${quoteIdentifier(APP_ROLE)}`
-      );
+      await client.query(`DROP OWNED BY ${quoteIdentifier(APP_ROLE)}`);
     } catch {
       // database teardown below still removes the role's grants
     }
@@ -753,12 +989,12 @@ describe("RLS bootstrap in Postgres", () => {
 describe("tenant-scoped reader", () => {
   it("reads tenant content but not other tenants", async () => {
     expect(await idsAs(P.reader, "SELECT id FROM tenants")).toEqual([T1]);
-    expect(
-      new Set(await idsAs(P.reader, "SELECT id FROM org_units"))
-    ).toEqual(new Set([ROOT, DEPT, TEAM, SALES]));
-    expect(
-      new Set(await idsAs(P.reader, "SELECT id FROM groups"))
-    ).toEqual(new Set([GROUP.tenant, GROUP.dept, GROUP.team]));
+    expect(new Set(await idsAs(P.reader, "SELECT id FROM org_units"))).toEqual(
+      new Set([ROOT, DEPT, TEAM, SALES])
+    );
+    expect(new Set(await idsAs(P.reader, "SELECT id FROM groups"))).toEqual(
+      new Set([GROUP.tenant, GROUP.dept, GROUP.team])
+    );
     expect(
       new Set(await idsAs(P.reader, "SELECT id FROM protected_resources"))
     ).toEqual(new Set([PROJECT.tenant, PROJECT.dept, PROJECT.team]));
@@ -785,9 +1021,7 @@ describe("tenant-scoped reader", () => {
         CREDENTIAL.dept,
       ])
     );
-    expect(
-      new Set(await idsAs(P.reader, "SELECT id FROM secrets"))
-    ).toEqual(
+    expect(new Set(await idsAs(P.reader, "SELECT id FROM secrets"))).toEqual(
       new Set([SECRET.plain, SECRET.otherSales, SECRET.tenant, SECRET.dept])
     );
     expect(
@@ -905,9 +1139,9 @@ describe("tenant-scoped reader", () => {
     expect(
       await deleteCountAs(P.reader, "protected_resources", PROJECT.dept)
     ).toBe(0);
-    expect(await deleteCountAs(P.reader, "credentials", CREDENTIAL.tenant)).toBe(
-      0
-    );
+    expect(
+      await deleteCountAs(P.reader, "credentials", CREDENTIAL.tenant)
+    ).toBe(0);
     expect(await deleteCountAs(P.reader, "secrets", SECRET.tenant)).toBe(0);
     expect(await deleteCountAs(P.reader, "roles", ROLE.reader)).toBe(0);
   });
@@ -932,7 +1166,13 @@ describe("org-unit-scoped reader", () => {
     expect(
       await updateCountAs(P.readerOu, "roles", ROLE.reader, "name", "changed")
     ).toBe(0);
-    expect(await deleteCountAs(P.readerOu, "role_permissions", ROLE_PERMISSION.reader)).toBe(0);
+    expect(
+      await deleteCountAs(
+        P.readerOu,
+        "role_permissions",
+        ROLE_PERMISSION.reader
+      )
+    ).toBe(0);
   });
 });
 
@@ -942,9 +1182,11 @@ describe("tenant-scoped writer", () => {
       new Set(await idsAs(P.writer, "SELECT id FROM protected_resources"))
     ).toEqual(new Set([PROJECT.tenant, PROJECT.dept, PROJECT.team]));
     expect(
-      await idsAs(P.writer, "SELECT id FROM protected_resources WHERE id = $1", [
-        PROJECT.privateOther,
-      ])
+      await idsAs(
+        P.writer,
+        "SELECT id FROM protected_resources WHERE id = $1",
+        [PROJECT.privateOther]
+      )
     ).toEqual([]);
     expect(
       await idsAs(P.writer, "SELECT id FROM effective_permissions")
@@ -971,9 +1213,8 @@ describe("tenant-scoped writer", () => {
         ).rowCount
       ).toBe(1);
       expect(
-        (
-          await client.query("DELETE FROM org_units WHERE id = $1", [orgUnitId])
-        ).rowCount
+        (await client.query("DELETE FROM org_units WHERE id = $1", [orgUnitId]))
+          .rowCount
       ).toBe(1);
 
       const groupId = uuid(1111);
@@ -984,9 +1225,8 @@ describe("tenant-scoped writer", () => {
         name: "writer-group",
       });
       expect(
-        (
-          await client.query("DELETE FROM groups WHERE id = $1", [groupId])
-        ).rowCount
+        (await client.query("DELETE FROM groups WHERE id = $1", [groupId]))
+          .rowCount
       ).toBe(1);
 
       const projectId = uuid(1112);
@@ -1001,10 +1241,9 @@ describe("tenant-scoped writer", () => {
       });
       expect(
         (
-          await client.query(
-            "DELETE FROM protected_resources WHERE id = $1",
-            [projectId]
-          )
+          await client.query("DELETE FROM protected_resources WHERE id = $1", [
+            projectId,
+          ])
         ).rowCount
       ).toBe(1);
 
@@ -1063,9 +1302,8 @@ describe("tenant-scoped writer", () => {
         owner_principal_id: P.writer,
       });
       expect(
-        (
-          await client.query("DELETE FROM secrets WHERE id = $1", [secretId])
-        ).rowCount
+        (await client.query("DELETE FROM secrets WHERE id = $1", [secretId]))
+          .rowCount
       ).toBe(1);
     });
   });
@@ -1114,7 +1352,11 @@ describe("tenant-scoped writer", () => {
       await updateCountAs(P.writer, "roles", ROLE.reader, "name", "changed")
     ).toBe(0);
     expect(
-      await deleteCountAs(P.writer, "role_assignments", ROLE_ASSIGNMENT.readerTenant)
+      await deleteCountAs(
+        P.writer,
+        "role_assignments",
+        ROLE_ASSIGNMENT.readerTenant
+      )
     ).toBe(0);
     expect(await deleteCountAs(P.writer, "permissions", PERM.read)).toBe(0);
   });
@@ -1148,9 +1390,8 @@ describe("org-unit-scoped writer", () => {
         name: "writer-ou-group",
       });
       expect(
-        (
-          await client.query("DELETE FROM groups WHERE id = $1", [groupId])
-        ).rowCount
+        (await client.query("DELETE FROM groups WHERE id = $1", [groupId]))
+          .rowCount
       ).toBe(1);
 
       const projectId = uuid(1132);
@@ -1202,15 +1443,13 @@ describe("org-unit-scoped writer", () => {
         owner_principal_id: P.writerOu,
       });
       expect(
-        (
-          await client.query("DELETE FROM secrets WHERE id = $1", [secretId])
-        ).rowCount
+        (await client.query("DELETE FROM secrets WHERE id = $1", [secretId]))
+          .rowCount
       ).toBe(1);
 
       expect(
-        (
-          await client.query("DELETE FROM org_units WHERE id = $1", [DEPT])
-        ).rowCount
+        (await client.query("DELETE FROM org_units WHERE id = $1", [DEPT]))
+          .rowCount
       ).toBe(1);
     });
   });
@@ -1263,17 +1502,11 @@ describe("org-unit-scoped writer", () => {
 
 describe("tenant-scoped admin", () => {
   it("reads all administrative machinery", async () => {
-    expect(
-      new Set(await idsAs(P.admin, "SELECT id FROM permissions"))
-    ).toEqual(new Set([PERM.read, PERM.write, PERM.admin]));
+    expect(new Set(await idsAs(P.admin, "SELECT id FROM permissions"))).toEqual(
+      new Set([PERM.read, PERM.write, PERM.admin])
+    );
     expect(new Set(await idsAs(P.admin, "SELECT id FROM roles"))).toEqual(
-      new Set([
-        ROLE.admin,
-        ROLE.writer,
-        ROLE.reader,
-        ROLE.adminOu,
-        ROLE.global,
-      ])
+      new Set([ROLE.admin, ROLE.writer, ROLE.reader, ROLE.adminOu, ROLE.global])
     );
     expect(
       new Set(await idsAs(P.admin, "SELECT id FROM role_permissions"))
@@ -1299,18 +1532,16 @@ describe("tenant-scoped admin", () => {
         ROLE_ASSIGNMENT.adminResource,
       ])
     );
-    expect(
-      await idsAs(P.admin, "SELECT id FROM inheritance_blocks")
-    ).toEqual([uuid(993)]);
-    expect(
-      await idsAs(P.admin, "SELECT id FROM storage_bindings")
-    ).toEqual([uuid(990)]);
+    expect(await idsAs(P.admin, "SELECT id FROM inheritance_blocks")).toEqual([
+      uuid(993),
+    ]);
+    expect(await idsAs(P.admin, "SELECT id FROM storage_bindings")).toEqual([
+      uuid(990),
+    ]);
   });
 
   it("reads all tenant content, users, and effectively global secrets", async () => {
-    expect(
-      new Set(await idsAs(P.admin, "SELECT id FROM users"))
-    ).toEqual(
+    expect(new Set(await idsAs(P.admin, "SELECT id FROM users"))).toEqual(
       new Set([
         U.admin,
         U.adminOu,
@@ -1334,9 +1565,7 @@ describe("tenant-scoped admin", () => {
         PROJECT.grantedToPlain,
       ])
     );
-    expect(
-      new Set(await idsAs(P.admin, "SELECT id FROM credentials"))
-    ).toEqual(
+    expect(new Set(await idsAs(P.admin, "SELECT id FROM credentials"))).toEqual(
       new Set([
         CREDENTIAL.plain,
         CREDENTIAL.otherSales,
@@ -1344,9 +1573,7 @@ describe("tenant-scoped admin", () => {
         CREDENTIAL.dept,
       ])
     );
-    expect(
-      new Set(await idsAs(P.admin, "SELECT id FROM secrets"))
-    ).toEqual(
+    expect(new Set(await idsAs(P.admin, "SELECT id FROM secrets"))).toEqual(
       new Set([
         SECRET.plain,
         SECRET.otherSales,
@@ -1446,9 +1673,10 @@ describe("tenant-scoped admin", () => {
       });
       expect(
         (
-          await client.query("DELETE FROM role_assignments WHERE id = ANY($1)", [
-            [tenantAssignmentId, resourceAssignmentId],
-          ])
+          await client.query(
+            "DELETE FROM role_assignments WHERE id = ANY($1)",
+            [[tenantAssignmentId, resourceAssignmentId]]
+          )
         ).rowCount
       ).toBe(2);
 
@@ -1493,9 +1721,8 @@ describe("tenant-scoped admin", () => {
         ).rowCount
       ).toBe(1);
       expect(
-        (
-          await client.query("DELETE FROM roles WHERE id = $1", [roleId])
-        ).rowCount
+        (await client.query("DELETE FROM roles WHERE id = $1", [roleId]))
+          .rowCount
       ).toBe(1);
     });
   });
@@ -1509,9 +1736,9 @@ describe("org-unit-scoped admin", () => {
     expect(await idsAs(P.adminOu, "SELECT id FROM roles")).toEqual([
       ROLE.global,
     ]);
-    expect(
-      await idsAs(P.adminOu, "SELECT id FROM role_permissions")
-    ).toEqual([ROLE_PERMISSION.global]);
+    expect(await idsAs(P.adminOu, "SELECT id FROM role_permissions")).toEqual([
+      ROLE_PERMISSION.global,
+    ]);
     expect(
       new Set(await idsAs(P.adminOu, "SELECT id FROM role_assignments"))
     ).toEqual(
@@ -1522,27 +1749,27 @@ describe("org-unit-scoped admin", () => {
         ROLE_ASSIGNMENT.adminResource,
       ])
     );
-    expect(
-      await idsAs(P.adminOu, "SELECT id FROM inheritance_blocks")
-    ).toEqual([uuid(993)]);
-    expect(
-      await idsAs(P.adminOu, "SELECT id FROM storage_bindings")
-    ).toEqual([]);
+    expect(await idsAs(P.adminOu, "SELECT id FROM inheritance_blocks")).toEqual(
+      [uuid(993)]
+    );
+    expect(await idsAs(P.adminOu, "SELECT id FROM storage_bindings")).toEqual(
+      []
+    );
     expect(
       new Set(await idsAs(P.adminOu, "SELECT id FROM effective_permissions"))
     ).toEqual(new Set([uuid(883), uuid(884), uuid(885)]));
-    expect(
-      new Set(await idsAs(P.adminOu, "SELECT id FROM org_units"))
-    ).toEqual(new Set([DEPT, TEAM]));
+    expect(new Set(await idsAs(P.adminOu, "SELECT id FROM org_units"))).toEqual(
+      new Set([DEPT, TEAM])
+    );
     expect(
       await idsAs(P.adminOu, "SELECT id FROM protected_resources")
     ).toEqual([PROJECT.dept]);
     expect(await idsAs(P.adminOu, "SELECT id FROM credentials")).toEqual([
       CREDENTIAL.dept,
     ]);
-    expect(
-      new Set(await idsAs(P.adminOu, "SELECT id FROM secrets"))
-    ).toEqual(new Set([SECRET.dept, SECRET.global]));
+    expect(new Set(await idsAs(P.adminOu, "SELECT id FROM secrets"))).toEqual(
+      new Set([SECRET.dept, SECRET.global])
+    );
   });
 
   it("writes within its department scope", async () => {
@@ -1572,9 +1799,8 @@ describe("org-unit-scoped admin", () => {
         name: "admin-ou-group",
       });
       expect(
-        (
-          await client.query("DELETE FROM groups WHERE id = $1", [groupId])
-        ).rowCount
+        (await client.query("DELETE FROM groups WHERE id = $1", [groupId]))
+          .rowCount
       ).toBe(1);
 
       const credentialId = uuid(1162);
@@ -1631,16 +1857,16 @@ describe("org-unit-scoped admin", () => {
       });
       expect(
         (
-          await client.query("DELETE FROM role_assignments WHERE id = ANY($1)", [
-            [orgUnitAssignmentId, resourceAssignmentId],
-          ])
+          await client.query(
+            "DELETE FROM role_assignments WHERE id = ANY($1)",
+            [[orgUnitAssignmentId, resourceAssignmentId]]
+          )
         ).rowCount
       ).toBe(2);
 
       expect(
-        (
-          await client.query("DELETE FROM org_units WHERE id = $1", [DEPT])
-        ).rowCount
+        (await client.query("DELETE FROM org_units WHERE id = $1", [DEPT]))
+          .rowCount
       ).toBe(1);
     });
   });
@@ -1686,12 +1912,12 @@ describe("plain active member", () => {
         [uuid(968)]
       )
     ).toEqual([]);
-    expect(
-      new Set(await idsAs(P.plain, "SELECT id FROM org_units"))
-    ).toEqual(new Set([DEPT, TEAM]));
-    expect(
-      new Set(await idsAs(P.plain, "SELECT id FROM groups"))
-    ).toEqual(new Set([GROUP.dept, GROUP.team]));
+    expect(new Set(await idsAs(P.plain, "SELECT id FROM org_units"))).toEqual(
+      new Set([DEPT, TEAM])
+    );
+    expect(new Set(await idsAs(P.plain, "SELECT id FROM groups"))).toEqual(
+      new Set([GROUP.dept, GROUP.team])
+    );
     expect(
       new Set(await idsAs(P.plain, "SELECT id FROM group_memberships"))
     ).toEqual(new Set([uuid(950), uuid(951)]));
@@ -1721,12 +1947,12 @@ describe("plain active member", () => {
   });
 
   it("sees only credentials and secrets in its own read scope", async () => {
-    expect(
-      new Set(await idsAs(P.plain, "SELECT id FROM credentials"))
-    ).toEqual(new Set([CREDENTIAL.plain, CREDENTIAL.dept]));
-    expect(
-      new Set(await idsAs(P.plain, "SELECT id FROM secrets"))
-    ).toEqual(new Set([SECRET.plain, SECRET.dept]));
+    expect(new Set(await idsAs(P.plain, "SELECT id FROM credentials"))).toEqual(
+      new Set([CREDENTIAL.plain, CREDENTIAL.dept])
+    );
+    expect(new Set(await idsAs(P.plain, "SELECT id FROM secrets"))).toEqual(
+      new Set([SECRET.plain, SECRET.dept])
+    );
     expect(
       await idsAs(P.plain, "SELECT id FROM credentials WHERE id = $1", [
         CREDENTIAL.otherSales,
@@ -1844,7 +2070,13 @@ describe("credential and secret restrictions", () => {
   });
 
   it("keeps a global secret invisible to non-admins", async () => {
-    for (const principal of [P.reader, P.writer, P.readerOu, P.writerOu, P.plain]) {
+    for (const principal of [
+      P.reader,
+      P.writer,
+      P.readerOu,
+      P.writerOu,
+      P.plain,
+    ]) {
       expect(
         await idsAs(principal, "SELECT id FROM secrets WHERE id = $1", [
           SECRET.global,
@@ -1918,16 +2150,16 @@ describe("tenant isolation", () => {
     expect(await idsAs(P.t2Admin, "SELECT id FROM credentials")).toEqual([
       CREDENTIAL.t2,
     ]);
-    expect(
-      new Set(await idsAs(P.t2Admin, "SELECT id FROM secrets"))
-    ).toEqual(new Set([SECRET.t2, SECRET.global]));
+    expect(new Set(await idsAs(P.t2Admin, "SELECT id FROM secrets"))).toEqual(
+      new Set([SECRET.t2, SECRET.global])
+    );
     expect(
       await idsAs(P.t2Admin, "SELECT id FROM secrets WHERE id = $1", [
         SECRET.tenant,
       ])
     ).toEqual([]);
-    expect(
-      new Set(await idsAs(P.t2Admin, "SELECT id FROM roles"))
-    ).toEqual(new Set([ROLE.t2, ROLE.global]));
+    expect(new Set(await idsAs(P.t2Admin, "SELECT id FROM roles"))).toEqual(
+      new Set([ROLE.t2, ROLE.global])
+    );
   });
 });

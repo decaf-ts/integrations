@@ -5,6 +5,7 @@
  * its file/directory permissions, version handling, unsupported operations, and
  * deletion semantics without requiring a database or external service.
  */
+import { it } from "@decaf-ts/for-testing";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";

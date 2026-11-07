@@ -16,7 +16,8 @@
  * `configFromEnvironment` descriptor and assert both the live shadow and the
  * exact restored descriptor.
  */
-import { describe, it, expect, jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
+import { describe, expect, jest } from "@jest/globals";
 import { ValidationError } from "@decaf-ts/db-decorators";
 import { bootWithoutEnvironment } from "../../../src/shared/http";
 

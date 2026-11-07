@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { KeycloakModule } from "../../../src/nest/keycloakModule";
 
 describe("KeycloakModule logAccess wiring", () => {

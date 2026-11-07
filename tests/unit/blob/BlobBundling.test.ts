@@ -4,6 +4,7 @@
  * @description Verifies that importing the core blob entry only exposes core abstractions and does not
  * re-export provider implementations (which live behind their own subpaths).
  */
+import { it } from "@decaf-ts/for-testing";
 import * as blobCore from "../../../src/blob";
 import { BlobStoreService, BlobStoreFactory, translateBlobError } from "../../../src/blob";
 

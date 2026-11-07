@@ -6,6 +6,7 @@
  * suite runs without a cluster. The real-cluster behavior is covered by
  * `tests/integration/kubernetes-secrets.test.ts`.
  */
+import { it } from "@decaf-ts/for-testing";
 import {
   ApiException,
   CoreV1Api,

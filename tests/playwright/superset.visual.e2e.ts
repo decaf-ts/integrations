@@ -17,7 +17,8 @@
  *
  * @jest-environment node
  */
-import { describe, it, expect } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
+import { describe, expect } from "@jest/globals";
 
 import {
   buildSupersetEmbedUrl,

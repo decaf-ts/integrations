@@ -18,7 +18,8 @@
  *      keeps one stream and one subscription per client: every subscribed tab
  *      receives each event exactly once, an unsubscribed tab receives nothing.
  */
-import { jest, describe, beforeAll, afterAll, it, expect } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
+import { jest, describe, beforeAll, afterAll, expect } from "@jest/globals";
 
 import "../../src/nest";
 

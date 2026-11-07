@@ -5,6 +5,7 @@
  * metadata forwarding through {@link InfraCredentialBootstrap} backed by a real
  * filesystem secret service in a temporary directory.
  */
+import { it } from "@decaf-ts/for-testing";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";

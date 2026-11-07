@@ -6,6 +6,7 @@
  * second {@link RlsBootstrapService} bootstrap fails fast with
  * {@link RlsFunctionOwnerError} before executing any template DDL.
  */
+import { it } from "@decaf-ts/for-testing";
 import { jest } from "@jest/globals";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -21,10 +22,7 @@ import { rlsBootstrapStatements } from "../../../src/namespaces/rls/rls.template
 jest.setTimeout(120_000);
 
 const testDirname = dirname(fileURLToPath(import.meta.url));
-const fixturePath = resolve(
-  testDirname,
-  "fixtures/postgres-rls-schema.sql"
-);
+const fixturePath = resolve(testDirname, "fixtures/postgres-rls-schema.sql");
 
 const DEFAULT_PG_URL =
   "postgresql://decaf:decaf-integration@localhost:55435/decaf_integration";
@@ -54,7 +52,8 @@ beforeAll(async () => {
     await adminClient.connect();
   } catch (error) {
     throw new Error(
-      `Postgres is unreachable at ${BASE_PG_URL}; start docker/postgres-compose.yml (run: npm run prepare-it-tests). ${(error as Error).message}`
+      `Postgres is unreachable at ${BASE_PG_URL}; start docker/postgres-compose.yml (run: npm run prepare-it-tests). ${(error as Error).message}`,
+      { cause: error }
     );
   }
 
@@ -95,7 +94,9 @@ afterAll(async () => {
       // leave the uniquely-named throwaway database for operator cleanup
     }
     try {
-      await adminClient.query(`DROP ROLE IF EXISTS ${quoteIdentifier(APP_ROLE)}`);
+      await adminClient.query(
+        `DROP ROLE IF EXISTS ${quoteIdentifier(APP_ROLE)}`
+      );
     } catch {
       // leave the uniquely-named role for operator cleanup
     }

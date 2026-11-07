@@ -10,7 +10,8 @@
  * the slice is live, then boots via `bootWithoutEnvironment` and inspects the
  * resolved service config.
  */
-import { describe, it, expect, afterEach } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
+import { describe, expect, afterEach } from "@jest/globals";
 import { EmailService } from "../../../src/comms/email/EmailService";
 import { bootWithoutEnvironment } from "../../../src/shared/http";
 

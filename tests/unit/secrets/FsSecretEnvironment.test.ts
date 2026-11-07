@@ -4,6 +4,7 @@
  * @description Verifies `SECRETS__FS__*` resolution plus explicit-config
  * precedence and the `ValidationError` thrown when neither source is present.
  */
+import { it } from "@decaf-ts/for-testing";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";

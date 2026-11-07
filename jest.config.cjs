@@ -12,7 +12,6 @@ const config = {
           esModuleInterop: true,
           allowSyntheticDefaultImports: true,
           module: "esnext",
-          moduleResolution: "node",
           resolveJsonModule: true,
         },
       },

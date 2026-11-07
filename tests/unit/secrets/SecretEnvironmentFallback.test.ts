@@ -8,6 +8,7 @@
  * when neither is available. Real env vars are used rather than `.accumulate()` for
  * the same reason documented in BlobEnvironmentFallback.test.ts.
  */
+import { it } from "@decaf-ts/for-testing";
 import { ValidationError } from "@decaf-ts/db-decorators";
 import { AwsSecretService } from "../../../src/secrets/aws/AwsSecretService";
 import { AzureKeyVaultSecretService } from "../../../src/secrets/azure/AzureKeyVaultSecretService";

@@ -13,6 +13,7 @@
  * not a full `initialize()` call. `AwsSftpService.initialize()` only constructs an
  * `S3Client` (no network call), so it is exercised end to end.
  */
+import { it } from "@decaf-ts/for-testing";
 import { ValidationError } from "@decaf-ts/db-decorators";
 import { AwsSftpService } from "../../../src/sftp/aws/AwsSftpService";
 import { Ssh2SftpService } from "../../../src/sftp/ssh2/Ssh2SftpService";

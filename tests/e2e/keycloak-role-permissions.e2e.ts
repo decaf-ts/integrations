@@ -11,7 +11,8 @@
  * Also tests @Public route override: `read` and `findBy` are public (no token
  * required) and bypass the auth interceptor entirely.
  */
-import { jest, describe, beforeAll, afterAll, it, expect } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
+import { jest, describe, beforeAll, afterAll, expect } from "@jest/globals";
 
 import "reflect-metadata";
 import "../../src/nest";

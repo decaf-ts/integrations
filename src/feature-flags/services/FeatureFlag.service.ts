@@ -96,6 +96,7 @@ export class FeatureFlagService extends ModelService<FeatureFlag> {
       ...options,
       source: options.source ?? FeatureFlagEnvironment,
     });
+    // eslint-disable-next-line no-useless-assignment
     let persisted: FeatureFlag[] = [];
     try {
       persisted = await this.repo.select().execute(...args);

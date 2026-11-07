@@ -10,6 +10,7 @@
  * Also pins the RLS template to `RLS_SETTINGS.Principal` as the single source
  * of truth for the `app.principal_id` helper.
  */
+import { it } from "@decaf-ts/for-testing";
 import { Context } from "@decaf-ts/core";
 import { RLS_SETTINGS } from "../../../src/namespaces/rls/rls.constants";
 import { RLS_FUNCTION_STATEMENTS } from "../../../src/namespaces/rls/rls.template";

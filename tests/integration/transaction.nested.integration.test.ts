@@ -5,7 +5,8 @@
  * write buffer) and that a failure at any level rolls back every buffered write
  * from all levels.
  */
-import { describe, it, expect, beforeAll, afterAll, jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
+import { describe, expect, beforeAll, afterAll, jest } from "@jest/globals";
 import {
   BaseModel,
   pk,
@@ -69,6 +70,7 @@ class NestedTxRepository extends Repository<NestedTxModel, RedisAdapter> {
   ): Promise<{ outer: NestedTxModel; inner: NestedTxModel; seen: boolean }> {
     const createdOuter = await this.create(outer, ...args);
     const createdInner = await this.innerCreate(inner, ...args);
+    // eslint-disable-next-line no-useless-assignment
     let seen = false;
     try {
       const buffered = await this.read(inner.id, ...args);
@@ -116,21 +118,13 @@ describe("nested @transactional calls against live DragonflyDB", () => {
     expect(result.outer.name).toBe("outer");
     expect(result.inner.name).toBe("inner");
 
-    const verifyRepo = new Repository(
-      verify.adapter,
-      NestedTxModel,
-      true
-    );
+    const verifyRepo = new Repository(verify.adapter, NestedTxModel, true);
     expect((await verifyRepo.read("201")).name).toBe("outer");
     expect((await verifyRepo.read("202")).name).toBe("inner");
   });
 
   it("rolls back every level when the outer frame fails", async () => {
-    const verifyRepo = new Repository(
-      verify.adapter,
-      NestedTxModel,
-      true
-    );
+    const verifyRepo = new Repository(verify.adapter, NestedTxModel, true);
     await expect(
       repo.outerCreate(
         new NestedTxModel({ id: "203", name: "outer-fail" }),

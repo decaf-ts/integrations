@@ -4,7 +4,8 @@
  * node-redis client factory and never weakens certificate verification by
  * default.
  */
-import { describe, it, expect, jest, beforeAll } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
+import { describe, expect, jest, beforeAll } from "@jest/globals";
 
 const createClient = jest.fn((options: Record<string, unknown>) => ({
   options,

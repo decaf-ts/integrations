@@ -8,7 +8,8 @@
  * Redis has no row locks, so (unlike the TypeORM port) this does NOT assert
  * "blocks until commit" - it asserts optimistic conflict detection.
  */
-import { describe, it, expect, beforeAll, afterAll, jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
+import { describe, expect, beforeAll, afterAll, jest } from "@jest/globals";
 import {
   BaseModel,
   Context,

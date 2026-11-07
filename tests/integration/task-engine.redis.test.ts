@@ -5,7 +5,8 @@
  * emission. The full flow depends on generated `TaskModel` primary keys, produced
  * through the adapter sequence path.
  */
-import { describe, it, expect, beforeAll, afterAll, jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
+import { describe, expect, beforeAll, afterAll, jest } from "@jest/globals";
 import { Context, sleep } from "@decaf-ts/core";
 import { Logging } from "@decaf-ts/logging";
 import { Observer } from "@decaf-ts/core/interfaces";

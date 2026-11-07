@@ -23,6 +23,7 @@
  * Run with `NODE_OPTIONS="--experimental-vm-modules"` (as `npm run test:unit`
  * already does).
  */
+import { it } from "@decaf-ts/for-testing";
 import { service, Service, Context } from "@decaf-ts/core";
 import { ValidationError } from "@decaf-ts/db-decorators";
 import { S3BlobStoreService } from "../../../src/blob/s3/S3BlobStoreService";

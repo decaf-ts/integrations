@@ -9,14 +9,8 @@
  * plaintext SMTP stub that upgrades with a generated self-signed certificate,
  * plus a `tls.createServer` stub for `secure: true`.
  */
-import {
-  describe,
-  it,
-  expect,
-  jest,
-  beforeAll,
-  afterAll,
-} from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
+import { describe, expect, jest, beforeAll, afterAll } from "@jest/globals";
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";

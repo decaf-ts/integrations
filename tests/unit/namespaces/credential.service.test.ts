@@ -5,6 +5,7 @@
  * model-provider guard, secret rollback, summary projection and context
  * forwarding without requiring a persistence adapter.
  */
+import { it } from "@decaf-ts/for-testing";
 import { Context, ContextLock, Repository } from "@decaf-ts/core";
 import { NotFoundError, ValidationError } from "@decaf-ts/db-decorators";
 import { CredentialService } from "../../../src/namespaces/services/credential.service";

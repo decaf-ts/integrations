@@ -7,6 +7,7 @@
  * conflicting updates, replaying the migration is idempotent, and the fail-closed
  * `DO` guard refuses to migrate a database that still holds legacy duplicates.
  */
+import { it } from "@decaf-ts/for-testing";
 import { jest } from "@jest/globals";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -70,7 +71,8 @@ beforeAll(async () => {
     await adminClient.connect();
   } catch (error) {
     throw new Error(
-      `Postgres is unreachable at ${BASE_PG_URL}; start docker/postgres-compose.yml (run: npm run prepare-it-tests). ${(error as Error).message}`
+      `Postgres is unreachable at ${BASE_PG_URL}; start docker/postgres-compose.yml (run: npm run prepare-it-tests). ${(error as Error).message}`,
+      { cause: error }
     );
   }
 

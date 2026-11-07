@@ -19,6 +19,7 @@
  * paths resolve to a Proxy object (for env-key composition), not `undefined`.
  *
  */
+import { it } from "@decaf-ts/for-testing";
 import os from "os";
 import path from "path";
 import { rm } from "fs/promises";

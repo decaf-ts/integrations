@@ -7,7 +7,8 @@
  * against process-local loopback SMTP/HTTP stubs so every assertion observes
  * the exact bytes the production code would put on the wire.
  */
-import { describe, it, expect, beforeAll, afterAll } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
+import { describe, expect, beforeAll, afterAll } from "@jest/globals";
 import { createServer, type IncomingMessage } from "node:http";
 import { BadRequestError, InternalError } from "@decaf-ts/db-decorators";
 import {

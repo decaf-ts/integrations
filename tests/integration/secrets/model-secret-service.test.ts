@@ -5,6 +5,7 @@
  * model, versioned rotation, listing/metadata, soft/hard deletion and context
  * forwarding against a real repository/adapter without external services.
  */
+import { it } from "@decaf-ts/for-testing";
 import { jest } from "@jest/globals";
 import { Adapter, Context, Repository } from "@decaf-ts/core";
 import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";

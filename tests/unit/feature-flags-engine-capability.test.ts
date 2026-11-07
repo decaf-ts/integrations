@@ -15,7 +15,8 @@
  * - the derived registry does not depend on `process.env`: mutating
  *   `FEATURE_FLAG_*` leaves every read path unchanged.
  */
-import { describe, it, expect } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
+import { describe, expect } from "@jest/globals";
 
 import {
   EngineCapabilityFeatureFlagService,

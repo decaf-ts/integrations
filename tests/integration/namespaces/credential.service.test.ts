@@ -6,6 +6,7 @@
  * referenced model-backed secret is encrypted at rest and hard-deleted with
  * the credential row.
  */
+import { it } from "@decaf-ts/for-testing";
 import { jest } from "@jest/globals";
 import { Adapter, Context, Repository } from "@decaf-ts/core";
 import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";

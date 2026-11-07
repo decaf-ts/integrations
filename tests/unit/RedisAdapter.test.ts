@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
+import { describe, expect, beforeEach, jest } from "@jest/globals";
 import {
   BaseModel,
   Condition,

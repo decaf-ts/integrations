@@ -1,4 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it, jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
+import { afterAll, beforeAll, describe, expect, jest } from "@jest/globals";
 import { createServer, type Server } from "node:http";
 import { randomUUID } from "node:crypto";
 import path from "node:path";

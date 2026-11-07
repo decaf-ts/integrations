@@ -11,14 +11,8 @@
  * gateway when the runner is a sibling container (same pattern as
  * `tests/helpers/redis.ts`).
  */
-import {
-  describe,
-  it,
-  expect,
-  jest,
-  beforeAll,
-  afterAll,
-} from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
+import { describe, expect, jest, beforeAll, afterAll } from "@jest/globals";
 import { readFileSync } from "node:fs";
 import net from "node:net";
 import { InternalError } from "@decaf-ts/db-decorators";

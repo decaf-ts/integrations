@@ -13,6 +13,7 @@
  * The suite creates a disposable namespace, exercises the full CRUD contract,
  * and removes the namespace afterwards.
  */
+import { it } from "@decaf-ts/for-testing";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";

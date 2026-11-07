@@ -1,4 +1,5 @@
-import { describe, expect, it } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
+import { describe, expect } from "@jest/globals";
 import fs from "node:fs";
 import path from "node:path";
 

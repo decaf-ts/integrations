@@ -7,7 +7,8 @@
  * by the auth handler) consistently appears in `@createdBy` and `@updatedBy`
  * for models on both adapters.
  */
-import { jest, describe, beforeAll, afterAll, it, expect } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
+import { jest, describe, beforeAll, afterAll, expect } from "@jest/globals";
 
 import "../../src/nest";
 

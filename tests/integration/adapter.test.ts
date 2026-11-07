@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll, afterAll, jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
+import { describe, expect, beforeAll, afterAll, jest } from "@jest/globals";
 import { Repository } from "@decaf-ts/core";
 import { Model } from "@decaf-ts/decorator-validation";
 import { NotFoundError } from "@decaf-ts/db-decorators";

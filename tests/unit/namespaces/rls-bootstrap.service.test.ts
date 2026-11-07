@@ -5,6 +5,7 @@
  * binding, and the rollback/commit contract of {@link runAsPrincipal} against a
  * fake query executor.
  */
+import { it } from "@decaf-ts/for-testing";
 import { InternalError, ValidationError } from "@decaf-ts/db-decorators";
 import { RLS_FUNCTION_STATEMENTS, rlsBootstrapStatements, rlsPolicyStatements } from "../../../src/namespaces/rls/rls.template";
 import {

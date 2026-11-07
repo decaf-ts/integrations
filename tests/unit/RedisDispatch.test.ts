@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
+import { describe, expect, beforeEach, jest } from "@jest/globals";
 import { Context } from "@decaf-ts/core";
 import { Logging } from "@decaf-ts/logging";
 import { OperationKeys } from "@decaf-ts/db-decorators";

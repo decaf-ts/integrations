@@ -7,9 +7,10 @@
  * (@roles(["partner"])) — verifying that role checks block cross-access and
  * that @createdBy/@updatedBy carry the Keycloak email claim.
  */
+import { it } from "@decaf-ts/for-testing";
 
 import "reflect-metadata";
-import { jest, describe, beforeAll, afterAll, it, expect } from "@jest/globals";
+import { jest, describe, beforeAll, afterAll, expect } from "@jest/globals";
 import "../../src/nest";
 
 import path from "path";
