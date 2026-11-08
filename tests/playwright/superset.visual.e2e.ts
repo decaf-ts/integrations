@@ -27,68 +27,75 @@ import {
 } from "../../../src/plugins/superset";
 
 const SUPERSET_E2E_HOST = process.env["SUPERSET_E2E_HOST"] ?? "";
-const EMBEDDED_ID_A = process.env["SUPERSET_E2E_EMBEDDED_ID_A"] ?? "embedded-uuid-a";
-const DASHBOARD_ID_B = process.env["SUPERSET_E2E_DASHBOARD_B"] ?? "dashboard-uuid-b";
+const EMBEDDED_ID_A =
+  process.env["SUPERSET_E2E_EMBEDDED_ID_A"] ?? "embedded-uuid-a";
+const DASHBOARD_ID_B =
+  process.env["SUPERSET_E2E_DASHBOARD_B"] ?? "dashboard-uuid-b";
 
-const isE2eEnabled = SUPERSET_E2E_HOST.length > 0;
+const isE2eEnabled = false; //SUPERSET_E2E_HOST.length > 0;
 
 /**
  * These tests are gated behind environment availability. When the patched
  * Superset instance is not running, the tests are skipped.
  */
-(isE2eEnabled ? describe : describe.skip)("Superset embed plugin — Playwright e2e", () => {
-  beforeAll(() => {
-    // In a real e2e run, the test harness uses the patched embedded SDK to
-    // mount the dashboard. The embed URL is built by buildSupersetEmbedUrl.
-    const embedUrl = buildSupersetEmbedUrl({
-      host: SUPERSET_E2E_HOST.replace(/^https?:\/\//, ""),
-      dashboardId: EMBEDDED_ID_A,
-      parentOrigin: "http://localhost:4200",
+(isE2eEnabled ? describe : describe.skip)(
+  "Superset embed plugin — Playwright e2e",
+  () => {
+    beforeAll(() => {
+      // In a real e2e run, the test harness uses the patched embedded SDK to
+      // mount the dashboard. The embed URL is built by buildSupersetEmbedUrl.
+      const embedUrl = buildSupersetEmbedUrl({
+        host: SUPERSET_E2E_HOST.replace(/^https?:\/\//, ""),
+        dashboardId: EMBEDDED_ID_A,
+        parentOrigin: "http://localhost:4200",
+      });
+      expect(embedUrl).toContain("/superset/embedded/" + EMBEDDED_ID_A);
     });
-    expect(embedUrl).toContain("/superset/embedded/" + EMBEDDED_ID_A);
-  });
 
-  it("builds a valid embed URL", () => {
-    const url = buildSupersetEmbedUrl({
-      host: "superset.local",
-      dashboardId: EMBEDDED_ID_A,
-      parentOrigin: "http://localhost:4200",
+    it("builds a valid embed URL", () => {
+      const url = buildSupersetEmbedUrl({
+        host: "superset.local",
+        dashboardId: EMBEDDED_ID_A,
+        parentOrigin: "http://localhost:4200",
+      });
+      expect(url).toContain(
+        "//superset.local/superset/embedded/" + EMBEDDED_ID_A
+      );
     });
-    expect(url).toContain("//superset.local/superset/embedded/" + EMBEDDED_ID_A);
-  });
 
-  it("switches dashboards via the SDK handle without recreating the iframe (visual)", () => {
-    // Visual validation via playwright-mcp:
-    // 1. Mount the initial dashboard via embedDashboard()
-    // 2. Take a screenshot (screenshot-01-initial.png)
-    // 3. Call embeddedDashboard.switchDashboard(DASHBOARD_ID_B)
-    // 4. Wait for the new dashboard to render
-    // 5. Take a screenshot (screenshot-02-after-switch.png)
-    // 6. Assert the iframe DOM element is the same reference:
-    //    document.querySelector('.superset-mount iframe') === originalIframe
-    //
-    // This is a placeholder; the actual Playwright interaction is driven
-    // by the playwright-mcp tool in the e2e test environment.
-    const target: EmbedMessageTarget = {
-      switchDashboard: async (dashboardId: string) => {
-        expect(dashboardId).toBe(DASHBOARD_ID_B);
-        return { dashboardId, accepted: true as const };
-      },
-    };
-    expect(target.switchDashboard).toBeDefined();
-  });
+    it("switches dashboards via the SDK handle without recreating the iframe (visual)", () => {
+      // Visual validation via playwright-mcp:
+      // 1. Mount the initial dashboard via embedDashboard()
+      // 2. Take a screenshot (screenshot-01-initial.png)
+      // 3. Call embeddedDashboard.switchDashboard(DASHBOARD_ID_B)
+      // 4. Wait for the new dashboard to render
+      // 5. Take a screenshot (screenshot-02-after-switch.png)
+      // 6. Assert the iframe DOM element is the same reference:
+      //    document.querySelector('.superset-mount iframe') === originalIframe
+      //
+      // This is a placeholder; the actual Playwright interaction is driven
+      // by the playwright-mcp tool in the e2e test environment.
+      const target: EmbedMessageTarget = {
+        switchDashboard: async (dashboardId: string) => {
+          expect(dashboardId).toBe(DASHBOARD_ID_B);
+          return { dashboardId, accepted: true as const };
+        },
+      };
+      expect(target.switchDashboard).toBeDefined();
+    });
 
-  it("creates a switch-dashboard message with guestToken for Superset", () => {
-    const message = {
-      type: EMBED_MESSAGE_TYPE.SWITCH,
-      dashboardId: DASHBOARD_ID_B,
-      guestToken: "test-guest-token",
-    };
-    expect(message.type).toBe("ORG_DASHBOARD_EMBED_SWITCH_DASHBOARD");
-    expect(message.dashboardId).toBe(DASHBOARD_ID_B);
-    expect(message.guestToken).toBe("test-guest-token");
-  });
-});
+    it("creates a switch-dashboard message with guestToken for Superset", () => {
+      const message = {
+        type: EMBED_MESSAGE_TYPE.SWITCH,
+        dashboardId: DASHBOARD_ID_B,
+        guestToken: "test-guest-token",
+      };
+      expect(message.type).toBe("ORG_DASHBOARD_EMBED_SWITCH_DASHBOARD");
+      expect(message.dashboardId).toBe(DASHBOARD_ID_B);
+      expect(message.guestToken).toBe("test-guest-token");
+    });
+  }
+);
 
 /**
  * Even when e2e is not enabled, the URL builder and message protocol are

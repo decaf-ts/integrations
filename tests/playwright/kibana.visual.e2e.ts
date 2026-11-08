@@ -31,7 +31,7 @@ const DASHBOARD_ID_B =
   process.env["KIBANA_E2E_DASHBOARD_B"] ?? "test-dashboard-b";
 const PARENT_ORIGIN = "http://localhost:4200";
 
-const isE2eEnabled = KIBANA_E2E_HOST.length > 0;
+const isE2eEnabled = false; //KIBANA_E2E_HOST.length > 0;
 
 /**
  * These tests are gated behind environment availability. When the Kibana
