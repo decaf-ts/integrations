@@ -661,21 +661,21 @@
     "@azure/identity": "4.14.1",
     "@azure/keyvault-secrets": "^4.12.0",
     "@azure/storage-blob": "^12.34.0",
-    "@decaf-ts/as-zod": "1.17.0",
-    "@decaf-ts/cli": "0.14.0",
-    "@decaf-ts/core": "0.34.0",
-    "@decaf-ts/crypto": "0.16.0",
-    "@decaf-ts/db-decorators": "0.20.0",
-    "@decaf-ts/decoration": "0.20.0",
-    "@decaf-ts/decorator-validation": "1.24.0",
-    "@decaf-ts/for-http": "0.22.0",
-    "@decaf-ts/for-nano": "0.16.0",
-    "@decaf-ts/for-nest": "0.18.0",
-    "@decaf-ts/injectable-decorators": "1.21.0",
-    "@decaf-ts/logging": "0.30.3",
-    "@decaf-ts/transactional-decorators": "0.14.0",
-    "@decaf-ts/ui-decorators": "0.22.0",
-    "@decaf-ts/utils": "2.0.6",
+    "@decaf-ts/as-zod": "^1.17.0",
+    "@decaf-ts/cli": "^0.14.0",
+    "@decaf-ts/core": "^0.34.0",
+    "@decaf-ts/crypto": "^0.16.0",
+    "@decaf-ts/db-decorators": "^0.20.0",
+    "@decaf-ts/decoration": "^0.20.0",
+    "@decaf-ts/decorator-validation": "^1.24.0",
+    "@decaf-ts/for-http": "^0.22.0",
+    "@decaf-ts/for-nano": "^0.16.0",
+    "@decaf-ts/for-nest": "^0.18.0",
+    "@decaf-ts/injectable-decorators": "^1.21.0",
+    "@decaf-ts/logging": "^0.30.3",
+    "@decaf-ts/transactional-decorators": "^0.14.0",
+    "@decaf-ts/ui-decorators": "^0.22.0",
+    "@decaf-ts/utils": "^2.0.6",
     "@google-cloud/secret-manager": "^7.2.0",
     "@google-cloud/storage": "^8.4.0",
     "@grpc/grpc-js": "^1.14.7",
@@ -707,7 +707,7 @@
     "tslib": "^2.9.1",
     "typescript": "^6.0.3",
     "uuid": "^14.0.3",
-    "@decaf-ts/for-testing": "1.3.7"
+    "@decaf-ts/for-testing": "^1.3.7"
   },
   "peerDependencies": {
     "@aws-sdk/client-s3": "^3.1075.0",
@@ -716,15 +716,15 @@
     "@azure/identity": "^4.13.0",
     "@azure/keyvault-secrets": "^4.9.0",
     "@azure/storage-blob": "^12.33.0",
-    "@decaf-ts/core": "latest",
-    "@decaf-ts/crypto": "latest",
-    "@decaf-ts/db-decorators": "latest",
-    "@decaf-ts/decoration": "latest",
-    "@decaf-ts/decorator-validation": "latest",
-    "@decaf-ts/for-http": "latest",
-    "@decaf-ts/injectable-decorators": "latest",
-    "@decaf-ts/logging": "latest",
-    "@decaf-ts/ui-decorators": "latest",
+    "@decaf-ts/core": "^0.34.0",
+    "@decaf-ts/crypto": "^0.16.0",
+    "@decaf-ts/db-decorators": "^0.20.0",
+    "@decaf-ts/decoration": "^0.20.0",
+    "@decaf-ts/decorator-validation": "^1.24.0",
+    "@decaf-ts/for-http": "^0.22.0",
+    "@decaf-ts/injectable-decorators": "^1.21.0",
+    "@decaf-ts/logging": "^0.30.3",
+    "@decaf-ts/ui-decorators": "^0.22.0",
     "@google-cloud/secret-manager": "^5.6.0",
     "@google-cloud/storage": "^7.21.0",
     "@grpc/grpc-js": "^1.14.6",
@@ -825,6 +825,11 @@
       "optional": true
     }
   },
+  "license": "MPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/decaf-ts/integrations.git"
+  },
   "overrides": {
     "jest": "$jest",
     "open": "^11.0.0",
@@ -846,10 +851,5 @@
       "glob": "^14.0.4",
       "minimatch": "^11.0.5"
     }
-  },
-  "license": "MPL-2.0",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/decaf-ts/integrations.git"
   }
 }
