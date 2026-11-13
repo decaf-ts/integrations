@@ -2,19 +2,19 @@
   "name": "@decaf-ts/integrations",
   "version": "0.15.4",
   "type": "module",
-  "main": "lib/index.js",
-  "types": "lib/index.d.mts",
+  "main": "lib/esm/index.js",
+  "types": "lib/types/index.d.mts",
   "exports": {
     ".": {
       "import": {
-        "types": "./lib/index.d.mts",
-        "default": "./lib/index.js"
+        "types": "./lib/types/index.d.mts",
+        "default": "./lib/esm/index.js"
       },
       "require": {
-        "types": "./lib/index.d.cts",
-        "default": "./lib/index.js"
+        "types": "./lib/types/index.d.cts",
+        "default": "./lib/cjs/index.cjs"
       },
-      "default": "./lib/index.js"
+      "default": "./lib/esm/index.js"
     },
     "./kibana": {
       "import": {
