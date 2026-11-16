@@ -375,6 +375,8 @@ export abstract class S3CompatibleBlobStoreService extends BlobStoreService<
           : new GetObjectCommand({
               Bucket: this.config.bucket,
               Key: objectKey,
+              ResponseContentDisposition: options.responseContentDisposition,
+              ResponseContentType: options.responseContentType,
             });
       const url = await getSignedUrl(this.client, command, { expiresIn });
       return {

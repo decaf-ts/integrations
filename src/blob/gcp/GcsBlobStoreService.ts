@@ -348,6 +348,12 @@ export class GcsBlobStoreService extends BlobStoreService<
         expires: Date.now() + expiresIn * 1000,
       };
       if (options.contentType) config.contentType = options.contentType;
+      if (action === "read" && options.responseContentDisposition) {
+        config.responseDisposition = options.responseContentDisposition;
+      }
+      if (action === "read" && options.responseContentType) {
+        config.responseType = options.responseContentType;
+      }
       const [url] = await file.getSignedUrl(config as any);
       return {
         url,

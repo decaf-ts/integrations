@@ -377,7 +377,8 @@ export class AzureBlobStoreService extends BlobStoreService<
             }),
             startsOn: new Date(),
             expiresOn: new Date(Date.now() + expiresIn * 1000),
-            contentType: options.contentType,
+            contentType: options.responseContentType ?? options.contentType,
+            contentDisposition: options.responseContentDisposition,
           },
           credential
         ).toString();
@@ -390,7 +391,8 @@ export class AzureBlobStoreService extends BlobStoreService<
             write: operation === "put",
           }),
           expiresOn: new Date(Date.now() + expiresIn * 1000),
-          contentType: options.contentType,
+          contentType: options.responseContentType ?? options.contentType,
+          contentDisposition: options.responseContentDisposition,
         });
         url = token;
       }

@@ -80,6 +80,16 @@ export interface BlobUrlOptions {
   expiresInSeconds?: number;
   contentType?: string;
   metadata?: Record<string, string>;
+  /**
+   * @description `Content-Disposition` the signed GET serves (S3
+   * `ResponseContentDisposition`, Azure SAS `contentDisposition`, GCS
+   * `responseDisposition`), e.g. `attachment; filename="report.pdf"`
+   */
+  responseContentDisposition?: string;
+  /**
+   * @description `Content-Type` the signed GET serves, overriding the stored one
+   */
+  responseContentType?: string;
 }
 
 export interface BlobUrlResult {

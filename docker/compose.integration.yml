@@ -114,6 +114,30 @@ services:
       retries: 5
       start_period: 10s
 
+  # MinIO - S3-compatible object storage: the default S3 service for the
+  # S3/MinIO/R2 blob providers (and the as-graph binary store). Same ports and
+  # credentials as minio-compose.yml, so tests/integration/blob/minio-s3.test.ts
+  # runs against either stack.
+  minio:
+    image: chainguard/minio:latest
+    container_name: minio-integration
+    restart: unless-stopped
+    command: server /data --console-address ":9101"
+    ports:
+      - "9100:9000"
+      - "9101:9101"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "MC_CONFIG_DIR=/tmp/.mc MC_HOST_local=http://minioadmin:minioadmin@127.0.0.1:9000 /usr/bin/mc ls local >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
   # GCP Emulator
   gcp-emulator:
     image: jldec/gcp-emulator:latest
@@ -162,3 +186,5 @@ volumes:
     name: gcp-data
   vault-data:
     name: vault-data
+  minio-data:
+    name: minio-data
