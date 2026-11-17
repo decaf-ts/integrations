@@ -192,12 +192,12 @@ describe("ERPNextClient", () => {
     });
     expect(result).toEqual({ ok: true });
     expect(pathAndQuery(calls[0]).path).toBe(
-      "/api/method/erpnext/utilities/ping"
+      "/api/method/erpnext.utilities.ping"
     );
     expect(calls[0].data).toEqual({ value: 1 });
   });
 
-  it("encodes dot-separated method segments", async () => {
+  it("preserves Frappe's dotted method name in the method endpoint", async () => {
     const { transport, calls } = transportOf(() => ({
       status: 200,
       data: { message: { ok: true } },
@@ -209,10 +209,10 @@ describe("ERPNextClient", () => {
       transport,
     });
     await client.callMethod("x.y");
-    expect(pathAndQuery(calls[0]).path).toBe("/api/method/x/y");
+    expect(pathAndQuery(calls[0]).path).toBe("/api/method/x.y");
   });
 
-  it("does not allow hostile callMethod input to alter the path", async () => {
+  it("rejects hostile callMethod input", async () => {
     const { transport, calls } = transportOf(() => ({
       status: 200,
       data: { message: { ok: true } },
@@ -224,17 +224,15 @@ describe("ERPNextClient", () => {
       transport,
     });
 
-    await client.callMethod("../../api/resource/Customer");
-    const traversal = pathAndQuery(calls[0]).path;
-    expect(traversal.startsWith("/api/method/")).toBe(true);
-    expect(traversal).not.toContain("..");
-    expect(traversal).not.toBe("/api/resource/Customer");
-    expect(traversal).not.toContain("/api/resource/Customer");
-
-    await client.callMethod("a/b");
-    const slash = pathAndQuery(calls[1]).path;
-    expect(slash).toBe("/api/method/a%2Fb");
-    expect(slash.startsWith("/api/method/")).toBe(true);
-    expect(slash.split("/").filter(Boolean)).toHaveLength(3);
+    await expect(
+      client.callMethod("../../api/resource/Customer")
+    ).rejects.toThrow("Invalid Frappe method name");
+    await expect(client.callMethod("a/b")).rejects.toThrow(
+      "Invalid Frappe method name"
+    );
+    await expect(client.callMethod("method?cmd=other")).rejects.toThrow(
+      "Invalid Frappe method name"
+    );
+    expect(calls).toHaveLength(0);
   });
 });

@@ -303,10 +303,9 @@ export class ERPNextClient {
   /**
    * @description Calls an arbitrary Frappe server method
    * @summary Posts to `/api/method/{method}`; used for site utilities and custom
-   * integrations that are not plain doctype CRUD. Leading slashes are stripped and
-   * each dot-separated segment is `encodeURIComponent`-encoded then joined with
-   * `/`. Dots are the legal Frappe method separator; slashes, `..`, `?`, `#` and
-   * `%2F` cannot alter the request path structure.
+   * integrations that are not plain doctype CRUD. Frappe expects the dotted method
+   * name in the `cmd` path segment. Only identifier segments separated by dots are
+   * accepted, preventing slashes, traversal, and query/fragment injection.
    * @param {string} method - The dotted Frappe method name
    * @param {unknown} [data] - The request payload
    * @param {Record<string, unknown>} [params] - Extra query parameters
@@ -317,12 +316,17 @@ export class ERPNextClient {
     data?: unknown,
     params?: Record<string, unknown>
   ): Promise<any> {
-    const path = method
-      .replace(/^\/+/, "")
-      .split(".")
-      .map(encodeURIComponent)
-      .join("/");
-    return this.request("POST", `/api/method/${path}`, { data, params });
+    const normalizedMethod = method.replace(/^\/+/, "");
+    if (
+      !/^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/.test(
+        normalizedMethod
+      )
+    )
+      throw new TypeError(`Invalid Frappe method name: ${method}`);
+    return this.request("POST", `/api/method/${normalizedMethod}`, {
+      data,
+      params,
+    });
   }
 
   /**
