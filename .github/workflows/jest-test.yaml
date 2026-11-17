@@ -10,6 +10,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -19,7 +20,37 @@ jobs:
           node-version: ${{ matrix.node-version }}
       - run: npm install
       - run: npm run build:prod
+      - name: Prepare integration test services
+        run: npm run prepare-it-tests
+      - name: Enable ERPNext live integration tests
+        shell: bash
+        run: |
+          base_url=http://localhost:8181
+          for attempt in {1..60}; do
+            if curl --silent --fail "$base_url/api/method/ping" >/dev/null; then
+              break
+            fi
+            sleep 5
+          done
+          curl --fail --silent --show-error --cookie-jar /tmp/erpnext.cookies \
+            --data-urlencode 'usr=Administrator' \
+            --data-urlencode 'pwd=admin123' \
+            "$base_url/api/method/login" >/dev/null
+          credentials=$(curl --fail --silent --show-error --cookie /tmp/erpnext.cookies \
+            --request POST \
+            "$base_url/api/method/frappe.core.doctype.user.user.generate_keys?user=Administrator" \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin)["message"]; print(d["api_key"] + ":" + d["api_secret"])')
+          echo "ERPNEXT_URL=$base_url" >> "$GITHUB_ENV"
+          echo "ERPNEXT_TOKEN=$credentials" >> "$GITHUB_ENV"
+          echo 'DECAF_ERPNEXT_IT=1' >> "$GITHUB_ENV"
       - run: npm run test:all
+      - name: Stop integration test services
+        if: always()
+        run: |
+          npm run teardown-it-tests:erpnext || true
+          docker compose -f docker/dragonfly-compose.yml down -v --remove-orphans || true
+          docker compose -f docker/postgres-compose.yml down -v --remove-orphans || true
+          docker compose -f docker/mailpit-compose.yml down -v --remove-orphans || true
       - name: Tests ✅
         if: ${{ success() }}
         run: |

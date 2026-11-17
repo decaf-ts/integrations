@@ -313,6 +313,17 @@
       },
       "default": "./lib/esm/sftp/ssh2/index.js"
     },
+    "./erpnext": {
+      "import": {
+        "types": "./lib/types/erpnext/index.d.mts",
+        "default": "./lib/esm/erpnext/index.js"
+      },
+      "require": {
+        "types": "./lib/types/erpnext/index.d.cts",
+        "default": "./lib/cjs/erpnext/index.cjs"
+      },
+      "default": "./lib/esm/erpnext/index.js"
+    },
     "./redis": {
       "import": {
         "types": "./lib/types/redis/index.d.mts",
@@ -649,7 +660,9 @@
     "repo:setup": "codex exec \"$(cat ./.codex/prompts/repo-setup.md)\nbase_path is ./\"",
     "repo:doc": "codex exec \"$(cat ./.codex/prompts/doc.md) $(cat ./.codex/prompts/bulk-docs.md)\nbase_path is ./\"",
     "repo:tests": "codex exec \"$(cat ./.codex/prompts/bulk-tests.md)\nbase_path is ./ and coverage is 95%\" -s workspace-write",
-    "prepare-it-tests": "npx playwright install chromium && docker compose -f docker/dragonfly-compose.yml up -d --wait && docker compose -f docker/postgres-compose.yml up -d --wait && docker compose -f docker/mailpit-compose.yml up -d --wait",
+    "prepare-it-tests": "npx playwright install chromium && docker compose -f docker/dragonfly-compose.yml up -d --wait && docker compose -f docker/postgres-compose.yml up -d --wait && docker compose -f docker/mailpit-compose.yml up -d --wait && npm run prepare-it-tests:erpnext",
+    "prepare-it-tests:erpnext": "docker compose -p decaf-erpnext-integration -f docker/erpnext-compose.yml up -d --wait",
+    "teardown-it-tests:erpnext": "docker compose -p decaf-erpnext-integration -f docker/erpnext-compose.yml down -v --remove-orphans",
     "repo:readme": "codex exec \"$(cat ./.codex/prompts/update-readme.md)\nbase_path is ./\"",
     "repo:pr": "npm run repo:doc && npm run repo:tests && npm run repo:readme",
     "clean": "rimraf ./lib ./workdocs/coverage"
@@ -679,6 +692,7 @@
     "axios": "^1.21.0",
     "cron-parser": "^5.10.4",
     "form-data": "^4.0.6",
+    "frappe-js-sdk": "^1.14.1",
     "imapflow": "^2.11.0",
     "isolated-vm": "^7.0.2",
     "node-fetch": "^3.3.2",
@@ -688,6 +702,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "ssh2": "^1.17.0",
+    "stripe": "^18.0.0",
     "supertest": "^7.3.2",
     "tslib": "^2.9.1",
     "typescript": "^6.0.3",
@@ -712,11 +727,13 @@
     "axios": "^1.7.9",
     "cron-parser": "^5.7.0",
     "form-data": "^4.0.6",
+    "frappe-js-sdk": "^1.14.1",
     "imapflow": "^1.7.1",
     "nodemailer": "^10.1.7",
     "redis": "^6.3.0",
     "reflect-metadata": "^0.2.0",
     "ssh2": "^1.16.0",
+    "stripe": "^18.0.0",
     "@decaf-ts/for-nest": "^0.19.0"
   },
   "peerDependenciesMeta": {
@@ -762,6 +779,9 @@
     "form-data": {
       "optional": true
     },
+    "frappe-js-sdk": {
+      "optional": true
+    },
     "imapflow": {
       "optional": true
     },
@@ -775,6 +795,9 @@
       "optional": true
     },
     "ssh2": {
+      "optional": true
+    },
+    "stripe": {
       "optional": true
     },
     "@nestjs/common": {

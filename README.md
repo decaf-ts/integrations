@@ -11,6 +11,7 @@
 - `@decaf-ts/integrations/namespaces`
 - `@decaf-ts/integrations/feature-flags`
 - `@decaf-ts/integrations/redis`
+- `@decaf-ts/integrations/erpnext`
 - `@decaf-ts/integrations/sftp`
 - `@decaf-ts/integrations/comms` (+ `comms/{email,gmail,slack,teams,telegram}`)
 - `@decaf-ts/integrations/devops` (+ `devops/{github,gitlab}`)
@@ -30,6 +31,7 @@
 - Feature-flag models, readers, services, decorators, and environment helpers, including the engine-capability-derived `EngineCapabilityFeatureFlagService` (see [Feature flags](#feature-flags)).
 - Dynamic object-loading helpers for models, adapters, repositories, services, controllers, environment objects, and Angular components.
 - Redis (and Redis-compatible, e.g. DragonflyDB) persistence adapter: `RedisAdapter`, query statement/paginator, pub/sub event dispatch, and a `RedisContextLock` backing `@transactional()`.
+- ERPNext v15 persistence adapter: `ERPNextAdapter` over the Frappe REST resource API, seed doctype models (e.g. `ERPNextCustomer`), `ERPNextRepository` via `Repository.forModel(...)`, model services, and config-injectable recurring-capable payment providers (Stripe, SIBS+MBWAY, GoCardless, Bizum) — see [ERPNext adapter](#erpnext-adapter).
 - SFTP client helpers for list/download/delete over an SSH connection (used by the `core.devops.ftp` graph node).
 - BI dashboard embed plugins (Kibana + Superset) with a shared DOM-free `DashboardEmbedPlugin` contract. The Kibana plugin is generated source + installer; the Superset plugin is a patch-and-build strategy that modifies Superset's internal embedded frontend and SDK source. Both expose the exact same API and are org-agnostic (no space switching).
 - Namespaced credential management: `Credential` model + `CredentialService` storing secret values encrypted at rest via the model-backed `ModelSecretService`, plus the namespace RLS template/bootstrap (`RlsBootstrapService`, `runAsPrincipal`) — see [Credentials and namespace RLS](#credentials-and-namespace-rls).
@@ -80,6 +82,41 @@ await repo.create(new User({ name: "John" }));
 - `@transactional()` is backed by `RedisContextLock`, which buffers writes on a dedicated connection and commits them atomically with `WATCH`/`MULTI`/`EXEC` optimistic locking.
 - `createdBy`/`updatedBy` stamps require a user identity: pass `user` in the adapter config (or an explicit `UUID` flag), otherwise user identification throws `UnsupportedError`.
 - Observer events are broadcast on the `decaf:redis:events` pub/sub channel so every process sharing the database refreshes its observers.
+
+## ERPNext adapter
+
+The `./erpnext` export adds an ERPNext v15 persistence adapter implementing the decaf persistence contract on top of the Frappe REST resource API. Each model maps to an ERPNext doctype (its `@table` name), and CRUD runs through `ERPNextClient`, which handles token authentication (`apiKey` + `apiSecret`, falling back to a Frappe session login with `username` + `password`) and error normalization. Queries use the Frappe list API wherever a condition can be expressed as a filter, and the core predicate always applies in memory, so complex conditions stay correct; aggregations are evaluated in memory for the same reason. There is no native transaction support — `@transactional()` is backed by `ERPNextContextLock`.
+
+```ts
+import { Repository } from "@decaf-ts/core";
+import { ERPNextAdapter, ERPNextCustomer } from "@decaf-ts/integrations/erpnext";
+
+const adapter = new ERPNextAdapter({
+  baseUrl: "http://localhost:8181",
+  apiKey: process.env.ERPNEXT_API_KEY,
+  apiSecret: process.env.ERPNEXT_API_SECRET,
+});
+await adapter.initialize();
+
+const customers = Repository.forModel(ERPNextCustomer); // ERPNextRepository
+await customers.create(new ERPNextCustomer({ customer_name: "ACME Ltd", customer_type: "Company" }));
+```
+
+The export also ships seed doctype models (`ERPNextCustomer`, `ERPNextSalesInvoice`, `ERPNextPurchaseInvoice`, `ERPNextSubscription`, `ERPNextPayment`, `ERPNextPromotion`, `ERPNextAccounting`, `ERPNextReport`), `ModelService` subclasses for them (`ERPNextSubscriptionService`, `ERPNextInvoicePaymentService`, `ERPNextReportService`, `ERPNextChartOfAccountsService`), and an injectable HTTP transport so the adapter can run against a mock or a custom client.
+
+**Payment providers.** Config-injectable recurring-capable providers for `stripe`, `sibs` (MBWAY included), `gocardless`, and `bizum` back the `Payment Gateway`, `Payment Request`, `Subscription`, and `Subscription Plan` doctypes. Per-provider settings resolve from the `erpnext.payments` Environment slice (`ERPNextPaymentsEnvironment`) under the explicit `ERPNextPaymentConfig`, and `createERPNextPaymentIntegration({ provider, ... })` builds and initializes the provider in one call:
+
+```ts
+import { createERPNextPaymentIntegration } from "@decaf-ts/integrations/erpnext";
+
+const payments = await createERPNextPaymentIntegration({ provider: "stripe", sandbox: true });
+```
+
+Every provider supports recurring plans and subscriptions (`registerRecurringPlan` / `createRecurringSubscription`); the `stripe` provider loads the optional `stripe` package at runtime, so install it or inject an SDK/transport through the config.
+
+### Live test stack
+
+The live integration tests run against a throwaway ERPNext v15 stack: boot it with `npm run prepare-it-tests:erpnext` (compose project `decaf-erpnext-integration`, API on `localhost:8181`), opt in with `DECAF_ERPNEXT_IT=1` plus `ERPNEXT_URL` and `ERPNEXT_TOKEN` (`api_key:api_secret`), and tear it down with `npm run teardown-it-tests:erpnext`. The full runbook — token generation, site-setup notes, and the CI bridge-gateway caveat — is in `workdocs/services/erpnext-live-tests.md`.
 
 ## Feature flags
 
@@ -253,6 +290,8 @@ Optional peers are declared in `peerDependenciesMeta`; each is also a dev depend
 | `@kubernetes/client-node` (`^2.0.2`) | Native Kubernetes Secrets backend (`KubernetesSecretService`). Install: `npm i @kubernetes/client-node`. |
 | `nodemailer` (`>=7.0.0`) | SMTP delivery (`SmtpClient`, `EmailService` SMTP path). Install: `npm i nodemailer`. |
 | `pg` (`>=8.0.0`) | Namespace RLS / credential / model-secret integration tests and applications driving the RLS bootstrap against Postgres. Install: `npm i pg`. |
+| `frappe-js-sdk` (`^1.14.1`) | ERPNext adapter (`ERPNextClient` Frappe REST transport). Install: `npm i frappe-js-sdk`. |
+| `stripe` (`^18.0.0`) | ERPNext Stripe payment provider (`StripePaymentProvider`). Install: `npm i stripe`. |
 
 ## Integration-test infrastructure
 
@@ -261,6 +300,7 @@ Optional peers are declared in `peerDependenciesMeta`; each is also a dev depend
 - `docker/dragonfly-compose.yml` — DragonflyDB (Redis-compatible) on `localhost:6379` (Redis adapter ITs).
 - `docker/postgres-compose.yml` — `postgres:16` on host port `55435`, db `decaf_integration`, user `decaf` (RLS matrix, credential, and model-secret ITs; override the connection string with `DECAF_PG_URL`, default `postgresql://decaf:decaf-integration@localhost:55435/decaf_integration`).
 - `docker/mailpit-compose.yml` — Mailpit SMTP sink on `1025` (HTTP API/UI on `8025`), accepting any AUTH including plaintext so the SMTP credential path is exercisable locally (Email ITs).
+- `docker/erpnext-compose.yml` — ERPNext v15 stack on `localhost:8181` (ERPNext adapter live ITs). Standalone and opt-in: it is not booted by `prepare-it-tests` — see [ERPNext adapter](#erpnext-adapter) and `workdocs/services/erpnext-live-tests.md`.
 
 Kubernetes secret integration tests are opt-in because they need a live cluster. Start minikube, point `KUBECONFIG` at it, and run the suite explicitly:
 
