@@ -150,8 +150,8 @@ export class MemoryBlobStoreService extends BlobStoreService<
     let value: BlobValue = entry.value;
     if (options.range) {
       const start = options.range.start;
-      const end = options.range.end ?? entry.value.length;
-      value = entry.value.subarray(start, end);
+      const end = options.range.end;
+      value = entry.value.subarray(start, end === undefined ? undefined : end + 1);
     }
 
     return {

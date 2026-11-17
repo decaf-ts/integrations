@@ -300,6 +300,7 @@ Optional peers are declared in `peerDependenciesMeta`; each is also a dev depend
 - `docker/dragonfly-compose.yml` — DragonflyDB (Redis-compatible) on `localhost:6379` (Redis adapter ITs).
 - `docker/postgres-compose.yml` — `postgres:16` on host port `55435`, db `decaf_integration`, user `decaf` (RLS matrix, credential, and model-secret ITs; override the connection string with `DECAF_PG_URL`, default `postgresql://decaf:decaf-integration@localhost:55435/decaf_integration`).
 - `docker/mailpit-compose.yml` — Mailpit SMTP sink on `1025` (HTTP API/UI on `8025`), accepting any AUTH including plaintext so the SMTP credential path is exercisable locally (Email ITs).
+- `docker/azure-blob-compose.yml` — Azurite Blob Storage emulator on `localhost:10000` (Azure Blob integration tests).
 - `docker/erpnext-compose.yml` — ERPNext v15 stack on `localhost:8181` (ERPNext adapter live ITs). Standalone and opt-in: it is not booted by `prepare-it-tests` — see [ERPNext adapter](#erpnext-adapter) and `workdocs/services/erpnext-live-tests.md`.
 
 Kubernetes secret integration tests are opt-in because they need a live cluster. Start minikube, point `KUBECONFIG` at it, and run the suite explicitly:

@@ -137,9 +137,7 @@ export class GcsBlobStoreService extends BlobStoreService<
     const objectName = this.physicalKey(key);
 
     if (options.ifNotExists) {
-      if (await this.has(key)) {
-        throw new ConflictError(`Blob already exists: ${key}`);
-      }
+      // generationMatch makes this conditional write atomic on GCS.
     }
 
     const buffer = await collectToBuffer(value);
@@ -157,6 +155,7 @@ export class GcsBlobStoreService extends BlobStoreService<
       await file.save(buffer, {
         contentType: options.contentType,
         metadata,
+        preconditionOpts: options.ifNotExists ? { ifGenerationMatch: 0 } : undefined,
       });
       const [info] = await file.getMetadata();
       const resultMetadata: BlobMetadata = {
@@ -307,7 +306,8 @@ export class GcsBlobStoreService extends BlobStoreService<
       : this.config.prefix?.replace(/^\/+|\/+$/g, "") || undefined;
     try {
       const items: { key: string; metadata?: BlobMetadata }[] = [];
-      const [files] = await this.client.getFiles({
+      const [files, apiResponse] = await this.client.getFiles({
+        autoPaginate: false,
         prefix: prefix || undefined,
         maxResults: options.limit,
         pageToken: options.cursor,
@@ -323,7 +323,7 @@ export class GcsBlobStoreService extends BlobStoreService<
           },
         });
       }
-      return { items };
+      return { items, cursor: (apiResponse as any)?.nextPageToken || undefined };
     } catch (error) {
       throw this.parseError(error as Error);
     }

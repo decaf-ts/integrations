@@ -154,9 +154,7 @@ export class AzureBlobStoreService extends BlobStoreService<
     const blobName = this.physicalKey(key);
 
     if (options.ifNotExists) {
-      if (await this.has(key)) {
-        throw new ConflictError(`Blob already exists: ${key}`);
-      }
+      // Use the service-side condition so simultaneous writers cannot both win.
     }
 
     const buffer = await collectToBuffer(value);
@@ -171,6 +169,7 @@ export class AzureBlobStoreService extends BlobStoreService<
     try {
       const blockBlobClient = this.client.getBlockBlobClient(blobName);
       const response = await blockBlobClient.uploadData(buffer, {
+        conditions: options.ifNotExists ? { ifNoneMatch: "*" } : undefined,
         blobHTTPHeaders: options.contentType
           ? { blobContentType: options.contentType }
           : undefined,
@@ -209,7 +208,10 @@ export class AzureBlobStoreService extends BlobStoreService<
     const blobName = this.physicalKey(key);
     try {
       const blobClient = this.client.getBlobClient(blobName);
-      const downloadResponse = await blobClient.download(
+      const versionedBlobClient = options.versionId
+        ? blobClient.withVersion(options.versionId)
+        : blobClient;
+      const downloadResponse = await versionedBlobClient.download(
         options.range?.start,
         options.range
           ? (options.range.end ?? undefined) !== undefined
@@ -276,7 +278,7 @@ export class AzureBlobStoreService extends BlobStoreService<
     log.verbose(`Deleting blob ${key}`);
     try {
       const blobClient = this.client.getBlobClient(this.physicalKey(key));
-      await blobClient.delete();
+      await blobClient.deleteIfExists();
     } catch (error) {
       throw this.parseError(error as Error);
     }
@@ -290,28 +292,18 @@ export class AzureBlobStoreService extends BlobStoreService<
   ): Promise<BlobPutResult> {
     const { log } = (await this.logCtx(args, "copy", true)).for(this.copy);
     log.verbose(`Copying blob ${fromKey} to ${toKey}`);
-    try {
-      const sourceClient = this.client.getBlobClient(this.physicalKey(fromKey));
-      const targetClient = this.client.getBlobClient(this.physicalKey(toKey));
-      const poller = await targetClient.beginCopyFromURL(sourceClient.url);
-      await poller.pollUntilDone();
-      const props = await targetClient.getProperties();
-      const metadata: BlobMetadata = {
-        contentType: options.contentType ?? props.contentType,
-        contentLength: props.contentLength,
-        etag: props.etag,
-        custom: options.metadata,
-      };
-      return {
-        key: toKey,
-        uri: this.uri(toKey, "azure-blob"),
-        provider: this.provider,
-        sourceId: this.sourceId,
-        metadata,
-      };
-    } catch (error) {
-      throw this.parseError(error as Error);
-    }
+    const source = await this.get(fromKey, {}, ...args);
+    const buffer = await collectToBuffer(source.value);
+    return this.put(
+      toKey,
+      buffer,
+      {
+        ...options,
+        contentType: options.contentType ?? source.metadata.contentType,
+        metadata: options.metadata ?? source.metadata.custom,
+      },
+      ...args
+    );
   }
 
   async list(
@@ -325,11 +317,13 @@ export class AzureBlobStoreService extends BlobStoreService<
       : this.config.prefix?.replace(/^\/+|\/+$/g, "") || undefined;
     try {
       const items: { key: string; metadata?: BlobMetadata }[] = [];
-      const maxPageSize = options.limit ?? undefined;
-      for await (const blob of this.client.listBlobsFlat({
+      const pageSize = options.limit && options.limit > 0 ? options.limit : undefined;
+      const iterator = this.client.listBlobsFlat({
         prefix: prefix || undefined,
         includeMetadata: true,
-      })) {
+      }).byPage({ continuationToken: options.cursor, maxPageSize: pageSize });
+      const page = await iterator.next();
+      for (const blob of page.value?.segment.blobItems ?? []) {
         items.push({
           key: blob.name,
           metadata: {
@@ -339,9 +333,8 @@ export class AzureBlobStoreService extends BlobStoreService<
             custom: blob.metadata as Record<string, string> | undefined,
           },
         });
-        if (maxPageSize && items.length >= maxPageSize) break;
       }
-      return { items };
+      return { items, cursor: page.value?.continuationToken || undefined };
     } catch (error) {
       throw this.parseError(error as Error);
     }
@@ -384,17 +377,31 @@ export class AzureBlobStoreService extends BlobStoreService<
         ).toString();
         url = `${blobClient.url}?${sasToken}`;
       } else {
-        const token = await blobClient.generateSasUrl({
-          permissions: BlobSASPermissions.from({
-            read: operation === "get",
-            create: operation === "put",
-            write: operation === "put",
-          }),
-          expiresOn: new Date(Date.now() + expiresIn * 1000),
-          contentType: options.responseContentType ?? options.contentType,
-          contentDisposition: options.responseContentDisposition,
-        });
-        url = token;
+        const startsOn = new Date(Date.now() - 5 * 60 * 1000);
+        const expiresOn = new Date(Date.now() + expiresIn * 1000);
+        const delegationKey = await this.blobServiceClient.getUserDelegationKey(
+          startsOn,
+          expiresOn
+        );
+        const accountName = this.config.accountName || new URL(this.blobServiceClient.url).hostname.split(".")[0];
+        const sasToken = generateBlobSASQueryParameters(
+          {
+            containerName: this.config.container,
+            blobName,
+            permissions: BlobSASPermissions.from({
+              read: operation === "get",
+              create: operation === "put",
+              write: operation === "put",
+            }),
+            startsOn,
+            expiresOn,
+            contentType: options.responseContentType ?? options.contentType,
+            contentDisposition: options.responseContentDisposition,
+          },
+          delegationKey,
+          accountName
+        ).toString();
+        url = `${blobClient.url}?${sasToken}`;
       }
 
       return {
@@ -440,6 +447,7 @@ export class AzureBlobStoreService extends BlobStoreService<
     }
     if (
       statusCode === 409 ||
+      statusCode === 412 ||
       lower.includes("conflict") ||
       lower.includes("already exists")
     ) {

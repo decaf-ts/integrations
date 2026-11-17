@@ -160,6 +160,12 @@ describe("MemoryBlobStoreService contract", () => {
     ).rejects.toThrow(ValidationError);
   });
 
+  it("uses inclusive byte range ends", async () => {
+    await store.put("range.txt", Buffer.from("0123456789"));
+    const result = await store.get("range.txt", { range: { start: 2, end: 5 } });
+    expect((await drain(result.value)).toString()).toBe("2345");
+  });
+
   it("returns a GET url", async () => {
     const res = await store.url("k");
     expect(res.method).toBe("GET");

@@ -156,6 +156,7 @@ export abstract class S3CompatibleBlobStoreService extends BlobStoreService<
           Body: body,
           ContentType: options.contentType,
           Metadata: options.metadata,
+          IfNoneMatch: options.ifNotExists ? "*" : undefined,
         })
       );
       const metadata: BlobMetadata = {
@@ -424,6 +425,7 @@ export abstract class S3CompatibleBlobStoreService extends BlobStoreService<
     if (
       name === "BucketAlreadyExists" ||
       name === "BucketAlreadyOwnedByYou" ||
+      statusCode === 412 ||
       statusCode === 409 ||
       lower.includes("already exists") ||
       lower.includes("conflict")

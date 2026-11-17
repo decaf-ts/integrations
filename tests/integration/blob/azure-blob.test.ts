@@ -3,6 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { AzureBlobStoreService } from "../../../src/blob/azure/AzureBlobStoreService";
 import { collectToBuffer } from "../../../src/blob/core/BlobValue";
+import { computeSha256 } from "../../../src/blob/core/BlobValue";
 import { DockerComposeService } from "../../../src/docker";
 
 const testDirname = path.dirname(fileURLToPath(import.meta.url));
@@ -99,5 +100,44 @@ describe("Azure Blob Store Integration Tests", () => {
     await expect(
       azureStore.put(key, Buffer.from("second"), { ifNotExists: true })
     ).rejects.toThrow();
+  });
+
+  it("supports ranged reads and checksum validation", async () => {
+    const value = Buffer.from("0123456789");
+    const key = "options/range.txt";
+    await azureStore.put(key, value, { expectedSha256: await computeSha256(value) });
+    const ranged = await azureStore.get(key, { range: { start: 2, end: 5 } });
+    expect((await collectToBuffer(ranged.value)).toString()).toBe("2345");
+    await expect(
+      azureStore.put("options/bad-hash.txt", value, { expectedSha256: "bad" })
+    ).rejects.toThrow();
+  });
+
+  it("preserves custom metadata and content type through copy", async () => {
+    await azureStore.put("copy/meta-source.txt", Buffer.from("meta"), {
+      contentType: "text/plain",
+      metadata: { owner: "decaf" },
+    });
+    await azureStore.copy("copy/meta-source.txt", "copy/meta-target.txt", {
+      contentType: "application/octet-stream",
+      metadata: { owner: "copy" },
+    });
+    const stat = await azureStore.stat("copy/meta-target.txt");
+    expect(stat.contentType).toBe("application/octet-stream");
+    expect(stat.custom).toEqual({ owner: "copy" });
+  });
+
+  it("paginates listing and creates signed URLs", async () => {
+    await azureStore.put("pages/a.txt", Buffer.from("a"));
+    await azureStore.put("pages/b.txt", Buffer.from("b"));
+    const first = await azureStore.list({ prefix: "pages/", limit: 1 });
+    expect(first.items).toHaveLength(1);
+    expect(first.cursor).toBeTruthy();
+    const second = await azureStore.list({ prefix: "pages/", limit: 1, cursor: first.cursor });
+    expect(second.items).toHaveLength(1);
+    expect(second.items[0].key).not.toBe(first.items[0].key);
+    const signed = await azureStore.url("pages/a.txt", { operation: "get" });
+    expect(signed.method).toBe("GET");
+    expect(signed.url).toContain("sig=");
   });
 });
