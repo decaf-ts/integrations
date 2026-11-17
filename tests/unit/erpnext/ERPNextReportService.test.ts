@@ -49,7 +49,7 @@ const transport: ERPNextTransport = async (
   const path = pathOf(request);
   if (
     request.method === "POST" &&
-    path === "/api/method/frappe/desk/query_report/run"
+    path === "/api/method/frappe.desk.query_report.run"
   ) {
     return {
       status: 200,
@@ -122,7 +122,7 @@ describe("ERPNextReportService", () => {
     const post = calls.find(
       (call) =>
         call.method === "POST" &&
-        pathOf(call) === "/api/method/frappe/desk/query_report/run"
+        pathOf(call) === "/api/method/frappe.desk.query_report.run"
     );
     expect(post).toBeTruthy();
     const body = post!.data as Record<string, any>;

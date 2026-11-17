@@ -98,7 +98,7 @@ function route(request: ERPNextHttpRequest): ERPNextHttpResponse {
     };
   }
 
-  if (method === "POST" && path === "/api/method/frappe/client/submit") {
+  if (method === "POST" && path === "/api/method/frappe.client.submit") {
     return { status: 200, data: { message: { name: body.doc?.name } } };
   }
 
@@ -242,7 +242,7 @@ describe("ERPNextSubscriptionService", () => {
     const submit = calls.find(
       (call) =>
         call.method === "POST" &&
-        pathOf(call) === "/api/method/frappe/client/submit"
+        pathOf(call) === "/api/method/frappe.client.submit"
     );
     expect(submit).toBeTruthy();
   });
