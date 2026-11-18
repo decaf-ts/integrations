@@ -1,7 +1,7 @@
 services:
   # fake-gcs-server - Google Cloud Storage emulator (covers the gcs blob provider)
   gcs-blob:
-    image: fsouza/fake-gcs-server:1.49.3
+    image: fsouza/fake-gcs-server:1.56.1
     container_name: gcs-blob-integration
     restart: unless-stopped
     command: -host 0.0.0.0 -port 4443 -scheme http -public-host localhost:4443
